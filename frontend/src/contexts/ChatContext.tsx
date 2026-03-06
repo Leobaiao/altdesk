@@ -17,13 +17,9 @@ type ChatContextType = {
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
 import { api } from "../lib/api";
+import { parseJwt } from "../lib/auth";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
-
-// Helper
-function parseJwt(token: string) {
-    try { return JSON.parse(atob(token.split(".")[1])); } catch (e) { return null; }
-}
 
 export function ChatProvider({ children, token, onLogout }: { children: ReactNode, token: string, onLogout: () => void }) {
     const [socket, setSocket] = useState<Socket | null>(null);
@@ -53,7 +49,9 @@ export function ChatProvider({ children, token, onLogout }: { children: ReactNod
     // 1. Initial Load & Socket Connection
     useEffect(() => {
         if (!tenantId) return;
-        const newSocket = io(import.meta.env.VITE_API_URL || undefined);
+        const newSocket = io(import.meta.env.VITE_API_URL || undefined, {
+            auth: { token }
+        });
         setSocket(newSocket);
 
         refreshConversations();

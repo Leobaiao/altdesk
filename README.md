@@ -1,4 +1,4 @@
-# OmniChat - Docker Deployment Guide
+# AltDesk - Docker Deployment Guide
 
 Este guia explica como subir a plataforma completa usando Docker.
 
@@ -17,7 +17,7 @@ Este guia explica como subir a plataforma completa usando Docker.
 2. **Inicializar o Banco de Dados (Apenas na primeira vez):**
    Como o banco de dados no Docker começa vazio, você precisa rodar o script de criação de tabelas e semente (seed) dentro do container do backend:
    ```bash
-   docker exec -it omnichat_api npm run db:reset
+   docker exec -it altdesk_api npm run db:reset
    ```
 
 3. **Acessar a Plataforma:**

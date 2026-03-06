@@ -3,12 +3,12 @@ import { getPool } from './dist/backend/src/db.js';
 async function main() {
     try {
         const pool = await getPool();
-        const res = await pool.query("SELECT ConversationId, Title FROM omni.Conversation WHERE Title LIKE '%leo%'");
+        const res = await pool.query("SELECT ConversationId, Title FROM altdesk.Conversation WHERE Title LIKE '%leo%'");
         console.log('Conversations matching leo:', res.recordset);
 
         if (res.recordset.length > 0) {
             const ids = res.recordset.map(c => `'${c.ConversationId}'`).join(',');
-            const mapRes = await pool.query(`SELECT * FROM omni.ExternalThreadMap WHERE ConversationId IN (${ids})`);
+            const mapRes = await pool.query(`SELECT * FROM altdesk.ExternalThreadMap WHERE ConversationId IN (${ids})`);
             console.log('ExternalThreadMap for these ids:', mapRes.recordset);
         }
 

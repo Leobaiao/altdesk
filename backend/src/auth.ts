@@ -1,10 +1,14 @@
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import { getPool } from "./db.js";
+import { AuthUser } from "./types/index.js";
 
-export type AuthUser = { userId: string; tenantId: string; role: string; };
-
-const JWT_SECRET = process.env.JWT_SECRET!;
+if (!process.env.JWT_SECRET || process.env.JWT_SECRET === "change-me") {
+  console.error("FATAL: JWT_SECRET is not defined or is set to default 'change-me'.");
+  console.error("Please set a secure JWT_SECRET in your .env file.");
+  process.exit(1);
+}
+const JWT_SECRET = process.env.JWT_SECRET;
 
 export function signToken(u: AuthUser) {
   return jwt.sign(u, JWT_SECRET, { expiresIn: "12h" });
@@ -29,7 +33,7 @@ export async function assertTenantActive(tenantId: string) {
     .input("tenantId", tenantId)
     .query(`
       SELECT TOP 1 AgentsSeatLimit, ExpiresAt
-      FROM omni.Subscription
+      FROM altdesk.Subscription
       WHERE TenantId = @tenantId AND IsActive = 1
       ORDER BY ExpiresAt DESC
     `);
@@ -46,7 +50,7 @@ export async function assertAgentSeatAvailable(tenantId: string) {
   const pool = await getPool();
   const used = await pool.request()
     .input("tenantId", tenantId)
-    .query(`SELECT COUNT(1) AS Cnt FROM omni.Agent WHERE TenantId=@tenantId AND IsActive=1`);
+    .query(`SELECT COUNT(1) AS Cnt FROM altdesk.Agent WHERE TenantId=@tenantId AND IsActive=1`);
   if ((used.recordset[0].Cnt as number) >= agentsSeatLimit) {
     throw new Error("Limite de agentes atingido para o plano.");
   }

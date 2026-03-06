@@ -17,7 +17,7 @@ router.get("/", async (req, res, next) => {
             .input("tenantId", u.tenantId)
             .query(`
                 SELECT RoleId, Name, CanOpen, CanEscalate, CanClose, CanComment, HourlyValue, CreatedAt
-                FROM omni.Role
+                FROM altdesk.Role
                 WHERE TenantId = @tenantId
                 ORDER BY Name ASC
             `);
@@ -50,7 +50,7 @@ router.post("/", validateBody(z.object({
             .input("canComment", body.canComment ? 1 : 0)
             .input("hourlyValue", body.hourlyValue ?? null)
             .query(`
-                INSERT INTO omni.Role (TenantId, Name, CanOpen, CanEscalate, CanClose, CanComment, HourlyValue)
+                INSERT INTO altdesk.Role (TenantId, Name, CanOpen, CanEscalate, CanClose, CanComment, HourlyValue)
                 OUTPUT inserted.RoleId
                 VALUES (@tenantId, @name, @canOpen, @canEscalate, @canClose, @canComment, @hourlyValue)
             `);
@@ -100,7 +100,7 @@ router.put("/:id", validateBody(z.object({
             .input("canComment", body.canComment ? 1 : 0)
             .input("hourlyValue", body.hourlyValue ?? null)
             .query(`
-                UPDATE omni.Role
+                UPDATE altdesk.Role
                 SET Name = @name, CanOpen = @canOpen, CanEscalate = @canEscalate,
                     CanClose = @canClose, CanComment = @canComment, HourlyValue = @hourlyValue
                 WHERE RoleId = @roleId AND TenantId = @tenantId
@@ -135,7 +135,7 @@ router.delete("/:id", async (req, res, next) => {
         const check = await pool.request()
             .input("roleId", req.params.id)
             .input("tenantId", u.tenantId)
-            .query("SELECT COUNT(*) as cnt FROM omni.[User] WHERE RoleId = @roleId AND TenantId = @tenantId");
+            .query("SELECT COUNT(*) as cnt FROM altdesk.[User] WHERE RoleId = @roleId AND TenantId = @tenantId");
 
         if (check.recordset[0].cnt > 0) {
             return res.status(400).json({ error: "Não é possível excluir: há usuários vinculados a esta função." });
@@ -144,7 +144,7 @@ router.delete("/:id", async (req, res, next) => {
         await pool.request()
             .input("roleId", req.params.id)
             .input("tenantId", u.tenantId)
-            .query("DELETE FROM omni.Role WHERE RoleId = @roleId AND TenantId = @tenantId");
+            .query("DELETE FROM altdesk.Role WHERE RoleId = @roleId AND TenantId = @tenantId");
 
         // Audit log
         const reqInfo = extractRequestInfo(req);

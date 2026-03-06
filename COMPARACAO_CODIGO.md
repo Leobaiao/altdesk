@@ -330,22 +330,22 @@ frontend/src/
 
 | Tabela | Mudança |
 |---|---|
-| `omni.Tenant` | +`DefaultProvider` (NVARCHAR(50), default 'GTI') |
-| `omni.Channel` | +`Type` (era referenciado mas não existia na coluna) |
-| `omni.Conversation` | +`QueueId`, +`AssignedUserId` (foreign keys) |
-| `omni.Message` | +`MediaType`, +`MediaUrl`, +`ExternalMessageId`, +`Status` |
+| `altdesk.Tenant` | +`DefaultProvider` (NVARCHAR(50), default 'GTI') |
+| `altdesk.Channel` | +`Type` (era referenciado mas não existia na coluna) |
+| `altdesk.Conversation` | +`QueueId`, +`AssignedUserId` (foreign keys) |
+| `altdesk.Message` | +`MediaType`, +`MediaUrl`, +`ExternalMessageId`, +`Status` |
 
 **Tabelas adicionadas:**
 
 | Tabela | Descrição |
 |---|---|
-| `omni.Queue` | Filas de atendimento |
-| `omni.Contact` | Contatos com telefone, email, tags |
+| `altdesk.Queue` | Filas de atendimento |
+| `altdesk.Contact` | Contatos com telefone, email, tags |
 
 ### 4.2 Automação (`02-canned-and-automation.sql`)
 
 **Modificações:**
-- `omni.CannedResponse`: +`Shortcut`, +`Content` (eram referenciados no seed mas não existiam)
+- `altdesk.CannedResponse`: +`Shortcut`, +`Content` (eram referenciados no seed mas não existiam)
 
 ### 4.3 Seed (`03-seed.sql`)
 

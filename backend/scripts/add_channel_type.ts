@@ -4,20 +4,20 @@ import { sql, getPool } from "../src/db";
 async function main() {
     try {
         const pool = await getPool();
-        console.log("Adding Type column to omni.Channel...");
+        console.log("Adding Type column to altdesk.Channel...");
 
         await pool.request().query(`
       IF NOT EXISTS (
         SELECT * FROM sys.columns 
-        WHERE object_id = OBJECT_ID('omni.Channel') AND name = 'Type'
+        WHERE object_id = OBJECT_ID('altdesk.Channel') AND name = 'Type'
       )
       BEGIN
-        ALTER TABLE omni.Channel ADD Type NVARCHAR(50) NOT NULL DEFAULT 'MESSAGING';
-        PRINT 'Column Type added to omni.Channel';
+        ALTER TABLE altdesk.Channel ADD Type NVARCHAR(50) NOT NULL DEFAULT 'MESSAGING';
+        PRINT 'Column Type added to altdesk.Channel';
       END
       ELSE
       BEGIN
-        PRINT 'Column Type already exists in omni.Channel';
+        PRINT 'Column Type already exists in altdesk.Channel';
       END
     `);
 

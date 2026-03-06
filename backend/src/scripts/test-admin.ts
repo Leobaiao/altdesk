@@ -4,7 +4,7 @@ async function run() {
     const pool = await getPool();
     try {
         const r = await pool.request().query(`
-            SELECT TOP 1 * FROM omni.ChannelConnector
+            SELECT TOP 1 * FROM altdesk.ChannelConnector
         `);
         console.log(r.recordset);
     } catch (e: any) {

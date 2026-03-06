@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from "react";
 import { Plus, Search } from "lucide-react";
 import { useChat } from "../contexts/ChatContext";
-import type { Conversation } from "../../../shared/types";
+import type { Conversation, Tag } from "../../../shared/types";
+import { TagPill } from "./TagPill";
 
 function TabButton({ label, active, onClick }: { label: string, active: boolean, onClick: () => void }) {
     return (
@@ -130,6 +131,11 @@ export function Sidebar({ setView }: { setView: (view: any) => void }) {
                                 </span>
                             </div>
                         </div>
+                        {c.Tags && c.Tags.length > 0 && (
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
+                                {c.Tags.map(t => <TagPill key={t.TagId} tag={t} size="sm" />)}
+                            </div>
+                        )}
                         <div className="meta" style={{ display: "flex", justifyContent: "space-between", color: "#8696a0", fontSize: "0.85rem", marginTop: 4 }}>
                             <span className="preview">{formatPhone(c.ExternalUserId)}</span>
                             <div style={{ display: "flex", alignItems: "center", gap: 5 }}>

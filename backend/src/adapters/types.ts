@@ -1,3 +1,5 @@
+import { Connector } from "../types/index.js";
+
 export type NormalizedInbound = {
   tenantId: string;
   channel: "WHATSAPP" | "WEBCHAT";
@@ -21,11 +23,11 @@ export type StatusUpdate = {
 
 export interface ChannelAdapter {
   provider: NormalizedInbound["provider"];
-  parseInbound(body: any, connector: any): NormalizedInbound | null;
-  parseStatusUpdate?(body: any, connector: any): StatusUpdate | null;
-  sendText(connector: any, toExternalUserId: string, text: string): Promise<void>;
-  sendMenu?(connector: any, toExternalUserId: string, title: string, options: Array<{ id: string; text: string }>): Promise<void>;
-  setWebhook?(connector: any, options: {
+  parseInbound(body: any, connector: Connector): NormalizedInbound | null;
+  parseStatusUpdate?(body: any, connector: Connector): StatusUpdate | null;
+  sendText(connector: Connector, toExternalUserId: string, text: string): Promise<void>;
+  sendMenu?(connector: Connector, toExternalUserId: string, title: string, options: Array<{ id: string; text: string }>): Promise<void>;
+  setWebhook?(connector: Connector, options: {
     url: string;
     enabled?: boolean;
     events?: string[];
@@ -33,6 +35,6 @@ export interface ChannelAdapter {
     addUrlEvents?: boolean;
     addUrlTypesMessages?: boolean;
   }): Promise<void>;
-  getWebhook?(connector: any): Promise<any>;
-  removeWebhook?(connector: any, webhookId: string): Promise<void>;
+  getWebhook?(connector: Connector): Promise<any>;
+  removeWebhook?(connector: Connector, webhookId: string): Promise<void>;
 }

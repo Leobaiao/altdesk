@@ -30,7 +30,7 @@ async function run() {
 
     // Also test raw SQL to see defaults
     const pool = await getPool();
-    const schema = await pool.request().query("sp_help 'omni.Contact'");
+    const schema = await pool.request().query("sp_help 'altdesk.Contact'");
     // console.log(JSON.stringify(schema.recordsets, null, 2)); 
     // too verbose, let's trust the error message from createContact
 

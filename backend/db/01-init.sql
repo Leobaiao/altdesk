@@ -1,111 +1,100 @@
 USE master;
 GO
 
-IF EXISTS(SELECT * FROM sys.databases WHERE name = 'OmniChatDev')
+IF EXISTS(SELECT * FROM sys.databases WHERE name = 'AltDeskDev')
 BEGIN
-    ALTER DATABASE OmniChatDev SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
-    DROP DATABASE OmniChatDev;
+    ALTER DATABASE AltDeskDev SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+    DROP DATABASE AltDeskDev;
 END
 GO
 
-CREATE DATABASE OmniChatDev;
+CREATE DATABASE AltDeskDev;
 GO
 
-USE OmniChatDev;
+USE AltDeskDev;
 GO
 
-IF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = 'omni')
+IF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = 'altdesk')
 BEGIN
-    EXEC('CREATE SCHEMA omni');
+    EXEC('CREATE SCHEMA altdesk');
 END
 GO
 
-CREATE TABLE omni.Tenant (
-    TenantId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    Name NVARCHAR(100) NOT NULL,
-    DefaultProvider NVARCHAR(50) NOT NULL DEFAULT 'GTI',
-    CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME()
-);
-GO
-
-CREATE TABLE omni.Subscription (
-    SubscriptionId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    TenantId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES omni.Tenant(TenantId),
-    IsActive BIT DEFAULT 1,
-    AgentsSeatLimit INT DEFAULT 5,
-    ExpiresAt DATETIME2 NOT NULL,
-    CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME()
-);
-GO
-
-CREATE TABLE omni.Role (
-    RoleId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    TenantId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES omni.Tenant(TenantId),
-    Name NVARCHAR(100) NOT NULL,
-    CanOpen BIT NOT NULL DEFAULT 1,
-    CanEscalate BIT NOT NULL DEFAULT 0,
-    CanClose BIT NOT NULL DEFAULT 0,
-    CanComment BIT NOT NULL DEFAULT 1,
-    HourlyValue DECIMAL(10,2) NULL,
-    CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME(),
-    CONSTRAINT UK_Role_Name UNIQUE (TenantId, Name)
-);
-GO
-
-CREATE TABLE omni.[User] (
-    UserId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    TenantId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES omni.Tenant(TenantId),
-    Email NVARCHAR(255) NOT NULL,
-    PasswordHash VARBINARY(MAX) NOT NULL,
-    Role NVARCHAR(50) NOT NULL DEFAULT 'AGENT', -- ADMIN, AGENT
-    CPF NVARCHAR(14) NULL,
-    RoleId UNIQUEIDENTIFIER NULL FOREIGN KEY REFERENCES omni.Role(RoleId),
-    HasLogAccess BIT NOT NULL DEFAULT 0,
-    IsActive BIT DEFAULT 1,
-    CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME(),
-    CONSTRAINT UK_User_Email UNIQUE (Email)
-);
-GO
-
-CREATE TABLE omni.Agent (
-    AgentId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    TenantId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES omni.Tenant(TenantId),
-    UserId UNIQUEIDENTIFIER NULL FOREIGN KEY REFERENCES omni.[User](UserId),
-    Kind NVARCHAR(50) NOT NULL, -- HUMAN, BOT
-    Name NVARCHAR(100) NOT NULL,
-    IsActive BIT DEFAULT 1,
-    CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME()
-);
-GO
-
-CREATE TABLE omni.Channel (
-    ChannelId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    TenantId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES omni.Tenant(TenantId),
-    Name NVARCHAR(100) NOT NULL,
-    Type NVARCHAR(50) NOT NULL DEFAULT 'MESSAGING', -- MESSAGING, VOICE, ETC
-    IsActive BIT DEFAULT 1,
-    CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME()
-);
-GO
-
-CREATE TABLE omni.ChannelConnector (
-    ConnectorId NVARCHAR(100) PRIMARY KEY, -- ex: "whatsapp-gti-01"
-    ChannelId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES omni.Channel(ChannelId),
-    Provider NVARCHAR(50) NOT NULL, -- GTI, OFFICIAL
-    ConfigJson NVARCHAR(MAX) NULL,
-    WebhookSecret NVARCHAR(100) NULL,
-    IsActive BIT DEFAULT 1,
-    DeletedAt DATETIME2 NULL,
-    CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME()
-);
-GO
-
--- Queue
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Queue' AND schema_id = SCHEMA_ID('omni'))
+-- 1. Tenant
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Tenant' AND schema_id = SCHEMA_ID('altdesk'))
 BEGIN
-    CREATE TABLE omni.Queue (
-        QueueId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-        TenantId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES omni.Tenant(TenantId),
+    CREATE TABLE altdesk.Tenant (
+        TenantId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+        Name NVARCHAR(100) NOT NULL,
+        DefaultProvider NVARCHAR(50) NOT NULL DEFAULT 'GTI',
+        IsActive BIT DEFAULT 1,
+        CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME()
+    );
+END
+GO
+
+-- 2. Subscription
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Subscription' AND schema_id = SCHEMA_ID('altdesk'))
+BEGIN
+    CREATE TABLE altdesk.Subscription (
+        SubscriptionId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+        TenantId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES altdesk.Tenant(TenantId),
+        IsActive BIT DEFAULT 1,
+        AgentsSeatLimit INT DEFAULT 5,
+        ExpiresAt DATETIME2 NOT NULL,
+        CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME()
+    );
+END
+GO
+
+-- 3. Role
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Role' AND schema_id = SCHEMA_ID('altdesk'))
+BEGIN
+    CREATE TABLE altdesk.Role (
+        RoleId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+        TenantId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES altdesk.Tenant(TenantId),
+        Name NVARCHAR(100) NOT NULL,
+        CanOpen BIT NOT NULL DEFAULT 1,
+        CanEscalate BIT NOT NULL DEFAULT 0,
+        CanClose BIT NOT NULL DEFAULT 0,
+        CanComment BIT NOT NULL DEFAULT 1,
+        HourlyValue DECIMAL(10,2) NULL,
+        CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME(),
+        CONSTRAINT UK_Role_Name UNIQUE (TenantId, Name)
+    );
+END
+GO
+
+-- 4. User
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'User' AND schema_id = SCHEMA_ID('altdesk'))
+BEGIN
+    CREATE TABLE altdesk.[User] (
+        UserId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+        TenantId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES altdesk.Tenant(TenantId),
+        Email NVARCHAR(255) NOT NULL,
+        PasswordHash VARBINARY(MAX) NOT NULL,
+        Role NVARCHAR(50) NOT NULL DEFAULT 'AGENT', -- ADMIN, AGENT, SUPERADMIN
+        Name NVARCHAR(100) NULL,
+        CPF NVARCHAR(14) NULL,
+        Avatar NVARCHAR(MAX) NULL,
+        Position NVARCHAR(100) NULL,
+        RoleId UNIQUEIDENTIFIER NULL FOREIGN KEY REFERENCES altdesk.Role(RoleId),
+        HasLogAccess BIT NOT NULL DEFAULT 0,
+        IsActive BIT DEFAULT 1,
+        CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME(),
+        CONSTRAINT UK_User_Email UNIQUE (Email)
+    );
+END
+GO
+
+-- 5. Agent
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Agent' AND schema_id = SCHEMA_ID('altdesk'))
+BEGIN
+    CREATE TABLE altdesk.Agent (
+        AgentId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+        TenantId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES altdesk.Tenant(TenantId),
+        UserId UNIQUEIDENTIFIER NULL FOREIGN KEY REFERENCES altdesk.[User](UserId),
+        Kind NVARCHAR(50) NOT NULL, -- HUMAN, BOT
         Name NVARCHAR(100) NOT NULL,
         IsActive BIT DEFAULT 1,
         CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME()
@@ -113,16 +102,59 @@ BEGIN
 END
 GO
 
--- Conversation
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Conversation' AND schema_id = SCHEMA_ID('omni'))
+-- 6. Channel
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Channel' AND schema_id = SCHEMA_ID('altdesk'))
 BEGIN
-    CREATE TABLE omni.Conversation (
+    CREATE TABLE altdesk.Channel (
+        ChannelId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+        TenantId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES altdesk.Tenant(TenantId),
+        Name NVARCHAR(100) NOT NULL,
+        Type NVARCHAR(50) NOT NULL DEFAULT 'MESSAGING',
+        IsActive BIT DEFAULT 1,
+        CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME()
+    );
+END
+GO
+
+-- 7. ChannelConnector
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'ChannelConnector' AND schema_id = SCHEMA_ID('altdesk'))
+BEGIN
+    CREATE TABLE altdesk.ChannelConnector (
+        ConnectorId NVARCHAR(100) PRIMARY KEY,
+        ChannelId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES altdesk.Channel(ChannelId),
+        Provider NVARCHAR(50) NOT NULL, -- GTI, OFFICIAL
+        ConfigJson NVARCHAR(MAX) NULL,
+        WebhookSecret NVARCHAR(100) NULL,
+        IsActive BIT DEFAULT 1,
+        DeletedAt DATETIME2 NULL,
+        CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME()
+    );
+END
+GO
+
+-- 8. Queue
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Queue' AND schema_id = SCHEMA_ID('altdesk'))
+BEGIN
+    CREATE TABLE altdesk.Queue (
+        QueueId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+        TenantId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES altdesk.Tenant(TenantId),
+        Name NVARCHAR(100) NOT NULL,
+        IsActive BIT DEFAULT 1,
+        CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME()
+    );
+END
+GO
+
+-- 9. Conversation
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Conversation' AND schema_id = SCHEMA_ID('altdesk'))
+BEGIN
+    CREATE TABLE altdesk.Conversation (
         ConversationId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-        TenantId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES omni.Tenant(TenantId),
-        ChannelId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES omni.Channel(ChannelId),
-        QueueId UNIQUEIDENTIFIER NULL FOREIGN KEY REFERENCES omni.Queue(QueueId),
-        AssignedUserId UNIQUEIDENTIFIER NULL FOREIGN KEY REFERENCES omni.[User](UserId),
-        OpenedByUserId UNIQUEIDENTIFIER NULL FOREIGN KEY REFERENCES omni.[User](UserId),
+        TenantId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES altdesk.Tenant(TenantId),
+        ChannelId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES altdesk.Channel(ChannelId),
+        QueueId UNIQUEIDENTIFIER NULL FOREIGN KEY REFERENCES altdesk.Queue(QueueId),
+        AssignedUserId UNIQUEIDENTIFIER NULL FOREIGN KEY REFERENCES altdesk.[User](UserId),
+        OpenedByUserId UNIQUEIDENTIFIER NULL FOREIGN KEY REFERENCES altdesk.[User](UserId),
         OpenedByContactId UNIQUEIDENTIFIER NULL,
         Title NVARCHAR(255) NULL,
         Kind NVARCHAR(50) NOT NULL DEFAULT 'DIRECT', -- DIRECT, GROUP
@@ -135,162 +167,47 @@ BEGIN
 END
 GO
 
-CREATE TABLE omni.ExternalThreadMap (
-    MapId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    TenantId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES omni.Tenant(TenantId),
-    ConnectorId NVARCHAR(100) NOT NULL FOREIGN KEY REFERENCES omni.ChannelConnector(ConnectorId),
-    ExternalChatId NVARCHAR(255) NOT NULL, -- O ID do chat lá fora
-    ExternalUserId NVARCHAR(255) NOT NULL, -- Quem iniciou (se direct, igual ao chatid)
-    ConversationId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES omni.Conversation(ConversationId),
-    CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME(),
-    CONSTRAINT UK_ExternalMap UNIQUE (ConnectorId, ExternalChatId)
-);
-GO
-
-CREATE TABLE omni.Message (
-    MessageId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    TenantId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES omni.Tenant(TenantId),
-    ConversationId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES omni.Conversation(ConversationId),
-    Direction NVARCHAR(10) NOT NULL, -- IN, OUT, INTERNAL
-    SenderExternalId NVARCHAR(255) NULL, -- se IN
-    Body NVARCHAR(MAX) NULL,
-    MediaType NVARCHAR(50) NULL, -- image, audio, video, document
-    MediaUrl NVARCHAR(MAX) NULL,
-    PayloadJson NVARCHAR(MAX) NULL, -- raw payload do provider
-    Status VARCHAR(20) DEFAULT 'SENT', -- SENT, DELIVERED, READ, FAILED
-    CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME()
-);
-GO
-
--- Tenant
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Tenant' AND schema_id = SCHEMA_ID('omni'))
+-- 10. ExternalThreadMap
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'ExternalThreadMap' AND schema_id = SCHEMA_ID('altdesk'))
 BEGIN
-    CREATE TABLE omni.Tenant (
-        TenantId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-        Name NVARCHAR(100) NOT NULL,
-        DefaultProvider NVARCHAR(50) NOT NULL DEFAULT 'GTI',
-        CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME()
-    );
-END
-GO
-
--- Subscription
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Subscription' AND schema_id = SCHEMA_ID('omni'))
-BEGIN
-    CREATE TABLE omni.Subscription (
-        SubscriptionId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-        TenantId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES omni.Tenant(TenantId),
-        IsActive BIT DEFAULT 1,
-        AgentsSeatLimit INT DEFAULT 5,
-        ExpiresAt DATETIME2 NOT NULL,
-        CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME()
-    );
-END
-GO
-
--- User
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'User' AND schema_id = SCHEMA_ID('omni'))
-BEGIN
-    CREATE TABLE omni.[User] (
-        UserId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-        TenantId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES omni.Tenant(TenantId),
-        Email NVARCHAR(255) NOT NULL,
-        PasswordHash VARBINARY(MAX) NOT NULL,
-        Role NVARCHAR(50) NOT NULL DEFAULT 'AGENT', -- ADMIN, AGENT
-        Name NVARCHAR(100) NULL,
-        Avatar NVARCHAR(MAX) NULL,
-        Position NVARCHAR(100) NULL,
-        IsActive BIT DEFAULT 1,
-        CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME(),
-        CONSTRAINT UK_User_Email UNIQUE (Email)
-    );
-END
-GO
-
--- PROVISÓRIO: Agent table (mencionado no código para verificar assentos)
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Agent' AND schema_id = SCHEMA_ID('omni'))
-BEGIN
-    CREATE TABLE omni.Agent (
-        AgentId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-        TenantId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES omni.Tenant(TenantId),
-        UserId UNIQUEIDENTIFIER NULL FOREIGN KEY REFERENCES omni.[User](UserId),
-        Kind NVARCHAR(50) NOT NULL, -- HUMAN, BOT
-        Name NVARCHAR(100) NOT NULL,
-        IsActive BIT DEFAULT 1,
-        CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME()
-    );
-END
-GO
-
--- Channel
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Channel' AND schema_id = SCHEMA_ID('omni'))
-BEGIN
-    CREATE TABLE omni.Channel (
-        ChannelId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-        TenantId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES omni.Tenant(TenantId),
-        Name NVARCHAR(100) NOT NULL,
-        IsActive BIT DEFAULT 1,
-        CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME()
-    );
-END
-GO
-
--- ChannelConnector
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'ChannelConnector' AND schema_id = SCHEMA_ID('omni'))
-BEGIN
-    CREATE TABLE omni.ChannelConnector (
-        ConnectorId NVARCHAR(100) PRIMARY KEY, -- ex: "whatsapp-gti-01"
-        ChannelId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES omni.Channel(ChannelId),
-        Provider NVARCHAR(50) NOT NULL, -- GTI, OFFICIAL
-        ConfigJson NVARCHAR(MAX) NULL,
-        WebhookSecret NVARCHAR(100) NULL,
-        IsActive BIT DEFAULT 1,
-        CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME()
-    );
-END
-GO
-
--- ExternalThreadMap (mapeia chat externo -> conversation interna)
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'ExternalThreadMap' AND schema_id = SCHEMA_ID('omni'))
-BEGIN
-    CREATE TABLE omni.ExternalThreadMap (
+    CREATE TABLE altdesk.ExternalThreadMap (
         MapId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-        TenantId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES omni.Tenant(TenantId),
-        ConnectorId NVARCHAR(100) NOT NULL FOREIGN KEY REFERENCES omni.ChannelConnector(ConnectorId),
-        ExternalChatId NVARCHAR(255) NOT NULL, -- O ID do chat lá fora
-        ExternalUserId NVARCHAR(255) NOT NULL, -- Quem iniciou (se direct, igual ao chatid)
-        ConversationId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES omni.Conversation(ConversationId),
+        TenantId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES altdesk.Tenant(TenantId),
+        ConnectorId NVARCHAR(100) NOT NULL FOREIGN KEY REFERENCES altdesk.ChannelConnector(ConnectorId),
+        ExternalChatId NVARCHAR(255) NOT NULL,
+        ExternalUserId NVARCHAR(255) NOT NULL,
+        ConversationId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES altdesk.Conversation(ConversationId),
         CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME(),
         CONSTRAINT UK_ExternalMap UNIQUE (ConnectorId, ExternalChatId)
     );
 END
 GO
 
--- Message
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Message' AND schema_id = SCHEMA_ID('omni'))
+-- 11. Message
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Message' AND schema_id = SCHEMA_ID('altdesk'))
 BEGIN
-    CREATE TABLE omni.Message (
+    CREATE TABLE altdesk.Message (
         MessageId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-        TenantId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES omni.Tenant(TenantId),
-        ConversationId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES omni.Conversation(ConversationId),
+        TenantId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES altdesk.Tenant(TenantId),
+        ConversationId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES altdesk.Conversation(ConversationId),
         Direction NVARCHAR(10) NOT NULL, -- IN, OUT, INTERNAL
-        SenderExternalId NVARCHAR(255) NULL, -- se IN
+        SenderExternalId NVARCHAR(255) NULL,
         Body NVARCHAR(MAX) NULL,
         MediaType NVARCHAR(50) NULL, -- image, audio, video, document
         MediaUrl NVARCHAR(MAX) NULL,
-        PayloadJson NVARCHAR(MAX) NULL, -- raw payload do provider
+        PayloadJson NVARCHAR(MAX) NULL,
         Status VARCHAR(20) DEFAULT 'SENT', -- SENT, DELIVERED, READ, FAILED
         CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME()
     );
 END
 GO
 
--- CannedResponse
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'CannedResponse' AND schema_id = SCHEMA_ID('omni'))
+-- 12. CannedResponse
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'CannedResponse' AND schema_id = SCHEMA_ID('altdesk'))
 BEGIN
-    CREATE TABLE omni.CannedResponse (
+    CREATE TABLE altdesk.CannedResponse (
         CannedResponseId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-        TenantId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES omni.Tenant(TenantId),
+        TenantId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES altdesk.Tenant(TenantId),
         Shortcut NVARCHAR(50) NOT NULL,
         Content NVARCHAR(MAX) NOT NULL,
         Title NVARCHAR(100) NOT NULL,
@@ -298,59 +215,60 @@ BEGIN
         CONSTRAINT UK_CannedResponse_Shortcut UNIQUE (TenantId, Shortcut)
     );
 END
+GO
 
--- Contact
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Contact' AND schema_id = SCHEMA_ID('omni'))
+-- 13. Contact
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Contact' AND schema_id = SCHEMA_ID('altdesk'))
 BEGIN
-    CREATE TABLE omni.Contact (
+    CREATE TABLE altdesk.Contact (
         ContactId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-        TenantId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES omni.Tenant(TenantId),
+        TenantId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES altdesk.Tenant(TenantId),
         Name NVARCHAR(100) NOT NULL,
         Phone NVARCHAR(50) NOT NULL,
         CPF NVARCHAR(14) NULL,
         Email NVARCHAR(255) NULL,
-        Tags NVARCHAR(MAX) NULL, -- JSON array e.g. ["vip", "lead"]
+        Tags NVARCHAR(MAX) NULL, -- JSON array
         Notes NVARCHAR(MAX) NULL,
         CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME()
     );
 END
 GO
 
--- Template (WhatsApp HSM)
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Template' AND schema_id = SCHEMA_ID('omni'))
+-- 14. Template
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Template' AND schema_id = SCHEMA_ID('altdesk'))
 BEGIN
-    CREATE TABLE omni.Template (
+    CREATE TABLE altdesk.Template (
         TemplateId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-        TenantId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES omni.Tenant(TenantId),
+        TenantId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES altdesk.Tenant(TenantId),
         Name NVARCHAR(100) NOT NULL,
         Content NVARCHAR(MAX) NOT NULL,
-        Variables NVARCHAR(MAX) NULL, -- JSON array e.g. ["name", "orderId"]
+        Variables NVARCHAR(MAX) NULL, -- JSON array
         CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME()
     );
 END
 GO
 
--- ConversationHistory
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'ConversationHistory' AND schema_id = SCHEMA_ID('omni'))
+-- 15. ConversationHistory
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'ConversationHistory' AND schema_id = SCHEMA_ID('altdesk'))
 BEGIN
-    CREATE TABLE omni.ConversationHistory (
+    CREATE TABLE altdesk.ConversationHistory (
         HistoryId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-        TenantId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES omni.Tenant(TenantId),
-        ConversationId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES omni.Conversation(ConversationId),
+        TenantId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES altdesk.Tenant(TenantId),
+        ConversationId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES altdesk.Conversation(ConversationId),
         SequenceNumber INT NOT NULL,
-        Action NVARCHAR(50) NOT NULL, -- OPENED, REPLIED, ESCALATED, CLOSED, COMMENTED, ASSIGNED, STATUS_CHANGED
-        ActorUserId UNIQUEIDENTIFIER NULL FOREIGN KEY REFERENCES omni.[User](UserId),
-        EscalatedToUserId UNIQUEIDENTIFIER NULL FOREIGN KEY REFERENCES omni.[User](UserId),
+        Action NVARCHAR(50) NOT NULL, -- OPENED, REPLIED, etc.
+        ActorUserId UNIQUEIDENTIFIER NULL FOREIGN KEY REFERENCES altdesk.[User](UserId),
+        EscalatedToUserId UNIQUEIDENTIFIER NULL FOREIGN KEY REFERENCES altdesk.[User](UserId),
         MetadataJson NVARCHAR(MAX) NULL,
         CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME()
     );
 END
 GO
 
--- AuditLog
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'AuditLog' AND schema_id = SCHEMA_ID('omni'))
+-- 16. AuditLog
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'AuditLog' AND schema_id = SCHEMA_ID('altdesk'))
 BEGIN
-    CREATE TABLE omni.AuditLog (
+    CREATE TABLE altdesk.AuditLog (
         LogId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
         TenantId UNIQUEIDENTIFIER NULL,
         UserId UNIQUEIDENTIFIER NULL,

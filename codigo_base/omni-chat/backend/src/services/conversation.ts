@@ -14,7 +14,7 @@ export async function resolveConversationForInbound(inb: NormalizedInbound, conn
     .input("externalChatId", inb.externalChatId)
     .query(`
       SELECT ConversationId
-      FROM omni.ExternalThreadMap
+      FROM altdesk.ExternalThreadMap
       WHERE TenantId=@tenantId AND ConnectorId=@connectorId AND ExternalChatId=@externalChatId
     `);
 
@@ -28,10 +28,10 @@ export async function resolveConversationForInbound(inb: NormalizedInbound, conn
     .input("title", title)
     .query(`
       DECLARE @cid UNIQUEIDENTIFIER = NEWID();
-      INSERT INTO omni.Conversation (ConversationId, TenantId, ChannelId, Title, Kind, Status)
+      INSERT INTO altdesk.Conversation (ConversationId, TenantId, ChannelId, Title, Kind, Status)
       VALUES (@cid, @tenantId, @channelId, @title, 'DIRECT', 'OPEN');
 
-      INSERT INTO omni.ExternalThreadMap (TenantId, ConnectorId, ExternalChatId, ExternalUserId, ConversationId)
+      INSERT INTO altdesk.ExternalThreadMap (TenantId, ConnectorId, ExternalChatId, ExternalUserId, ConversationId)
       VALUES (@tenantId, @connectorId, @externalChatId, @externalUserId, @cid);
 
       SELECT @cid AS ConversationId;
@@ -50,10 +50,10 @@ export async function saveInboundMessage(inb: NormalizedInbound, conversationId:
     .input("body", inb.text ?? "[media]")
     .input("payload", JSON.stringify(inb.raw))
     .query(`
-      INSERT INTO omni.Message (TenantId, ConversationId, SenderExternalId, Direction, Body, PayloadJson)
+      INSERT INTO altdesk.Message (TenantId, ConversationId, SenderExternalId, Direction, Body, PayloadJson)
       VALUES (@tenantId, @conversationId, @senderExternalId, @direction, @body, @payload);
 
-      UPDATE omni.Conversation SET LastMessageAt = SYSUTCDATETIME()
+      UPDATE altdesk.Conversation SET LastMessageAt = SYSUTCDATETIME()
       WHERE ConversationId=@conversationId;
     `);
 }
@@ -66,10 +66,10 @@ export async function saveOutboundMessage(tenantId: string, conversationId: stri
     .input("direction", "OUT")
     .input("body", body)
     .query(`
-      INSERT INTO omni.Message (TenantId, ConversationId, Direction, Body)
+      INSERT INTO altdesk.Message (TenantId, ConversationId, Direction, Body)
       VALUES (@tenantId, @conversationId, @direction, @body);
 
-      UPDATE omni.Conversation SET LastMessageAt = SYSUTCDATETIME()
+      UPDATE altdesk.Conversation SET LastMessageAt = SYSUTCDATETIME()
       WHERE ConversationId=@conversationId;
     `);
 }

@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, Response, NextFunction } from "express";
 import { z } from "zod";
 import { getPool } from "../db.js";
 import { authMw } from "../mw.js";
@@ -15,7 +15,7 @@ const ProfileSchema = z.object({
 });
 
 // GET /api/profile
-router.get("/", authMw, async (req, res, next) => {
+router.get("/", authMw, async (req: any, res: Response, next: NextFunction) => {
     try {
         const user = (req as any).user;
         const pool = await getPool();
@@ -24,8 +24,8 @@ router.get("/", authMw, async (req, res, next) => {
             .query(`
                 SELECT u.Email, u.DisplayName AS Name, u.Avatar, u.Position, u.Role, u.HasLogAccess, u.CPF,
                        r.Name AS RoleName, r.CanOpen, r.CanEscalate, r.CanClose, r.CanComment, r.HourlyValue
-                FROM omni.[User] u
-                LEFT JOIN omni.Role r ON r.RoleId = u.RoleId
+                FROM altdesk.[User] u
+                LEFT JOIN altdesk.Role r ON r.RoleId = u.RoleId
                 WHERE u.UserId = @userId
             `);
 
@@ -37,7 +37,7 @@ router.get("/", authMw, async (req, res, next) => {
 });
 
 // PUT /api/profile
-router.put("/", authMw, validateBody(ProfileSchema), async (req, res, next) => {
+router.put("/", authMw, validateBody(ProfileSchema), async (req: any, res: Response, next: NextFunction) => {
     try {
         const user = (req as any).user;
         const body = req.body as z.infer<typeof ProfileSchema>;
@@ -69,7 +69,7 @@ router.put("/", authMw, validateBody(ProfileSchema), async (req, res, next) => {
 
         if (updates.length > 0) {
             await request.query(`
-        UPDATE omni.[User]
+        UPDATE altdesk.[User]
         SET ${updates.join(", ")}
         WHERE UserId = @userId
       `);

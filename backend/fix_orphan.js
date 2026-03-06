@@ -5,7 +5,7 @@ async function main() {
         const pool = await getPool();
 
         // 1. Find the orphaned conversation
-        const convRes = await pool.query("SELECT TOP 1 ConversationId, TenantId FROM omni.Conversation WHERE Title LIKE '%leo%'");
+        const convRes = await pool.query("SELECT TOP 1 ConversationId, TenantId FROM altdesk.Conversation WHERE Title LIKE '%leo%'");
         if (convRes.recordset.length === 0) {
             console.error('Conversation not found');
             process.exit(1);
@@ -14,7 +14,7 @@ async function main() {
         const { ConversationId, TenantId } = convRes.recordset[0];
 
         // Find the active connector
-        const connRes = await pool.query("SELECT TOP 1 ConnectorId FROM omni.ChannelConnector WHERE Provider = 'GTI' AND IsActive = 1");
+        const connRes = await pool.query("SELECT TOP 1 ConnectorId FROM altdesk.ChannelConnector WHERE Provider = 'GTI' AND IsActive = 1");
         if (connRes.recordset.length === 0) {
             console.error('Active GTI connector not found');
             process.exit(1);
@@ -32,7 +32,7 @@ async function main() {
             .input("externalUserId", externalId)
             .input("conversationId", ConversationId)
             .query(`
-                MERGE omni.ExternalThreadMap AS target
+                MERGE altdesk.ExternalThreadMap AS target
                 USING (SELECT @conversationId AS ConversationId) AS source
                 ON (target.ConversationId = source.ConversationId)
                 WHEN MATCHED THEN

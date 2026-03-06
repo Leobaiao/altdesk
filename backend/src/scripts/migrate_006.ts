@@ -4,9 +4,9 @@ async function run() {
     const pool = await getPool();
     try {
         await pool.query(`
-      IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('omni.Tenant') AND name = 'DefaultProvider')
+      IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('altdesk.Tenant') AND name = 'DefaultProvider')
       BEGIN
-        ALTER TABLE omni.Tenant ADD DefaultProvider NVARCHAR(50) DEFAULT 'GTI';
+        ALTER TABLE altdesk.Tenant ADD DefaultProvider NVARCHAR(50) DEFAULT 'GTI';
       END
     `);
         console.log("Migration 006 done");

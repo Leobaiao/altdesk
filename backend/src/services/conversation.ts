@@ -16,7 +16,7 @@ export async function resolveConversationForInbound(inb: NormalizedInbound, conn
     .input("externalChatId", inb.externalChatId)
     .query(`
       SELECT ConversationId
-      FROM omni.ExternalThreadMap
+      FROM altdesk.ExternalThreadMap
       WHERE TenantId=@tenantId AND ConnectorId=@connectorId AND ExternalChatId=@externalChatId
     `);
 
@@ -27,7 +27,7 @@ export async function resolveConversationForInbound(inb: NormalizedInbound, conn
       await pool.request()
         .input("cid", cid)
         .input("title", inb.senderName)
-        .query("UPDATE omni.Conversation SET Title = @title WHERE ConversationId = @cid AND Title LIKE 'WhatsApp%'");
+        .query("UPDATE altdesk.Conversation SET Title = @title WHERE ConversationId = @cid AND Title LIKE 'WhatsApp%'");
     }
     return cid as string;
   }
@@ -38,7 +38,7 @@ export async function resolveConversationForInbound(inb: NormalizedInbound, conn
     .input("externalUserId", inb.externalUserId)
     .query(`
       SELECT TOP 1 ConversationId
-      FROM omni.ExternalThreadMap
+      FROM altdesk.ExternalThreadMap
       WHERE TenantId=@tenantId AND ExternalUserId=@externalUserId
     `);
 
@@ -51,7 +51,7 @@ export async function resolveConversationForInbound(inb: NormalizedInbound, conn
       .input("connectorId", connectorId)
       .input("externalChatId", inb.externalChatId)
       .query(`
-        UPDATE omni.ExternalThreadMap
+        UPDATE altdesk.ExternalThreadMap
         SET ConnectorId = @connectorId, ExternalChatId = @externalChatId
         WHERE TenantId = @tenantId AND ExternalUserId = @externalUserId
       `);
@@ -69,10 +69,10 @@ export async function resolveConversationForInbound(inb: NormalizedInbound, conn
     .input("externalUserId", inb.externalUserId)
     .query(`
       DECLARE @cid UNIQUEIDENTIFIER = NEWID();
-      INSERT INTO omni.Conversation (ConversationId, TenantId, ChannelId, Title, Kind, Status)
+      INSERT INTO altdesk.Conversation (ConversationId, TenantId, ChannelId, Title, Kind, Status)
       VALUES (@cid, @tenantId, @channelId, @title, 'DIRECT', 'OPEN');
 
-      INSERT INTO omni.ExternalThreadMap (TenantId, ConnectorId, ExternalChatId, ExternalUserId, ConversationId)
+      INSERT INTO altdesk.ExternalThreadMap (TenantId, ConnectorId, ExternalChatId, ExternalUserId, ConversationId)
       VALUES (@tenantId, @connectorId, @externalChatId, @externalUserId, @cid);
 
       SELECT @cid AS ConversationId;
@@ -104,10 +104,13 @@ export async function saveInboundMessage(inb: NormalizedInbound, conversationId:
     .input("externalMessageId", inb.externalMessageId ?? null)
     .input("payload", JSON.stringify(inb.raw))
     .query(`
-      INSERT INTO omni.Message (TenantId, ConversationId, SenderExternalId, Direction, Body, MediaType, MediaUrl, ExternalMessageId, PayloadJson)
+      INSERT INTO altdesk.Message (TenantId, ConversationId, SenderExternalId, Direction, Body, MediaType, MediaUrl, ExternalMessageId, PayloadJson)
       VALUES (@tenantId, @conversationId, @senderExternalId, @direction, @body, @mediaType, @mediaUrl, @externalMessageId, @payload);
 
-      UPDATE omni.Conversation SET LastMessageAt = SYSUTCDATETIME()
+      UPDATE altdesk.Conversation 
+      SET LastMessageAt = SYSUTCDATETIME(),
+          SlaDeadline = ISNULL(SlaDeadline, DATEADD(hour, 4, SYSUTCDATETIME())),
+          SlaStatus = CASE WHEN SlaStatus IS NULL OR SlaStatus = 'MET' THEN 'PENDING' ELSE SlaStatus END
       WHERE ConversationId=@conversationId;
     `);
 
@@ -131,7 +134,7 @@ export async function updateMessageStatus(tenantId: string, externalMessageId: s
     .input("externalMsgId", externalMessageId)
     .input("status", status)
     .query(`
-      UPDATE omni.Message 
+      UPDATE altdesk.Message 
       SET Status = @status 
       WHERE TenantId = @tenantId AND ExternalMessageId = @externalMsgId
         AND (
@@ -139,7 +142,7 @@ export async function updateMessageStatus(tenantId: string, externalMessageId: s
           OR (@status = 'READ' AND Status IN ('SENT', 'DELIVERED'))
         );
 
-      SELECT TOP 1 ConversationId FROM omni.Message 
+      SELECT TOP 1 ConversationId FROM altdesk.Message 
       WHERE TenantId = @tenantId AND ExternalMessageId = @externalMsgId;
     `);
 
@@ -154,10 +157,17 @@ export async function saveOutboundMessage(tenantId: string, conversationId: stri
     .input("direction", "OUT")
     .input("body", body)
     .query(`
-      INSERT INTO omni.Message (TenantId, ConversationId, Direction, Body)
+      INSERT INTO altdesk.Message (TenantId, ConversationId, Direction, Body)
       VALUES (@tenantId, @conversationId, @direction, @body);
 
-      UPDATE omni.Conversation SET LastMessageAt = SYSUTCDATETIME()
+      UPDATE altdesk.Conversation 
+      SET LastMessageAt = SYSUTCDATETIME(),
+          FirstResponseAt = ISNULL(FirstResponseAt, SYSUTCDATETIME()),
+          SlaStatus = CASE 
+            WHEN SlaStatus = 'PENDING' AND SYSUTCDATETIME() <= SlaDeadline THEN 'MET'
+            WHEN SlaStatus = 'PENDING' AND SYSUTCDATETIME() > SlaDeadline THEN 'VIOLATED'
+            ELSE SlaStatus 
+          END
       WHERE ConversationId=@conversationId;
     `);
 
@@ -188,7 +198,7 @@ export async function findOrCreateConversation(tenantId: string, phone: string, 
     .input("externalUserId", externalUserId)
     .query(`
       SELECT TOP 1 ConversationId
-      FROM omni.ExternalThreadMap
+      FROM altdesk.ExternalThreadMap
       WHERE TenantId=@tenantId AND ExternalUserId=@externalUserId
     `);
 
@@ -202,7 +212,7 @@ export async function findOrCreateConversation(tenantId: string, phone: string, 
         .input("userId", assignedUserId)
         .input("tenantId", tenantId)
         .query(`
-          UPDATE omni.Conversation 
+          UPDATE altdesk.Conversation 
           SET AssignedUserId = @userId 
           WHERE ConversationId = @cid AND TenantId = @tenantId AND AssignedUserId IS NULL
         `);
@@ -214,7 +224,7 @@ export async function findOrCreateConversation(tenantId: string, phone: string, 
   // 2. Se não achou, precisamos de um conector para criar o vínculo
   const tenant = await pool.request()
     .input("tenantId", tenantId)
-    .query("SELECT DefaultProvider FROM omni.Tenant WHERE TenantId=@tenantId");
+    .query("SELECT DefaultProvider FROM altdesk.Tenant WHERE TenantId=@tenantId");
   const defaultProvider = (tenant.recordset[0]?.DefaultProvider || 'GTI').toUpperCase();
 
   const conn = await pool.request()
@@ -222,8 +232,8 @@ export async function findOrCreateConversation(tenantId: string, phone: string, 
     .input("provider", defaultProvider)
     .query(`
       SELECT TOP 1 cc.ConnectorId, ch.ChannelId
-      FROM omni.ChannelConnector cc
-      JOIN omni.Channel ch ON ch.ChannelId = cc.ChannelId
+      FROM altdesk.ChannelConnector cc
+      JOIN altdesk.Channel ch ON ch.ChannelId = cc.ChannelId
       WHERE ch.TenantId = @tenantId AND cc.IsActive = 1
       ORDER BY CASE WHEN cc.Provider = @provider THEN 0 ELSE 1 END, cc.ConnectorId
     `);
@@ -246,10 +256,10 @@ export async function findOrCreateConversation(tenantId: string, phone: string, 
     .input("userId", assignedUserId || null)
     .query(`
       DECLARE @cid UNIQUEIDENTIFIER = NEWID();
-      INSERT INTO omni.Conversation (ConversationId, TenantId, ChannelId, Title, Kind, Status, AssignedUserId)
+      INSERT INTO altdesk.Conversation (ConversationId, TenantId, ChannelId, Title, Kind, Status, AssignedUserId)
       VALUES (@cid, @tenantId, @channelId, @title, 'DIRECT', 'OPEN', @userId);
 
-      INSERT INTO omni.ExternalThreadMap (TenantId, ConnectorId, ExternalChatId, ExternalUserId, ConversationId)
+      INSERT INTO altdesk.ExternalThreadMap (TenantId, ConnectorId, ExternalChatId, ExternalUserId, ConversationId)
       VALUES (@tenantId, @connectorId, @externalUserId, @externalUserId, @cid);
 
       SELECT @cid AS ConversationId;
@@ -268,9 +278,9 @@ export async function deleteConversation(tenantId: string, conversationId: strin
       .input("tenantId", tenantId)
       .input("conversationId", conversationId)
       .query(`
-        DELETE FROM omni.Message WHERE ConversationId = @conversationId AND TenantId = @tenantId;
-        DELETE FROM omni.ExternalThreadMap WHERE ConversationId = @conversationId AND TenantId = @tenantId;
-        DELETE FROM omni.Conversation WHERE ConversationId = @conversationId AND TenantId = @tenantId;
+        DELETE FROM altdesk.Message WHERE ConversationId = @conversationId AND TenantId = @tenantId;
+        DELETE FROM altdesk.ExternalThreadMap WHERE ConversationId = @conversationId AND TenantId = @tenantId;
+        DELETE FROM altdesk.Conversation WHERE ConversationId = @conversationId AND TenantId = @tenantId;
       `);
     await transaction.commit();
   } catch (err) {

@@ -1,6 +1,6 @@
 # Brief de implementação (Fase 1)
 ## Objetivo
-OmniChat: central de atendimento estilo WhatsApp (layout de grupos), com tickets/escalonamento e automações de respostas prontas.
+AltDesk: central de atendimento estilo WhatsApp (layout de grupos), com tickets/escalonamento e automações de respostas prontas.
 Canal cliente: **WhatsApp (GTI não-oficial)** + **Webchat**. Android via **PWA instalável** (fase 1.5).
 
 ## Escopo Fase 1 (MVP)

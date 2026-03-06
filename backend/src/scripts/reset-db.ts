@@ -47,7 +47,7 @@ async function runScript(pool: ConnectionPool, filePath: string, replacements: R
 }
 
 async function main() {
-  const targetDb = process.env.DB_NAME || "OmniChatDev";
+  const targetDb = process.env.DB_NAME || "AltDeskDev";
   console.log(`Connecting to SQL Server to reset database: ${targetDb}...`);
   const pool = await connect(config);
 

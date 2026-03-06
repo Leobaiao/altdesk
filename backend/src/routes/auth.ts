@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getPool } from "../db.js";
 import { signToken, verifyPassword, assertTenantActive } from "../auth.js";
 import { validateBody } from "../middleware/validateMw.js";
+import { authLimiter } from "../middleware/rateLimiter.js";
 
 const router = Router();
 
@@ -14,7 +15,7 @@ const LoginSchema = z.object({
 });
 
 // POST /api/auth/login
-router.post("/login", validateBody(LoginSchema), async (req, res, next) => {
+router.post("/login", authLimiter, validateBody(LoginSchema), async (req, res, next) => {
     try {
         const body = req.body as z.infer<typeof LoginSchema>;
         const pool = await getPool();
@@ -26,7 +27,7 @@ router.post("/login", validateBody(LoginSchema), async (req, res, next) => {
                 .input("email", body.email)
                 .query(`
           SELECT TOP 1 UserId, TenantId, Role, PasswordHash, IsActive
-          FROM omni.[User]
+          FROM altdesk.[User]
           WHERE TenantId=@tenantId AND Email=@email
         `);
         } else {
@@ -34,7 +35,7 @@ router.post("/login", validateBody(LoginSchema), async (req, res, next) => {
                 .input("email", body.email)
                 .query(`
           SELECT TOP 1 UserId, TenantId, Role, PasswordHash, IsActive
-          FROM omni.[User]
+          FROM altdesk.[User]
           WHERE Email=@email
         `);
         }

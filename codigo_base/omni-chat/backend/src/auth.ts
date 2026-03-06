@@ -29,7 +29,7 @@ export async function assertTenantActive(tenantId: string) {
     .input("tenantId", tenantId)
     .query(`
       SELECT TOP 1 AgentsSeatLimit, ExpiresAt
-      FROM omni.Subscription
+      FROM altdesk.Subscription
       WHERE TenantId = @tenantId AND IsActive = 1
       ORDER BY ExpiresAt DESC
     `);
@@ -46,7 +46,7 @@ export async function assertAgentSeatAvailable(tenantId: string) {
   const pool = await getPool();
   const used = await pool.request()
     .input("tenantId", tenantId)
-    .query(`SELECT COUNT(1) AS Cnt FROM omni.Agent WHERE TenantId=@tenantId AND IsActive=1`);
+    .query(`SELECT COUNT(1) AS Cnt FROM altdesk.Agent WHERE TenantId=@tenantId AND IsActive=1`);
   if ((used.recordset[0].Cnt as number) >= agentsSeatLimit) {
     throw new Error("Limite de agentes atingido para o plano.");
   }

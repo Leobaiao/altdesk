@@ -17,7 +17,7 @@ async function run() {
     try {
         console.log("Connecting...");
         await sql.connect(config);
-        const res = await sql.query("SELECT ConnectorId FROM omni.ChannelConnector WHERE Provider='WEBCHAT'");
+        const res = await sql.query("SELECT ConnectorId FROM altdesk.ChannelConnector WHERE Provider='WEBCHAT'");
         console.log("CONNECTOR_ID:", res.recordset[0]?.ConnectorId);
     } catch (e) {
         console.error("Error:", e);

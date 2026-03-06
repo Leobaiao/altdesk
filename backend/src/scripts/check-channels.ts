@@ -7,10 +7,10 @@ async function run() {
     console.log("=== Checking Channels & Connectors ===");
     const pool = await getPool();
 
-    const channels = await pool.query("SELECT * FROM omni.Channel");
+    const channels = await pool.query("SELECT * FROM altdesk.Channel");
     console.log("Channels:", channels.recordset);
 
-    const connectors = await pool.query("SELECT * FROM omni.ChannelConnector");
+    const connectors = await pool.query("SELECT * FROM altdesk.ChannelConnector");
     console.log("Connectors:", connectors.recordset);
 
     process.exit(0);

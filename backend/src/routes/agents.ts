@@ -27,7 +27,7 @@ router.post("/", validateBody(z.object({
             .input("name", body.name)
             .input("userId", body.userId ?? null)
             .query(`
-        INSERT INTO omni.Agent (TenantId, Kind, Name, UserId)
+        INSERT INTO altdesk.Agent (TenantId, Kind, Name, UserId)
         OUTPUT inserted.AgentId
         VALUES (@tenantId, @kind, @name, @userId)
       `);

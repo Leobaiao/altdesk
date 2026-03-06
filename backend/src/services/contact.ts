@@ -14,7 +14,7 @@ export type Contact = {
 export async function listContacts(tenantId: string, search?: string): Promise<Contact[]> {
     const pool = await getPool();
     let query = `
-    SELECT * FROM omni.Contact
+    SELECT * FROM altdesk.Contact
     WHERE TenantId = @tenantId
   `;
 
@@ -45,7 +45,7 @@ export async function createContact(tenantId: string, data: { name: string, phon
         .input("tags", data.tags ? JSON.stringify(data.tags) : null)
         .input("notes", data.notes ?? null)
         .query(`
-      INSERT INTO omni.Contact (TenantId, Name, Phone, Email, Tags, Notes)
+      INSERT INTO altdesk.Contact (TenantId, Name, Phone, Email, Tags, Notes)
       VALUES (@tenantId, @name, @phone, @email, @tags, @notes)
     `);
 }
@@ -70,7 +70,7 @@ export async function updateContact(tenantId: string, contactId: string, data: {
     if (sets.length === 0) return;
 
     await request.query(`
-    UPDATE omni.Contact
+    UPDATE altdesk.Contact
     SET ${sets.join(", ")}
     WHERE TenantId = @tenantId AND ContactId = @contactId
   `);
@@ -81,7 +81,7 @@ export async function deleteContact(tenantId: string, contactId: string) {
     await pool.request()
         .input("tenantId", tenantId)
         .input("contactId", contactId)
-        .query(`DELETE FROM omni.Contact WHERE TenantId = @tenantId AND ContactId = @contactId`);
+        .query(`DELETE FROM altdesk.Contact WHERE TenantId = @tenantId AND ContactId = @contactId`);
 }
 
 export async function getContactByPhone(tenantId: string, phone: string): Promise<Contact | null> {
@@ -89,7 +89,7 @@ export async function getContactByPhone(tenantId: string, phone: string): Promis
     const result = await pool.request()
         .input("tenantId", tenantId)
         .input("phone", phone)
-        .query(`SELECT TOP 1 * FROM omni.Contact WHERE TenantId = @tenantId AND Phone = @phone`);
+        .query(`SELECT TOP 1 * FROM altdesk.Contact WHERE TenantId = @tenantId AND Phone = @phone`);
 
     if (result.recordset.length === 0) return null;
     const row = result.recordset[0];

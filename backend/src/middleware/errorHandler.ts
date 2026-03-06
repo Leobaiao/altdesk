@@ -23,5 +23,8 @@ export function errorHandler(err: any, req: Request, res: Response, next: NextFu
     console.error(`[ERROR] ${req.method} ${req.originalUrl}:`, err);
 
     // Return standard 500 error
-    return res.status(500).json({ error: err.message || "Internal Server Error" });
+    const isDev = process.env.NODE_ENV === "development";
+    return res.status(500).json({
+        error: isDev ? (err.message || "Internal Server Error") : "Internal Server Error"
+    });
 }

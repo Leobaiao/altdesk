@@ -1,16 +1,46 @@
+import crypto from "crypto";
 import { getPool } from "./db.js";
 
 // Helper: load connector + channel + tenant
 export async function loadConnector(connectorId: string) {
-    const pool = await getPool();
-    const r = await pool.request()
-        .input("connectorId", connectorId)
-        .query(`
+  const pool = await getPool();
+  const r = await pool.request()
+    .input("connectorId", connectorId)
+    .query(`
       SELECT cc.ConnectorId, cc.Provider, cc.ConfigJson, cc.WebhookSecret, ch.ChannelId, ch.TenantId
-      FROM omni.ChannelConnector cc
-      JOIN omni.Channel ch ON ch.ChannelId = cc.ChannelId
+      FROM altdesk.ChannelConnector cc
+      JOIN altdesk.Channel ch ON ch.ChannelId = cc.ChannelId
       WHERE cc.ConnectorId = @connectorId AND cc.IsActive=1 AND ch.IsActive=1
     `);
-    if (r.recordset.length === 0) throw new Error("Connector not found/active");
-    return r.recordset[0];
+  if (r.recordset.length === 0) throw new Error("Connector not found/active");
+  return r.recordset[0];
+}
+
+/**
+ * Verify HMAC signature of incoming webhooks
+ */
+export function verifyWebhookSignature(rawBody: Buffer, secret: string, signature: string, provider: string): boolean {
+  if (!signature || !secret) return false;
+
+  let expectedSignature = "";
+  const prov = provider.toLowerCase();
+
+  if (prov === "gti") {
+    // GTI uses standard HMAC-SHA256 of bodies
+    expectedSignature = crypto.createHmac("sha256", secret).update(rawBody).digest("hex");
+  } else if (prov === "official" || prov === "whatsapp") {
+    // WhatsApp Cloud API uses sha256=HEX
+    const cleanSignature = signature.replace("sha256=", "");
+    expectedSignature = crypto.createHmac("sha256", secret).update(rawBody).digest("hex");
+    return crypto.timingSafeEqual(Buffer.from(cleanSignature, "hex"), Buffer.from(expectedSignature, "hex"));
+  } else {
+    // Generic
+    expectedSignature = crypto.createHmac("sha256", secret).update(rawBody).digest("hex");
+  }
+
+  try {
+    return crypto.timingSafeEqual(Buffer.from(signature, "hex"), Buffer.from(expectedSignature, "hex"));
+  } catch (e) {
+    return false;
+  }
 }

@@ -11,7 +11,7 @@ async function run() {
     const pool = await getPool();
 
     // 1. Ensure Connector Exists
-    const anyConn = await pool.request().query(`SELECT TOP 1 ConnectorId, ChannelId FROM omni.ChannelConnector`);
+    const anyConn = await pool.request().query(`SELECT TOP 1 ConnectorId, ChannelId FROM altdesk.ChannelConnector`);
     if (anyConn.recordset.length === 0) throw new Error("No connectors found in DB");
 
     const { ConnectorId, ChannelId } = anyConn.recordset[0];
@@ -34,14 +34,14 @@ async function run() {
     // 3. Verify Initial Status (OPEN)
     let res = await pool.request()
         .input("cid", conversationId)
-        .query("SELECT Status FROM omni.Conversation WHERE ConversationId = @cid");
+        .query("SELECT Status FROM altdesk.Conversation WHERE ConversationId = @cid");
     let status = res.recordset[0].Status;
 
     if (status !== 'OPEN') {
         console.log("Status is not OPEN, resetting...");
         await pool.request()
             .input("cid", conversationId)
-            .query("UPDATE omni.Conversation SET Status = 'OPEN' WHERE ConversationId = @cid");
+            .query("UPDATE altdesk.Conversation SET Status = 'OPEN' WHERE ConversationId = @cid");
         status = 'OPEN';
     }
     console.log(`✅ Initial status is ${status}`);
@@ -51,12 +51,12 @@ async function run() {
     await pool.request()
         .input("cid", conversationId)
         .input("status", "RESOLVED")
-        .query("UPDATE omni.Conversation SET Status = @status WHERE ConversationId = @cid");
+        .query("UPDATE altdesk.Conversation SET Status = @status WHERE ConversationId = @cid");
 
     // Verify
     res = await pool.request()
         .input("cid", conversationId)
-        .query("SELECT Status FROM omni.Conversation WHERE ConversationId = @cid");
+        .query("SELECT Status FROM altdesk.Conversation WHERE ConversationId = @cid");
     status = res.recordset[0].Status;
     if (status !== 'RESOLVED') throw new Error(`Status check failed: Expected RESOLVED, got ${status}`);
     console.log("✅ Conversation is now RESOLVED");
@@ -67,12 +67,12 @@ async function run() {
     await pool.request()
         .input("cid", conversationId)
         .input("status", "OPEN")
-        .query("UPDATE omni.Conversation SET Status = @status WHERE ConversationId = @cid");
+        .query("UPDATE altdesk.Conversation SET Status = @status WHERE ConversationId = @cid");
 
     // Verify
     res = await pool.request()
         .input("cid", conversationId)
-        .query("SELECT Status FROM omni.Conversation WHERE ConversationId = @cid");
+        .query("SELECT Status FROM altdesk.Conversation WHERE ConversationId = @cid");
     status = res.recordset[0].Status;
     if (status !== 'OPEN') throw new Error(`Status check failed: Expected OPEN, got ${status}`);
     console.log("✅ Conversation is back to OPEN");

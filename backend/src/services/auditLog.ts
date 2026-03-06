@@ -29,7 +29,7 @@ export async function writeAuditLog(entry: AuditLogEntry): Promise<void> {
       .input("ipAddress", entry.ipAddress ?? null)
       .input("userAgent", entry.userAgent ?? null)
       .query(`
-        INSERT INTO omni.AuditLog (TenantId, UserId, Action, TargetTable, TargetId, BeforeValues, AfterValues, IpAddress, UserAgent)
+        INSERT INTO altdesk.AuditLog (TenantId, UserId, Action, TargetTable, TargetId, BeforeValues, AfterValues, IpAddress, UserAgent)
         VALUES (@tenantId, @userId, @action, @targetTable, @targetId, @beforeValues, @afterValues, @ipAddress, @userAgent)
       `);
   } catch (err) {

@@ -20,7 +20,7 @@ async function main() {
         // 1. Check if user exists
         const check = await pool.request()
             .input("email", email)
-            .query("SELECT UserId, TenantId FROM omni.[User] WHERE Email=@email");
+            .query("SELECT UserId, TenantId FROM altdesk.[User] WHERE Email=@email");
 
         if (check.recordset.length > 0) {
             // Update existing
@@ -28,14 +28,14 @@ async function main() {
             await pool.request()
                 .input("email", email)
                 .input("hash", hash)
-                .query("UPDATE omni.[User] SET Role='SUPERADMIN', PasswordHash=@hash WHERE Email=@email");
+                .query("UPDATE altdesk.[User] SET Role='SUPERADMIN', PasswordHash=@hash WHERE Email=@email");
             console.log("Usuário atualizado com sucesso!");
         } else {
             // Create new
             console.log("Criando novo usuário...");
 
             // Get Default Tenant
-            const t = await pool.request().query("SELECT TOP 1 TenantId FROM omni.Tenant");
+            const t = await pool.request().query("SELECT TOP 1 TenantId FROM altdesk.Tenant");
             if (t.recordset.length === 0) throw new Error("Nenhum Tenant encontrado! Rode o seed primeiro.");
             const tenantId = t.recordset[0].TenantId;
 
@@ -45,7 +45,7 @@ async function main() {
                 .input("hash", hash)
                 .input("displayName", "Super Admin")
                 .query(`
-          INSERT INTO omni.[User] (TenantId, Email, DisplayName, PasswordHash, Role)
+          INSERT INTO altdesk.[User] (TenantId, Email, DisplayName, PasswordHash, Role)
           OUTPUT inserted.UserId
           VALUES (@tenantId, @email, @displayName, @hash, 'SUPERADMIN')
         `);
@@ -58,7 +58,7 @@ async function main() {
                 .input("userId", userId)
                 .input("name", "Super Admin")
                 .query(`
-          INSERT INTO omni.Agent (TenantId, UserId, Kind, Name)
+          INSERT INTO altdesk.Agent (TenantId, UserId, Kind, Name)
           VALUES (@tenantId, @userId, 'HUMAN', @name)
         `);
 

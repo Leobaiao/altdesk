@@ -19,8 +19,8 @@ router.get("/", async (req, res, next) => {
             .input("tenantId", u.tenantId)
             .query(`
         SELECT u.UserId, u.Email, u.Role, u.IsActive, a.Name as AgentName
-        FROM omni.[User] u
-        LEFT JOIN omni.Agent a ON a.UserId = u.UserId
+        FROM altdesk.[User] u
+        LEFT JOIN altdesk.Agent a ON a.UserId = u.UserId
         WHERE u.TenantId = @tenantId AND u.Role != 'SUPERADMIN'
         ORDER BY u.CreatedAt DESC
       `);
@@ -54,7 +54,7 @@ router.post("/", requireRole("ADMIN"), validateBody(z.object({
                 .input("hash", hash)
                 .input("role", body.role)
                 .query(`
-          INSERT INTO omni.[User] (TenantId, Email, DisplayName, PasswordHash, Role)
+          INSERT INTO altdesk.[User] (TenantId, Email, DisplayName, PasswordHash, Role)
           OUTPUT inserted.UserId
           VALUES (@tenantId, @email, @name, @hash, @role)
         `);
@@ -65,7 +65,7 @@ router.post("/", requireRole("ADMIN"), validateBody(z.object({
                 .input("userId", newUserId)
                 .input("name", body.name)
                 .query(`
-          INSERT INTO omni.Agent (TenantId, UserId, Kind, Name)
+          INSERT INTO altdesk.Agent (TenantId, UserId, Kind, Name)
           VALUES (@tenantId, @userId, 'HUMAN', @name)
         `);
 
@@ -109,7 +109,7 @@ router.put("/:id", requireRole("ADMIN"), validateBody(z.object({
         const check = await pool.request()
             .input("id", req.params.id)
             .input("tenantId", u.tenantId)
-            .query("SELECT Role FROM omni.[User] WHERE UserId=@id AND TenantId=@tenantId");
+            .query("SELECT Role FROM altdesk.[User] WHERE UserId=@id AND TenantId=@tenantId");
 
         if (check.recordset.length === 0) return res.status(404).json({ error: "User not found" });
         if (check.recordset[0].Role === 'SUPERADMIN') return res.status(403).json({ error: "Cannot modify SUPERADMIN accounts" });
@@ -127,7 +127,7 @@ router.put("/:id", requireRole("ADMIN"), validateBody(z.object({
                     .input("role", body.role)
                     .input("hash", hash)
                     .query(`
-                        UPDATE omni.[User] 
+                        UPDATE altdesk.[User] 
                         SET Email=@email, Role=@role, PasswordHash=@hash 
                         WHERE UserId=@id AND TenantId=@tenantId
                     `);
@@ -138,7 +138,7 @@ router.put("/:id", requireRole("ADMIN"), validateBody(z.object({
                     .input("email", body.email)
                     .input("role", body.role)
                     .query(`
-                        UPDATE omni.[User] 
+                        UPDATE altdesk.[User] 
                         SET Email=@email, Role=@role 
                         WHERE UserId=@id AND TenantId=@tenantId
                     `);
@@ -149,7 +149,7 @@ router.put("/:id", requireRole("ADMIN"), validateBody(z.object({
                 .input("id", req.params.id)
                 .input("name", body.name)
                 .query(`
-                    UPDATE omni.Agent 
+                    UPDATE altdesk.Agent 
                     SET Name=@name 
                     WHERE UserId=@id AND TenantId=@tenantId
                 `);
@@ -190,7 +190,7 @@ router.put("/:id/status", requireRole("ADMIN"), validateBody(z.object({ isActive
         const check = await pool.request()
             .input("id", userId)
             .input("tenantId", u.tenantId)
-            .query("SELECT Role FROM omni.[User] WHERE UserId=@id AND TenantId=@tenantId");
+            .query("SELECT Role FROM altdesk.[User] WHERE UserId=@id AND TenantId=@tenantId");
 
         if (check.recordset.length === 0) return res.status(404).json({ error: "User not found" });
         if (check.recordset[0].Role === 'SUPERADMIN') return res.status(403).json({ error: "Access denied" });
@@ -203,13 +203,13 @@ router.put("/:id/status", requireRole("ADMIN"), validateBody(z.object({ isActive
                 .input("id", userId)
                 .input("tenantId", u.tenantId)
                 .input("active", isActive ? 1 : 0)
-                .query("UPDATE omni.[User] SET IsActive=@active WHERE UserId=@id AND TenantId=@tenantId");
+                .query("UPDATE altdesk.[User] SET IsActive=@active WHERE UserId=@id AND TenantId=@tenantId");
 
             await transaction.request()
                 .input("id", userId)
                 .input("tenantId", u.tenantId)
                 .input("active", isActive ? 1 : 0)
-                .query("UPDATE omni.Agent SET IsActive=@active WHERE UserId=@id AND TenantId=@tenantId");
+                .query("UPDATE altdesk.Agent SET IsActive=@active WHERE UserId=@id AND TenantId=@tenantId");
 
             await transaction.commit();
 

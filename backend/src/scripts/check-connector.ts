@@ -5,7 +5,7 @@ import { getPool } from "../db.js";
 async function run() {
     console.log("=== Checking Connectors ===");
     const pool = await getPool();
-    const r = await pool.request().query("SELECT * FROM omni.ChannelConnector");
+    const r = await pool.request().query("SELECT * FROM altdesk.ChannelConnector");
     console.log(JSON.stringify(r.recordset, null, 2));
     process.exit(0);
 }

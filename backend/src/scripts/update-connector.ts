@@ -14,7 +14,7 @@ async function run() {
 
     await pool.request()
         .input("config", config)
-        .query("UPDATE omni.ChannelConnector SET ConfigJson = @config WHERE ConnectorId = 'whatsapp-gti-dev'");
+        .query("UPDATE altdesk.ChannelConnector SET ConfigJson = @config WHERE ConnectorId = 'whatsapp-gti-dev'");
 
     console.log("✅ Connector updated with token:", process.env.API_TOKEN);
     process.exit(0);

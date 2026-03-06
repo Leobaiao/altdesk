@@ -14,15 +14,15 @@ router.get("/", async (req, res, next) => {
 
         const t = await pool.request()
             .input("tenantId", user.tenantId)
-            .query("SELECT DefaultProvider FROM omni.Tenant WHERE TenantId=@tenantId");
+            .query("SELECT DefaultProvider FROM altdesk.Tenant WHERE TenantId=@tenantId");
         const defaultProvider = t.recordset[0]?.DefaultProvider || "GTI";
 
         const c = await pool.request()
             .input("tenantId", user.tenantId)
             .query(`
         SELECT cc.ConnectorId, cc.Provider, cc.ConfigJson, cc.IsActive, ch.Name as ChannelName
-        FROM omni.ChannelConnector cc
-        JOIN omni.Channel ch ON ch.ChannelId = cc.ChannelId
+        FROM altdesk.ChannelConnector cc
+        JOIN altdesk.Channel ch ON ch.ChannelId = cc.ChannelId
         WHERE ch.TenantId=@tenantId AND cc.DeletedAt IS NULL
       `);
 
@@ -58,7 +58,7 @@ router.put("/", validateBody(z.object({
         await pool.request()
             .input("tenantId", user.tenantId)
             .input("provider", body.defaultProvider)
-            .query("UPDATE omni.Tenant SET DefaultProvider=@provider WHERE TenantId=@tenantId");
+            .query("UPDATE altdesk.Tenant SET DefaultProvider=@provider WHERE TenantId=@tenantId");
 
         if (body.connectorId) {
             const current = await pool.request()
@@ -66,8 +66,8 @@ router.put("/", validateBody(z.object({
                 .input("connectorId", body.connectorId)
                 .query(`
             SELECT TOP 1 cc.ConnectorId, cc.ConfigJson
-            FROM omni.ChannelConnector cc
-            JOIN omni.Channel ch ON ch.ChannelId = cc.ChannelId
+            FROM altdesk.ChannelConnector cc
+            JOIN altdesk.Channel ch ON ch.ChannelId = cc.ChannelId
             WHERE ch.TenantId=@tenantId AND cc.ConnectorId=@connectorId AND cc.DeletedAt IS NULL
           `);
 
@@ -95,7 +95,7 @@ router.put("/", validateBody(z.object({
                     await pool.request()
                         .input("config", configJson)
                         .input("connectorId", current.recordset[0].ConnectorId)
-                        .query(`UPDATE omni.ChannelConnector SET ConfigJson=@config WHERE ConnectorId=@connectorId`)
+                        .query(`UPDATE altdesk.ChannelConnector SET ConfigJson=@config WHERE ConnectorId=@connectorId`)
                 } catch { }
             }
         }

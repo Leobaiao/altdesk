@@ -3,9 +3,9 @@ import { getPool } from './dist/backend/src/db.js';
 async function main() {
     try {
         const pool = await getPool();
-        const convs = await pool.query('SELECT ConversationId, Title FROM omni.Conversation');
-        const etm = await pool.query('SELECT * FROM omni.ExternalThreadMap');
-        const conn = await pool.query('SELECT ConnectorId, Provider FROM omni.ChannelConnector');
+        const convs = await pool.query('SELECT ConversationId, Title FROM altdesk.Conversation');
+        const etm = await pool.query('SELECT * FROM altdesk.ExternalThreadMap');
+        const conn = await pool.query('SELECT ConnectorId, Provider FROM altdesk.ChannelConnector');
 
         console.log('--- CONVERSATIONS ---');
         console.log(JSON.stringify(convs.recordset, null, 2));

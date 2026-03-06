@@ -14,7 +14,7 @@ async function main() {
         const pool = await getPool();
         const r = await pool.request()
             .input("email", email)
-            .query("UPDATE omni.[User] SET Role='SUPERADMIN' WHERE Email=@email");
+            .query("UPDATE altdesk.[User] SET Role='SUPERADMIN' WHERE Email=@email");
 
         if (r.rowsAffected[0] === 0) {
             console.error("Usuário não encontrado!");

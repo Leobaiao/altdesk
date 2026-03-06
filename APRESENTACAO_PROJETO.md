@@ -1,4 +1,4 @@
-# 📋 OmniChat — Documentação Completa do Projeto
+# 📋 AltDesk — Documentação Completa do Projeto
 
 > **Plataforma omnichannel de atendimento ao cliente via WhatsApp com painel administrativo, integração GTI/uazapi, e comunicação em tempo real.**
 
@@ -6,7 +6,7 @@
 
 ## 1. Visão Geral
 
-O **OmniChat** é uma plataforma SaaS multi-tenant de atendimento ao cliente que centraliza conversas de WhatsApp (via API GTI/uazapi) em um painel web. O sistema permite que empresas gerenciem múltiplos atendentes, filas de atendimento, contatos, respostas rápidas e templates de mensagem — tudo em tempo real via WebSocket.
+O **AltDesk** é uma plataforma SaaS multi-tenant de atendimento ao cliente que centraliza conversas de WhatsApp (via API GTI/uazapi) em um painel web. O sistema permite que empresas gerenciem múltiplos atendentes, filas de atendimento, contatos, respostas rápidas e templates de mensagem — tudo em tempo real via WebSocket.
 
 ### Stack Tecnológico
 
@@ -58,35 +58,35 @@ MENSAGEM ENVIADA (Outbound):
 
 ## 3. Banco de Dados — Schema Completo
 
-O banco utiliza o schema `omni` com **18 tabelas** distribuídas em 3 scripts SQL:
+O banco utiliza o schema `altdesk` com **18 tabelas** distribuídas em 3 scripts SQL:
 
 ### 3.1 Tabelas Principais (`01-schema.sql`)
 
 | Tabela | Descrição | Colunas Chave |
 |---|---|---|
-| `omni.Tenant` | Empresas/inquilinos | `Name`, `DefaultProvider`, `IsActive` |
-| `omni.Subscription` | Planos de assinatura | `PlanCode`, `AgentsSeatLimit`, `ExpiresAt` |
-| `omni.[User]` | Usuários do sistema | `Email`, `DisplayName`, `Role`, `PasswordHash` |
-| `omni.Agent` | Agentes (humano/bot) | `Kind` (HUMAN/BOT), `UserId` |
-| `omni.Channel` | Canais de comunicação | `Type` (WHATSAPP/WEBCHAT) |
-| `omni.ChannelConnector` | Conectores de integração | `Provider` (GTI/ZAPI/OFFICIAL), `ConfigJson` |
-| `omni.Queue` | Filas de atendimento | `Name`, `IsActive` |
-| `omni.Conversation` | Conversas | `Title`, `Kind`, `Status`, `AssignedUserId`, `QueueId` |
-| `omni.ConversationMember` | Membros da conversa | `AgentId`, `Role` |
-| `omni.Contact` | Contatos | `Name`, `Phone`, `Email`, `Tags`, `Notes` |
-| `omni.Message` | Mensagens | `Direction` (IN/OUT), `Body`, `MediaType`, `MediaUrl`, `Status` (SENT/DELIVERED/READ), `ExternalMessageId` |
-| `omni.ExternalThreadMap` | Mapa de threads externos | `ExternalChatId`, `ExternalUserId`, `ConversationId` |
-| `omni.Ticket` | Tickets de suporte | `Priority`, `Status`, `SLA_DueAt` |
-| `omni.LLMUsage` | Uso de IA/LLM | `Provider`, `Model`, `PromptTokens`, `CostUSD` |
+| `altdesk.Tenant` | Empresas/inquilinos | `Name`, `DefaultProvider`, `IsActive` |
+| `altdesk.Subscription` | Planos de assinatura | `PlanCode`, `AgentsSeatLimit`, `ExpiresAt` |
+| `altdesk.[User]` | Usuários do sistema | `Email`, `DisplayName`, `Role`, `PasswordHash` |
+| `altdesk.Agent` | Agentes (humano/bot) | `Kind` (HUMAN/BOT), `UserId` |
+| `altdesk.Channel` | Canais de comunicação | `Type` (WHATSAPP/WEBCHAT) |
+| `altdesk.ChannelConnector` | Conectores de integração | `Provider` (GTI/ZAPI/OFFICIAL), `ConfigJson` |
+| `altdesk.Queue` | Filas de atendimento | `Name`, `IsActive` |
+| `altdesk.Conversation` | Conversas | `Title`, `Kind`, `Status`, `AssignedUserId`, `QueueId` |
+| `altdesk.ConversationMember` | Membros da conversa | `AgentId`, `Role` |
+| `altdesk.Contact` | Contatos | `Name`, `Phone`, `Email`, `Tags`, `Notes` |
+| `altdesk.Message` | Mensagens | `Direction` (IN/OUT), `Body`, `MediaType`, `MediaUrl`, `Status` (SENT/DELIVERED/READ), `ExternalMessageId` |
+| `altdesk.ExternalThreadMap` | Mapa de threads externos | `ExternalChatId`, `ExternalUserId`, `ConversationId` |
+| `altdesk.Ticket` | Tickets de suporte | `Priority`, `Status`, `SLA_DueAt` |
+| `altdesk.LLMUsage` | Uso de IA/LLM | `Provider`, `Model`, `PromptTokens`, `CostUSD` |
 
 ### 3.2 Tabelas de Automação (`02-canned-and-automation.sql`)
 
 | Tabela | Descrição |
 |---|---|
-| `omni.CannedResponse` | Respostas rápidas pré-configuradas |
-| `omni.CannedShortcut` | Atalhos para respostas rápidas |
-| `omni.AutomationRule` | Regras de automação (trigger + action) |
-| `omni.AgentSuggestion` | Sugestões de IA para agentes |
+| `altdesk.CannedResponse` | Respostas rápidas pré-configuradas |
+| `altdesk.CannedShortcut` | Atalhos para respostas rápidas |
+| `altdesk.AutomationRule` | Regras de automação (trigger + action) |
+| `altdesk.AgentSuggestion` | Sugestões de IA para agentes |
 
 ---
 
@@ -342,7 +342,7 @@ Cada instância GTI requer:
 
 ### 6.2 APIs Utilizadas
 
-| Endpoint GTI | Método | Uso no OmniChat |
+| Endpoint GTI | Método | Uso no AltDesk |
 |---|---|---|
 | `/send/text` | POST | Enviar mensagem de texto |
 | `/webhook` | GET | Consultar webhooks configurados |
@@ -376,9 +376,9 @@ Cada instância GTI requer:
 
 | Container | Imagem | Porta | Descrição |
 |---|---|---|---|
-| `omnichat_db` | `mssql/server:2022-latest` | 14333 | Banco de dados SQL Server |
-| `omnichat_api` | Build customizado | 3002 | Backend Node.js + Express |
-| `omnichat_web` | Build customizado (Nginx) | 80 | Frontend React |
+| `altdesk_db` | `mssql/server:2022-latest` | 14333 | Banco de dados SQL Server |
+| `altdesk_api` | Build customizado | 3002 | Backend Node.js + Express |
+| `altdesk_web` | Build customizado (Nginx) | 80 | Frontend React |
 
 ### 7.2 Comandos de Operação
 
@@ -387,13 +387,13 @@ Cada instância GTI requer:
 docker-compose up --build -d
 
 # Reset do banco de dados
-docker exec -it omnichat_api npm run db:reset
+docker exec -it altdesk_api npm run db:reset
 
 # Criar superadmin
-docker exec -it omnichat_api npx tsx scripts/create_sysadmin.ts <email> <senha>
+docker exec -it altdesk_api npx tsx scripts/create_sysadmin.ts <email> <senha>
 
 # Ver logs do backend
-docker logs omnichat_api --tail 50
+docker logs altdesk_api --tail 50
 
 # Rebuild apenas o backend
 docker-compose up --build -d backend
@@ -403,7 +403,7 @@ docker-compose up --build -d backend
 
 ## 8. Sistema Multi-Tenant
 
-O OmniChat é **multi-tenant por design**:
+O AltDesk é **multi-tenant por design**:
 
 - Cada empresa (Tenant) tem seus próprios dados isolados
 - Todas as tabelas principais têm `TenantId` como chave estrangeira
@@ -440,7 +440,7 @@ O OmniChat é **multi-tenant por design**:
 18. **WebChat** — Adaptador funcional, falta widget de embed
 19. **Automação (Rules)** — Schema pronto, falta interface
 20. **Sugestões de IA** — Schema pronto, orquestrador básico implementado (TriageBot)
-21. **Templates de Mensagem** — CRUD pronto, falta tabela `omni.Template`
+21. **Templates de Mensagem** — CRUD pronto, falta tabela `altdesk.Template`
 
 ---
 
@@ -460,4 +460,4 @@ O OmniChat é **multi-tenant por design**:
 
 ---
 
-*Documento gerado em 25/02/2026 — OmniChat v1.0*
+*Documento gerado em 25/02/2026 — AltDesk v1.0*

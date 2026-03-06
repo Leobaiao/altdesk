@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useMemo } from "react";
-import io from "socket.io-client";
+// import io from "socket.io-client"; // Redundant
 import { CannedResponses } from "./CannedResponses";
 import { QueueSettings } from "./QueueSettings";
 import { Contacts } from "./Contacts";
@@ -11,6 +11,10 @@ import { Settings } from "./Settings";
 import { Dashboard as DashboardView } from "./Dashboard";
 import { Users } from "./Users";
 import { Tickets } from "./Tickets";
+import { TagsSettings } from "./TagsSettings";
+import { KnowledgeBase } from "./KnowledgeBase";
+import { BusinessHours } from "./BusinessHours";
+import { Tag as TagIcon, Book, Clock } from "lucide-react";
 
 // Novas importações do refactoring
 import { ChatProvider, useChat } from "./contexts/ChatContext";
@@ -62,7 +66,8 @@ function TabButton({ label, active, onClick }: any) {
 }
 
 import { api } from "./lib/api";
-const socket = io(import.meta.env.VITE_API_URL || undefined);
+import { parseJwt } from "./lib/auth";
+// const socket = io(import.meta.env.VITE_API_URL || undefined); // Redundant
 
 import type { Conversation, Message, CannedResponse } from "../../shared/types";
 
@@ -94,7 +99,7 @@ function LoginScreen({ onLogin }: { onLogin: (token: string, role: string) => vo
   return (
     <div className="login-container">
       <form className="login-card" onSubmit={handleSubmit}>
-        <h1>🟢 OmniChat</h1>
+        <h1>🟢 AltDesk</h1>
         <p>Faça login para acessar o painel de atendimento</p>
 
         {error && <div className="error">{error}</div>}
@@ -209,6 +214,9 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
           <NavIcon icon={BookOpen} label="Respostas Rápidas" active={currentPath.startsWith("/canned")} onClick={() => navigate("/canned")} />
           <NavIcon icon={UsersIcon} label="Minha Equipe" active={currentPath.startsWith("/users")} onClick={() => navigate("/users")} />
           <NavIcon icon={Search} label="Filas de Atendimento" active={currentPath.startsWith("/queues")} onClick={() => navigate("/queues")} />
+          <NavIcon icon={TagIcon} label="Tags" active={currentPath.startsWith("/tags")} onClick={() => navigate("/tags")} />
+          <NavIcon icon={Book} label="Base de Conhecimento" active={currentPath.startsWith("/knowledge")} onClick={() => navigate("/knowledge")} />
+          <NavIcon icon={Clock} label="Horário de Atendimento" active={currentPath.startsWith("/business-hours")} onClick={() => navigate("/business-hours")} />
           <NavIcon icon={Ticket} label="Chamados" active={currentPath.startsWith("/tickets")} onClick={() => navigate("/tickets")} />
         </div>
         <div className="footer-items">
@@ -240,6 +248,9 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
 
           <Route path="/settings" element={<Settings token={token} onBack={() => navigate("/chat")} role={role || 'AGENT'} />} />
           <Route path="/queues" element={<QueueSettings onBack={() => navigate("/chat")} />} />
+          <Route path="/tags" element={<TagsSettings onBack={() => navigate("/chat")} />} />
+          <Route path="/knowledge" element={<KnowledgeBase onBack={() => navigate("/chat")} />} />
+          <Route path="/business-hours" element={<BusinessHours onBack={() => navigate("/chat")} />} />
           <Route path="/tickets" element={<Tickets token={token} onBack={() => navigate("/chat")} role={role || 'AGENT'} />} />
 
           {role === "SUPERADMIN" && (
@@ -255,14 +266,6 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
   );
 }
 
-// Helper to safely parse JWT
-function parseJwt(token: string) {
-  try {
-    return JSON.parse(atob(token.split(".")[1]));
-  } catch (e) {
-    return null;
-  }
-}
 
 // ─── App Root ─────────────────────────────────────
 function AppContent() {

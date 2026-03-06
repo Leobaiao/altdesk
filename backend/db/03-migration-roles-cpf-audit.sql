@@ -1,19 +1,19 @@
 -- ============================================================
 -- Migration: Roles, CPF, Audit Log, ConversationHistory
--- Run this on an existing OmniChatDev database.
+-- Run this on an existing AltDeskDev database.
 -- ============================================================
 
-USE OmniChatDev;
+USE AltDeskDev;
 GO
 
 -- ----------------------------------------
--- 1. omni.Role – tabela de funções
+-- 1. altdesk.Role – tabela de funções
 -- ----------------------------------------
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Role' AND schema_id = SCHEMA_ID('omni'))
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Role' AND schema_id = SCHEMA_ID('altdesk'))
 BEGIN
-    CREATE TABLE omni.Role (
+    CREATE TABLE altdesk.Role (
         RoleId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-        TenantId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES omni.Tenant(TenantId),
+        TenantId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES altdesk.Tenant(TenantId),
         Name NVARCHAR(100) NOT NULL,
         CanOpen BIT NOT NULL DEFAULT 1,
         CanEscalate BIT NOT NULL DEFAULT 0,
@@ -27,23 +27,23 @@ END
 GO
 
 -- ----------------------------------------
--- 2. omni.[User] – novos campos CPF, RoleId, HasLogAccess
+-- 2. altdesk.[User] – novos campos CPF, RoleId, HasLogAccess
 -- ----------------------------------------
-IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('omni.[User]') AND name = 'CPF')
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('altdesk.[User]') AND name = 'CPF')
 BEGIN
-    ALTER TABLE omni.[User] ADD CPF NVARCHAR(14) NULL; -- formato 000.000.000-00 ou 00000000000
+    ALTER TABLE altdesk.[User] ADD CPF NVARCHAR(14) NULL; -- formato 000.000.000-00 ou 00000000000
 END
 GO
 
-IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('omni.[User]') AND name = 'RoleId')
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('altdesk.[User]') AND name = 'RoleId')
 BEGIN
-    ALTER TABLE omni.[User] ADD RoleId UNIQUEIDENTIFIER NULL FOREIGN KEY REFERENCES omni.Role(RoleId);
+    ALTER TABLE altdesk.[User] ADD RoleId UNIQUEIDENTIFIER NULL FOREIGN KEY REFERENCES altdesk.Role(RoleId);
 END
 GO
 
-IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('omni.[User]') AND name = 'HasLogAccess')
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('altdesk.[User]') AND name = 'HasLogAccess')
 BEGIN
-    ALTER TABLE omni.[User] ADD HasLogAccess BIT NOT NULL DEFAULT 0;
+    ALTER TABLE altdesk.[User] ADD HasLogAccess BIT NOT NULL DEFAULT 0;
 END
 GO
 
@@ -51,69 +51,69 @@ GO
 IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'UX_User_CPF_Tenant')
 BEGIN
     CREATE UNIQUE NONCLUSTERED INDEX UX_User_CPF_Tenant
-        ON omni.[User](TenantId, CPF)
+        ON altdesk.[User](TenantId, CPF)
         WHERE CPF IS NOT NULL;
 END
 GO
 
 -- ----------------------------------------
--- 3. omni.Contact – campo CPF
+-- 3. altdesk.Contact – campo CPF
 -- ----------------------------------------
-IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('omni.Contact') AND name = 'CPF')
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('altdesk.Contact') AND name = 'CPF')
 BEGIN
-    ALTER TABLE omni.Contact ADD CPF NVARCHAR(14) NULL;
+    ALTER TABLE altdesk.Contact ADD CPF NVARCHAR(14) NULL;
 END
 GO
 
 IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'UX_Contact_CPF_Tenant')
 BEGIN
     CREATE UNIQUE NONCLUSTERED INDEX UX_Contact_CPF_Tenant
-        ON omni.Contact(TenantId, CPF)
+        ON altdesk.Contact(TenantId, CPF)
         WHERE CPF IS NOT NULL;
 END
 GO
 
 -- ----------------------------------------
--- 4. omni.Conversation – campo InteractionSequence
+-- 4. altdesk.Conversation – campo InteractionSequence
 -- ----------------------------------------
-IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('omni.Conversation') AND name = 'InteractionSequence')
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('altdesk.Conversation') AND name = 'InteractionSequence')
 BEGIN
-    ALTER TABLE omni.Conversation ADD InteractionSequence INT NOT NULL DEFAULT 0;
+    ALTER TABLE altdesk.Conversation ADD InteractionSequence INT NOT NULL DEFAULT 0;
 END
 GO
 
 -- Campos extras para rastrear quem abriu e quem está atendendo
-IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('omni.Conversation') AND name = 'OpenedByUserId')
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('altdesk.Conversation') AND name = 'OpenedByUserId')
 BEGIN
-    ALTER TABLE omni.Conversation ADD OpenedByUserId UNIQUEIDENTIFIER NULL FOREIGN KEY REFERENCES omni.[User](UserId);
+    ALTER TABLE altdesk.Conversation ADD OpenedByUserId UNIQUEIDENTIFIER NULL FOREIGN KEY REFERENCES altdesk.[User](UserId);
 END
 GO
 
-IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('omni.Conversation') AND name = 'OpenedByContactId')
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('altdesk.Conversation') AND name = 'OpenedByContactId')
 BEGIN
-    ALTER TABLE omni.Conversation ADD OpenedByContactId UNIQUEIDENTIFIER NULL FOREIGN KEY REFERENCES omni.Contact(ContactId);
+    ALTER TABLE altdesk.Conversation ADD OpenedByContactId UNIQUEIDENTIFIER NULL FOREIGN KEY REFERENCES altdesk.Contact(ContactId);
 END
 GO
 
-IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('omni.Conversation') AND name = 'SourceChannel')
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('altdesk.Conversation') AND name = 'SourceChannel')
 BEGIN
-    ALTER TABLE omni.Conversation ADD SourceChannel NVARCHAR(50) NULL; -- WHATSAPP, PLATFORM, CHATBOT, EMAIL, RCS, SMS
+    ALTER TABLE altdesk.Conversation ADD SourceChannel NVARCHAR(50) NULL; -- WHATSAPP, PLATFORM, CHATBOT, EMAIL, RCS, SMS
 END
 GO
 
 -- ----------------------------------------
--- 5. omni.ConversationHistory – histórico de interações
+-- 5. altdesk.ConversationHistory – histórico de interações
 -- ----------------------------------------
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'ConversationHistory' AND schema_id = SCHEMA_ID('omni'))
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'ConversationHistory' AND schema_id = SCHEMA_ID('altdesk'))
 BEGIN
-    CREATE TABLE omni.ConversationHistory (
+    CREATE TABLE altdesk.ConversationHistory (
         HistoryId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-        TenantId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES omni.Tenant(TenantId),
-        ConversationId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES omni.Conversation(ConversationId),
+        TenantId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES altdesk.Tenant(TenantId),
+        ConversationId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES altdesk.Conversation(ConversationId),
         SequenceNumber INT NOT NULL,
         Action NVARCHAR(50) NOT NULL, -- OPENED, REPLIED, ESCALATED, CLOSED, COMMENTED, ASSIGNED, STATUS_CHANGED
-        ActorUserId UNIQUEIDENTIFIER NULL FOREIGN KEY REFERENCES omni.[User](UserId),
-        EscalatedToUserId UNIQUEIDENTIFIER NULL FOREIGN KEY REFERENCES omni.[User](UserId),
+        ActorUserId UNIQUEIDENTIFIER NULL FOREIGN KEY REFERENCES altdesk.[User](UserId),
+        EscalatedToUserId UNIQUEIDENTIFIER NULL FOREIGN KEY REFERENCES altdesk.[User](UserId),
         MetadataJson NVARCHAR(MAX) NULL, -- detalhes extras, ex: {"previousStatus":"OPEN","newStatus":"RESOLVED"}
         CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME()
     );
@@ -124,16 +124,16 @@ GO
 IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_ConversationHistory_ConvId')
 BEGIN
     CREATE NONCLUSTERED INDEX IX_ConversationHistory_ConvId
-        ON omni.ConversationHistory(ConversationId, SequenceNumber);
+        ON altdesk.ConversationHistory(ConversationId, SequenceNumber);
 END
 GO
 
 -- ----------------------------------------
--- 6. omni.AuditLog – log de auditoria geral
+-- 6. altdesk.AuditLog – log de auditoria geral
 -- ----------------------------------------
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'AuditLog' AND schema_id = SCHEMA_ID('omni'))
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'AuditLog' AND schema_id = SCHEMA_ID('altdesk'))
 BEGIN
-    CREATE TABLE omni.AuditLog (
+    CREATE TABLE altdesk.AuditLog (
         LogId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
         TenantId UNIQUEIDENTIFIER NULL,
         UserId UNIQUEIDENTIFIER NULL,
@@ -153,7 +153,7 @@ GO
 IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_AuditLog_Tenant_Date')
 BEGIN
     CREATE NONCLUSTERED INDEX IX_AuditLog_Tenant_Date
-        ON omni.AuditLog(TenantId, CreatedAt DESC);
+        ON altdesk.AuditLog(TenantId, CreatedAt DESC);
 END
 GO
 

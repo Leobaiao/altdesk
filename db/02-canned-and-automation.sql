@@ -1,5 +1,5 @@
 -- Respostas rápidas e automações (MVP)
-CREATE TABLE omni.CannedResponse (
+CREATE TABLE altdesk.CannedResponse (
   CannedResponseId UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID() PRIMARY KEY,
   TenantId UNIQUEIDENTIFIER NOT NULL,
   Title NVARCHAR(200) NOT NULL,
@@ -11,25 +11,25 @@ CREATE TABLE omni.CannedResponse (
   IsActive BIT NOT NULL DEFAULT 1,
   CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
   UpdatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
-  CONSTRAINT FK_CannedResponse_Tenant FOREIGN KEY (TenantId) REFERENCES omni.Tenant(TenantId)
+  CONSTRAINT FK_CannedResponse_Tenant FOREIGN KEY (TenantId) REFERENCES altdesk.Tenant(TenantId)
 );
 GO
-CREATE INDEX IX_CannedResponse_Tenant_Category ON omni.CannedResponse(TenantId, Category, IsActive);
+CREATE INDEX IX_CannedResponse_Tenant_Category ON altdesk.CannedResponse(TenantId, Category, IsActive);
 GO
 
-CREATE TABLE omni.CannedShortcut (
+CREATE TABLE altdesk.CannedShortcut (
   ShortcutId UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID() PRIMARY KEY,
   TenantId UNIQUEIDENTIFIER NOT NULL,
   Shortcut NVARCHAR(50) NOT NULL,
   CannedResponseId UNIQUEIDENTIFIER NOT NULL,
   IsActive BIT NOT NULL DEFAULT 1,
   CONSTRAINT UQ_Shortcut UNIQUE (TenantId, Shortcut),
-  CONSTRAINT FK_Shortcut_Response FOREIGN KEY (CannedResponseId) REFERENCES omni.CannedResponse(CannedResponseId),
-  CONSTRAINT FK_Shortcut_Tenant FOREIGN KEY (TenantId) REFERENCES omni.Tenant(TenantId)
+  CONSTRAINT FK_Shortcut_Response FOREIGN KEY (CannedResponseId) REFERENCES altdesk.CannedResponse(CannedResponseId),
+  CONSTRAINT FK_Shortcut_Tenant FOREIGN KEY (TenantId) REFERENCES altdesk.Tenant(TenantId)
 );
 GO
 
-CREATE TABLE omni.AutomationRule (
+CREATE TABLE altdesk.AutomationRule (
   RuleId UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID() PRIMARY KEY,
   TenantId UNIQUEIDENTIFIER NOT NULL,
   Name NVARCHAR(200) NOT NULL,
@@ -41,13 +41,13 @@ CREATE TABLE omni.AutomationRule (
   IsActive BIT NOT NULL DEFAULT 1,
   CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
   UpdatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
-  CONSTRAINT FK_Rule_Tenant FOREIGN KEY (TenantId) REFERENCES omni.Tenant(TenantId)
+  CONSTRAINT FK_Rule_Tenant FOREIGN KEY (TenantId) REFERENCES altdesk.Tenant(TenantId)
 );
 GO
-CREATE INDEX IX_AutomationRule_Tenant_Active ON omni.AutomationRule(TenantId, IsActive, TriggerType);
+CREATE INDEX IX_AutomationRule_Tenant_Active ON altdesk.AutomationRule(TenantId, IsActive, TriggerType);
 GO
 
-CREATE TABLE omni.AgentSuggestion (
+CREATE TABLE altdesk.AgentSuggestion (
   SuggestionId UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID() PRIMARY KEY,
   TenantId UNIQUEIDENTIFIER NOT NULL,
   ConversationId UNIQUEIDENTIFIER NOT NULL,
@@ -55,8 +55,8 @@ CREATE TABLE omni.AgentSuggestion (
   SuggestionText NVARCHAR(MAX) NOT NULL,
   Status NVARCHAR(20) NOT NULL DEFAULT 'PENDING',
   CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
-  CONSTRAINT FK_Sugg_Tenant FOREIGN KEY (TenantId) REFERENCES omni.Tenant(TenantId),
-  CONSTRAINT FK_Sugg_Conversation FOREIGN KEY (ConversationId) REFERENCES omni.Conversation(ConversationId),
-  CONSTRAINT FK_Sugg_Rule FOREIGN KEY (RuleId) REFERENCES omni.AutomationRule(RuleId)
+  CONSTRAINT FK_Sugg_Tenant FOREIGN KEY (TenantId) REFERENCES altdesk.Tenant(TenantId),
+  CONSTRAINT FK_Sugg_Conversation FOREIGN KEY (ConversationId) REFERENCES altdesk.Conversation(ConversationId),
+  CONSTRAINT FK_Sugg_Rule FOREIGN KEY (RuleId) REFERENCES altdesk.AutomationRule(RuleId)
 );
 GO

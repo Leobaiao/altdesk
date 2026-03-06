@@ -17,5 +17,5 @@ Referência pública (overview): https://www.postman.com/gtiapi/gti-api-vip/over
    - parseInbound() com base nos samples
    - sendText() e sendMenu() com base nas requests do Postman
 
-## Webhook no OmniChat
+## Webhook no AltDesk
 `POST /api/webhooks/whatsapp/gti/:connectorId`

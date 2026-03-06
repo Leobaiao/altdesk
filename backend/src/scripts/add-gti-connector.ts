@@ -25,7 +25,7 @@ async function run() {
         .input("name", NEW_INSTANCE.name)
         .query(`
             DECLARE @cid UNIQUEIDENTIFIER = NEWID();
-            INSERT INTO omni.Channel (ChannelId, TenantId, Name, IsActive)
+            INSERT INTO altdesk.Channel (ChannelId, TenantId, Name, IsActive)
             VALUES (@cid, @tenantId, @name, 1);
             SELECT @cid AS ChannelId;
         `);
@@ -44,7 +44,7 @@ async function run() {
         .input("channelId", channelId)
         .input("config", configJson)
         .query(`
-            INSERT INTO omni.ChannelConnector (ConnectorId, ChannelId, Provider, ConfigJson, IsActive)
+            INSERT INTO altdesk.ChannelConnector (ConnectorId, ChannelId, Provider, ConfigJson, IsActive)
             VALUES (NEWID(), @channelId, 'GTI', @config, 1);
         `);
 

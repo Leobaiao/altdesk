@@ -14,7 +14,7 @@ export async function listCannedResponses(tenantId: string): Promise<CannedRespo
     const result = await pool.request()
         .input("tenantId", tenantId)
         .query(`
-      SELECT * FROM omni.CannedResponse
+      SELECT * FROM altdesk.CannedResponse
       WHERE TenantId = @tenantId
       ORDER BY Shortcut ASC
     `);
@@ -29,7 +29,7 @@ export async function createCannedResponse(tenantId: string, shortcut: string, c
         .input("content", content)
         .input("title", title)
         .query(`
-      INSERT INTO omni.CannedResponse (TenantId, Shortcut, Content, Title)
+      INSERT INTO altdesk.CannedResponse (TenantId, Shortcut, Content, Title)
       VALUES (@tenantId, @shortcut, @content, @title)
     `);
 }
@@ -40,7 +40,7 @@ export async function deleteCannedResponse(tenantId: string, id: string) {
         .input("tenantId", tenantId)
         .input("id", id)
         .query(`
-      DELETE FROM omni.CannedResponse
+      DELETE FROM altdesk.CannedResponse
       WHERE TenantId = @tenantId AND CannedResponseId = @id
     `);
 }

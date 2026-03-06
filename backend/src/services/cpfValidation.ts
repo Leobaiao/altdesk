@@ -41,7 +41,7 @@ export async function findContactByCpf(tenantId: string, cpf: string) {
         .input("cpf", cleaned)
         .query(`
       SELECT ContactId, Name, Phone, CPF, Email
-      FROM omni.Contact
+      FROM altdesk.Contact
       WHERE TenantId = @tenantId AND REPLACE(REPLACE(CPF, '.', ''), '-', '') = @cpf
     `);
     return r.recordset.length > 0 ? r.recordset[0] : null;
@@ -58,7 +58,7 @@ export async function findUserByCpf(tenantId: string, cpf: string) {
         .input("cpf", cleaned)
         .query(`
       SELECT UserId, Email, Role, CPF
-      FROM omni.[User]
+      FROM altdesk.[User]
       WHERE TenantId = @tenantId AND REPLACE(REPLACE(CPF, '.', ''), '-', '') = @cpf AND IsActive = 1
     `);
     return r.recordset.length > 0 ? r.recordset[0] : null;
@@ -76,7 +76,7 @@ export async function createContactWithCpf(tenantId: string, data: { name: strin
         .input("cpf", data.cpf.replace(/[\.\-]/g, ""))
         .input("email", data.email ?? null)
         .query(`
-      INSERT INTO omni.Contact (TenantId, Name, Phone, CPF, Email)
+      INSERT INTO altdesk.Contact (TenantId, Name, Phone, CPF, Email)
       OUTPUT inserted.ContactId
       VALUES (@tenantId, @name, @phone, @cpf, @email)
     `);

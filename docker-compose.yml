@@ -2,7 +2,7 @@ services:
   # Banco de Dados
   db:
     image: mcr.microsoft.com/mssql/server:2022-latest
-    container_name: omnichat_db
+    container_name: altdesk_db
     user: root
     environment:
       - ACCEPT_EULA=Y
@@ -17,7 +17,7 @@ services:
   # Migração do Banco (executa e encerra)
   db-migrate:
     image: mcr.microsoft.com/mssql-tools:latest
-    container_name: omnichat_migrate
+    container_name: altdesk_migrate
     depends_on:
       - db
     volumes:
@@ -29,7 +29,7 @@ services:
         echo 'Aguardando SQL Server iniciar...';
         sleep 15;
         echo 'Executando migração...';
-        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d OmniChatDev -i /scripts/03-migration-roles-cpf-audit.sql;
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/03-migration-roles-cpf-audit.sql;
         echo 'Migração concluída!';
       "
 
@@ -38,14 +38,14 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    container_name: omnichat_api
+    container_name: altdesk_api
     depends_on:
       - db
     environment:
       PORT: 3002
       DB_USER: sa
       DB_PASS: "Intamr17@"
-      DB_NAME: OmniChatDev
+      DB_NAME: AltDeskDev
       DB_HOST: db
       JWT_SECRET: "Intamr17@"
     ports:
@@ -59,7 +59,7 @@ services:
       dockerfile: frontend/Dockerfile
       args:
         - VITE_API_URL=
-    container_name: omnichat_web
+    container_name: altdesk_web
     depends_on:
       - backend
     ports:

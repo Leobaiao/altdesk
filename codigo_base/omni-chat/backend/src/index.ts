@@ -35,8 +35,8 @@ async function loadConnector(connectorId: string) {
     .input("connectorId", connectorId)
     .query(`
       SELECT cc.ConnectorId, cc.Provider, cc.ConfigJson, cc.WebhookSecret, ch.ChannelId, ch.TenantId
-      FROM omni.ChannelConnector cc
-      JOIN omni.Channel ch ON ch.ChannelId = cc.ChannelId
+      FROM altdesk.ChannelConnector cc
+      JOIN altdesk.Channel ch ON ch.ChannelId = cc.ChannelId
       WHERE cc.ConnectorId = @connectorId AND cc.IsActive=1 AND ch.IsActive=1
     `);
   if (r.recordset.length === 0) throw new Error("Connector not found/active");
@@ -57,7 +57,7 @@ app.post("/api/auth/login", async (req, res) => {
     .input("email", body.email)
     .query(`
       SELECT TOP 1 UserId, TenantId, Role, PasswordHash, IsActive
-      FROM omni.[User]
+      FROM altdesk.[User]
       WHERE TenantId=@tenantId AND Email=@email
     `);
 
@@ -92,7 +92,7 @@ app.post("/api/agents", authMw, requireRole("ADMIN"), async (req, res) => {
     .input("name", body.name)
     .input("userId", body.userId ?? null)
     .query(`
-      INSERT INTO omni.Agent (TenantId, Kind, Name, UserId)
+      INSERT INTO altdesk.Agent (TenantId, Kind, Name, UserId)
       OUTPUT inserted.AgentId
       VALUES (@tenantId, @kind, @name, @userId)
     `);

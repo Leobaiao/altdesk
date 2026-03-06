@@ -8,10 +8,10 @@ async function main() {
 
         try {
             console.log('Cleaning up ExternalThreadMap...');
-            await transaction.request().query("DELETE FROM omni.ExternalThreadMap");
+            await transaction.request().query("DELETE FROM altdesk.ExternalThreadMap");
 
             console.log('Updating ChannelConnector ID...');
-            await transaction.request().query("UPDATE omni.ChannelConnector SET ConnectorId = '71E43B61-9C2E-4E8F-97F5-E0D6B38A4727' WHERE ConnectorId = '47A71F87-BDF8-4A72-9CDD-58BDC129B8FA'");
+            await transaction.request().query("UPDATE altdesk.ChannelConnector SET ConnectorId = '71E43B61-9C2E-4E8F-97F5-E0D6B38A4727' WHERE ConnectorId = '47A71F87-BDF8-4A72-9CDD-58BDC129B8FA'");
 
             await transaction.commit();
             console.log('Update successful!');

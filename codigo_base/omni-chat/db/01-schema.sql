@@ -1,9 +1,9 @@
 -- SQL Server 2019/Express compatible
-IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = 'omni')
-    EXEC('CREATE SCHEMA omni');
+IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = 'altdesk')
+    EXEC('CREATE SCHEMA altdesk');
 GO
 
-CREATE TABLE omni.Tenant (
+CREATE TABLE altdesk.Tenant (
     TenantId UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID() PRIMARY KEY,
     Name NVARCHAR(200) NOT NULL,
     CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
@@ -11,7 +11,7 @@ CREATE TABLE omni.Tenant (
 );
 GO
 
-CREATE TABLE omni.Subscription (
+CREATE TABLE altdesk.Subscription (
     SubscriptionId UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID() PRIMARY KEY,
     TenantId UNIQUEIDENTIFIER NOT NULL,
     PlanCode NVARCHAR(50) NOT NULL,
@@ -20,13 +20,13 @@ CREATE TABLE omni.Subscription (
     ExpiresAt DATETIME2 NOT NULL,
     IsActive BIT NOT NULL DEFAULT 1,
     CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
-    CONSTRAINT FK_Subscription_Tenant FOREIGN KEY (TenantId) REFERENCES omni.Tenant(TenantId)
+    CONSTRAINT FK_Subscription_Tenant FOREIGN KEY (TenantId) REFERENCES altdesk.Tenant(TenantId)
 );
 GO
-CREATE INDEX IX_Subscription_Tenant_Active ON omni.Subscription(TenantId, IsActive, ExpiresAt);
+CREATE INDEX IX_Subscription_Tenant_Active ON altdesk.Subscription(TenantId, IsActive, ExpiresAt);
 GO
 
-CREATE TABLE omni.[User] (
+CREATE TABLE altdesk.[User] (
     UserId UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID() PRIMARY KEY,
     TenantId UNIQUEIDENTIFIER NOT NULL,
     Email NVARCHAR(320) NOT NULL,
@@ -37,13 +37,13 @@ CREATE TABLE omni.[User] (
     CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
     LastLoginAt DATETIME2 NULL,
     CONSTRAINT UQ_User_Tenant_Email UNIQUE (TenantId, Email),
-    CONSTRAINT FK_User_Tenant FOREIGN KEY (TenantId) REFERENCES omni.Tenant(TenantId)
+    CONSTRAINT FK_User_Tenant FOREIGN KEY (TenantId) REFERENCES altdesk.Tenant(TenantId)
 );
 GO
-CREATE INDEX IX_User_Tenant_Role ON omni.[User](TenantId, Role, IsActive);
+CREATE INDEX IX_User_Tenant_Role ON altdesk.[User](TenantId, Role, IsActive);
 GO
 
-CREATE TABLE omni.Agent (
+CREATE TABLE altdesk.Agent (
     AgentId UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID() PRIMARY KEY,
     TenantId UNIQUEIDENTIFIER NOT NULL,
     UserId UNIQUEIDENTIFIER NULL,
@@ -51,25 +51,25 @@ CREATE TABLE omni.Agent (
     Name NVARCHAR(200) NOT NULL,
     IsActive BIT NOT NULL DEFAULT 1,
     CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
-    CONSTRAINT FK_Agent_Tenant FOREIGN KEY (TenantId) REFERENCES omni.Tenant(TenantId),
-    CONSTRAINT FK_Agent_User FOREIGN KEY (UserId) REFERENCES omni.[User](UserId)
+    CONSTRAINT FK_Agent_Tenant FOREIGN KEY (TenantId) REFERENCES altdesk.Tenant(TenantId),
+    CONSTRAINT FK_Agent_User FOREIGN KEY (UserId) REFERENCES altdesk.[User](UserId)
 );
 GO
-CREATE INDEX IX_Agent_Tenant_Active ON omni.Agent(TenantId, IsActive, Kind);
+CREATE INDEX IX_Agent_Tenant_Active ON altdesk.Agent(TenantId, IsActive, Kind);
 GO
 
-CREATE TABLE omni.Channel (
+CREATE TABLE altdesk.Channel (
     ChannelId UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID() PRIMARY KEY,
     TenantId UNIQUEIDENTIFIER NOT NULL,
     Type NVARCHAR(50) NOT NULL, -- WHATSAPP, WEBCHAT, etc.
     Name NVARCHAR(200) NOT NULL,
     IsActive BIT NOT NULL DEFAULT 1,
     CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
-    CONSTRAINT FK_Channel_Tenant FOREIGN KEY (TenantId) REFERENCES omni.Tenant(TenantId)
+    CONSTRAINT FK_Channel_Tenant FOREIGN KEY (TenantId) REFERENCES altdesk.Tenant(TenantId)
 );
 GO
 
-CREATE TABLE omni.ChannelConnector (
+CREATE TABLE altdesk.ChannelConnector (
     ConnectorId UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID() PRIMARY KEY,
     ChannelId UNIQUEIDENTIFIER NOT NULL,
     Provider NVARCHAR(30) NOT NULL DEFAULT 'GENERIC', -- GTI | ZAPI | OFFICIAL
@@ -78,11 +78,11 @@ CREATE TABLE omni.ChannelConnector (
     WebhookSecret NVARCHAR(200) NULL,
     IsActive BIT NOT NULL DEFAULT 1,
     CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
-    CONSTRAINT FK_Connector_Channel FOREIGN KEY (ChannelId) REFERENCES omni.Channel(ChannelId)
+    CONSTRAINT FK_Connector_Channel FOREIGN KEY (ChannelId) REFERENCES altdesk.Channel(ChannelId)
 );
 GO
 
-CREATE TABLE omni.Conversation (
+CREATE TABLE altdesk.Conversation (
     ConversationId UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID() PRIMARY KEY,
     TenantId UNIQUEIDENTIFIER NOT NULL,
     ChannelId UNIQUEIDENTIFIER NULL,
@@ -91,25 +91,25 @@ CREATE TABLE omni.Conversation (
     Status NVARCHAR(20) NOT NULL DEFAULT 'OPEN',
     CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
     LastMessageAt DATETIME2 NULL,
-    CONSTRAINT FK_Conversation_Tenant FOREIGN KEY (TenantId) REFERENCES omni.Tenant(TenantId),
-    CONSTRAINT FK_Conversation_Channel FOREIGN KEY (ChannelId) REFERENCES omni.Channel(ChannelId)
+    CONSTRAINT FK_Conversation_Tenant FOREIGN KEY (TenantId) REFERENCES altdesk.Tenant(TenantId),
+    CONSTRAINT FK_Conversation_Channel FOREIGN KEY (ChannelId) REFERENCES altdesk.Channel(ChannelId)
 );
 GO
-CREATE INDEX IX_Conversation_Tenant_LastMessage ON omni.Conversation(TenantId, LastMessageAt DESC);
+CREATE INDEX IX_Conversation_Tenant_LastMessage ON altdesk.Conversation(TenantId, LastMessageAt DESC);
 GO
 
-CREATE TABLE omni.ConversationMember (
+CREATE TABLE altdesk.ConversationMember (
     ConversationId UNIQUEIDENTIFIER NOT NULL,
     AgentId UNIQUEIDENTIFIER NOT NULL,
     Role NVARCHAR(50) NOT NULL,
     JoinedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
     PRIMARY KEY (ConversationId, AgentId),
-    CONSTRAINT FK_ConvMember_Conversation FOREIGN KEY (ConversationId) REFERENCES omni.Conversation(ConversationId),
-    CONSTRAINT FK_ConvMember_Agent FOREIGN KEY (AgentId) REFERENCES omni.Agent(AgentId)
+    CONSTRAINT FK_ConvMember_Conversation FOREIGN KEY (ConversationId) REFERENCES altdesk.Conversation(ConversationId),
+    CONSTRAINT FK_ConvMember_Agent FOREIGN KEY (AgentId) REFERENCES altdesk.Agent(AgentId)
 );
 GO
 
-CREATE TABLE omni.Message (
+CREATE TABLE altdesk.Message (
     MessageId UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID() PRIMARY KEY,
     TenantId UNIQUEIDENTIFIER NOT NULL,
     ConversationId UNIQUEIDENTIFIER NOT NULL,
@@ -119,15 +119,15 @@ CREATE TABLE omni.Message (
     Body NVARCHAR(MAX) NOT NULL,
     PayloadJson NVARCHAR(MAX) NULL,
     CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
-    CONSTRAINT FK_Message_Tenant FOREIGN KEY (TenantId) REFERENCES omni.Tenant(TenantId),
-    CONSTRAINT FK_Message_Conversation FOREIGN KEY (ConversationId) REFERENCES omni.Conversation(ConversationId),
-    CONSTRAINT FK_Message_SenderAgent FOREIGN KEY (SenderAgentId) REFERENCES omni.Agent(AgentId)
+    CONSTRAINT FK_Message_Tenant FOREIGN KEY (TenantId) REFERENCES altdesk.Tenant(TenantId),
+    CONSTRAINT FK_Message_Conversation FOREIGN KEY (ConversationId) REFERENCES altdesk.Conversation(ConversationId),
+    CONSTRAINT FK_Message_SenderAgent FOREIGN KEY (SenderAgentId) REFERENCES altdesk.Agent(AgentId)
 );
 GO
-CREATE INDEX IX_Message_Conversation_Time ON omni.Message(ConversationId, CreatedAt DESC);
+CREATE INDEX IX_Message_Conversation_Time ON altdesk.Message(ConversationId, CreatedAt DESC);
 GO
 
-CREATE TABLE omni.Ticket (
+CREATE TABLE altdesk.Ticket (
     TicketId UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID() PRIMARY KEY,
     TenantId UNIQUEIDENTIFIER NOT NULL,
     ConversationId UNIQUEIDENTIFIER NOT NULL,
@@ -138,15 +138,15 @@ CREATE TABLE omni.Ticket (
     SLA_DueAt DATETIME2 NULL,
     CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
     UpdatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
-    CONSTRAINT FK_Ticket_Tenant FOREIGN KEY (TenantId) REFERENCES omni.Tenant(TenantId),
-    CONSTRAINT FK_Ticket_Conversation FOREIGN KEY (ConversationId) REFERENCES omni.Conversation(ConversationId),
-    CONSTRAINT FK_Ticket_AssignedAgent FOREIGN KEY (AssignedAgentId) REFERENCES omni.Agent(AgentId)
+    CONSTRAINT FK_Ticket_Tenant FOREIGN KEY (TenantId) REFERENCES altdesk.Tenant(TenantId),
+    CONSTRAINT FK_Ticket_Conversation FOREIGN KEY (ConversationId) REFERENCES altdesk.Conversation(ConversationId),
+    CONSTRAINT FK_Ticket_AssignedAgent FOREIGN KEY (AssignedAgentId) REFERENCES altdesk.Agent(AgentId)
 );
 GO
-CREATE INDEX IX_Ticket_Tenant_Status ON omni.Ticket(TenantId, Status, Priority);
+CREATE INDEX IX_Ticket_Tenant_Status ON altdesk.Ticket(TenantId, Status, Priority);
 GO
 
-CREATE TABLE omni.LLMUsage (
+CREATE TABLE altdesk.LLMUsage (
     UsageId UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID() PRIMARY KEY,
     TenantId UNIQUEIDENTIFIER NOT NULL,
     UserId UNIQUEIDENTIFIER NULL,
@@ -158,13 +158,13 @@ CREATE TABLE omni.LLMUsage (
     TotalTokens INT NOT NULL DEFAULT 0,
     CostUSD DECIMAL(18,6) NULL,
     CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
-    CONSTRAINT FK_LLMUsage_Tenant FOREIGN KEY (TenantId) REFERENCES omni.Tenant(TenantId),
-    CONSTRAINT FK_LLMUsage_User FOREIGN KEY (UserId) REFERENCES omni.[User](UserId),
-    CONSTRAINT FK_LLMUsage_Conversation FOREIGN KEY (ConversationId) REFERENCES omni.Conversation(ConversationId)
+    CONSTRAINT FK_LLMUsage_Tenant FOREIGN KEY (TenantId) REFERENCES altdesk.Tenant(TenantId),
+    CONSTRAINT FK_LLMUsage_User FOREIGN KEY (UserId) REFERENCES altdesk.[User](UserId),
+    CONSTRAINT FK_LLMUsage_Conversation FOREIGN KEY (ConversationId) REFERENCES altdesk.Conversation(ConversationId)
 );
 GO
 
-CREATE TABLE omni.ExternalThreadMap (
+CREATE TABLE altdesk.ExternalThreadMap (
     TenantId UNIQUEIDENTIFIER NOT NULL,
     ConnectorId UNIQUEIDENTIFIER NOT NULL,
     ExternalChatId NVARCHAR(200) NOT NULL,
@@ -172,8 +172,8 @@ CREATE TABLE omni.ExternalThreadMap (
     ConversationId UNIQUEIDENTIFIER NOT NULL,
     CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
     PRIMARY KEY (TenantId, ConnectorId, ExternalChatId),
-    CONSTRAINT FK_ETM_Conversation FOREIGN KEY (ConversationId) REFERENCES omni.Conversation(ConversationId)
+    CONSTRAINT FK_ETM_Conversation FOREIGN KEY (ConversationId) REFERENCES altdesk.Conversation(ConversationId)
 );
 GO
-CREATE INDEX IX_ETM_User ON omni.ExternalThreadMap(TenantId, ConnectorId, ExternalUserId);
+CREATE INDEX IX_ETM_User ON altdesk.ExternalThreadMap(TenantId, ConnectorId, ExternalUserId);
 GO

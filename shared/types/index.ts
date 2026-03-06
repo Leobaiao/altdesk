@@ -24,13 +24,28 @@ export interface Conversation {
     Title: string;
     Status: "OPEN" | "RESOLVED";
     Kind: "WHATSAPP" | "WEBCHAT" | "INTERNAL";
+    SourceChannel?: string;
     CreatedAt?: string;
     LastMessageAt: string;
+    FirstResponseAt?: string;
+    ClosedAt?: string;
+    CsatScore?: number;
+    SlaDeadline?: string;
+    SlaStatus?: "PENDING" | "MET" | "VIOLATED";
     ExternalUserId: string;
     UnreadCount: number;
     QueueId?: string | null;
     QueueName?: string | null;
     AssignedUserId?: string | null;
+    Tags?: Tag[];
+}
+
+export interface Tag {
+    TagId: string;
+    TenantId: string;
+    Name: string;
+    Color: string;
+    CreatedAt?: string;
 }
 
 export interface Message {
@@ -44,6 +59,17 @@ export interface Message {
     MediaUrl?: string | null;
     Status?: "SENT" | "DELIVERED" | "READ" | "FAILED" | null;
     CreatedAt: string;
+}
+
+export interface KnowledgeArticle {
+    ArticleId: string;
+    TenantId: string;
+    Title: string;
+    Content: string;
+    Category?: string;
+    IsPublic: boolean;
+    CreatedAt?: string;
+    UpdatedAt?: string;
 }
 
 export interface Queue {

@@ -1,11 +1,13 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
-import { MessageCircleOff, ArrowLeft, Trash2, CheckCircle, RotateCcw, Users as UsersIcon, Zap, ChevronDown, Smile, FileText, Send, UserPlus } from "lucide-react";
+import { MessageCircleOff, ArrowLeft, Trash2, CheckCircle, RotateCcw, Users as UsersIcon, Zap, ChevronDown, Smile, FileText, Send, UserPlus, StickyNote } from "lucide-react";
 import { useChat } from "../contexts/ChatContext";
 import { AudioPlayer } from "./AudioPlayer";
 import { EmojiPicker } from "./EmojiPicker";
 import { TemplateModal } from "./TemplateModal";
 import { ImageViewerModal } from "./ImageViewerModal";
 import { DocumentCard } from "./DocumentCard";
+import { TagPill } from "./TagPill";
+import type { Tag } from "../../../shared/types";
 
 import { api } from "../lib/api";
 
@@ -46,6 +48,9 @@ export function ChatWindow({ setView, showToast }: { setView: (v: any) => void, 
     const [showTemplateModal, setShowTemplateModal] = useState(false);
     const [viewingImage, setViewingImage] = useState<string | null>(null);
 
+    // Internal Note mode
+    const [noteMode, setNoteMode] = useState(false);
+
     // Canned Responses
     const [cannedResponses, setCannedResponses] = useState<any[]>([]);
     const [showCannedMenu, setShowCannedMenu] = useState(false);
@@ -56,11 +61,16 @@ export function ChatWindow({ setView, showToast }: { setView: (v: any) => void, 
     const [usersToAssign, setUsersToAssign] = useState<any[]>([]);
     const [queuesToAssign, setQueuesToAssign] = useState<any[]>([]);
     const [assignTab, setAssignTab] = useState<"USERS" | "QUEUES">("USERS");
+    const [transferReason, setTransferReason] = useState("");
 
     // Save Contact
     const [contactExists, setContactExists] = useState(true); // default true to hide button until checked
     const [showContactModal, setShowContactModal] = useState(false);
     const [contactForm, setContactForm] = useState({ name: "", phone: "", email: "", company: "" });
+
+    // Tag Management
+    const [allTags, setAllTags] = useState<Tag[]>([]);
+    const [showTagMenu, setShowTagMenu] = useState(false);
 
     const userId = getUserIdFromToken();
 
@@ -78,6 +88,12 @@ export function ChatWindow({ setView, showToast }: { setView: (v: any) => void, 
             })
             .catch(() => setContactExists(true));
     }, [selectedConversationId]);
+
+    useEffect(() => {
+        api.get<any[]>("/api/tags")
+            .then(res => setAllTags(Array.isArray(res.data) ? res.data : []))
+            .catch(console.error);
+    }, []);
 
     useEffect(() => {
         api.get<any[]>("/api/canned-responses")
@@ -134,7 +150,11 @@ export function ChatWindow({ setView, showToast }: { setView: (v: any) => void, 
         if (!bodyText.trim() || !selectedConversationId || sending) return;
         setSending(true);
         try {
-            await api.post(`/api/conversations/${selectedConversationId}/reply`, { text: bodyText });
+            if (noteMode && !contentOverride) {
+                await api.post(`/api/conversations/${selectedConversationId}/note`, { text: bodyText });
+            } else {
+                await api.post(`/api/conversations/${selectedConversationId}/reply`, { text: bodyText });
+            }
 
             if (!contentOverride) setText("");
             setShowScrollButton(false);
@@ -154,9 +174,25 @@ export function ChatWindow({ setView, showToast }: { setView: (v: any) => void, 
 
     async function handleAssign(queueId: string | null, assignUserId: string | null) {
         if (!selectedConversationId) return;
-        await api.post(`/api/conversations/${selectedConversationId}/assign`, { queueId, userId: assignUserId });
+        await api.post(`/api/conversations/${selectedConversationId}/assign`, { queueId, userId: assignUserId, reason: transferReason || undefined });
         refreshConversations();
-        if (showAssignModal) setShowAssignModal(false);
+        if (showAssignModal) {
+            setShowAssignModal(false);
+            setTransferReason("");
+        }
+    }
+
+    async function handleAddTag(tagId: string) {
+        if (!selectedConversationId) return;
+        await api.post(`/api/tags/conversations/${selectedConversationId}`, { tagId });
+        refreshConversations();
+        setShowTagMenu(false);
+    }
+
+    async function handleRemoveTag(tagId: string) {
+        if (!selectedConversationId) return;
+        await api.delete(`/api/tags/conversations/${selectedConversationId}/${tagId}`);
+        refreshConversations();
     }
 
     async function openAssignModal() {
@@ -201,6 +237,37 @@ export function ChatWindow({ setView, showToast }: { setView: (v: any) => void, 
                             {formatPhone(selectedConversation.ExternalUserId)} • {selectedConversation.Kind} • {selectedConversation.Status}
                             {selectedConversation.QueueName && ` • Fila: ${selectedConversation.QueueName}`}
                         </p>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 5 }}>
+                            {selectedConversation.Tags?.map(tag => (
+                                <TagPill key={tag.TagId} tag={tag} onRemove={() => handleRemoveTag(tag.TagId)} />
+                            ))}
+                            <div style={{ position: "relative" }}>
+                                <button
+                                    onClick={() => setShowTagMenu(!showTagMenu)}
+                                    style={{ background: "none", border: "1px dashed var(--border)", color: "var(--text-secondary)", cursor: "pointer", fontSize: "0.7rem", padding: "1px 6px", borderRadius: 10, display: "flex", alignItems: "center" }}
+                                >
+                                    + Tag
+                                </button>
+                                {showTagMenu && (
+                                    <div style={{ position: "absolute", top: 25, left: 0, background: "var(--bg-secondary)", border: "1px solid var(--border)", borderRadius: 8, zIndex: 100, width: 150, maxHeight: 150, overflowY: "auto", boxShadow: "0 4px 12px rgba(0,0,0,0.2)" }}>
+                                        {allTags.filter(t => !selectedConversation.Tags?.some(st => st.TagId === t.TagId)).map(t => (
+                                            <div
+                                                key={t.TagId}
+                                                onClick={() => handleAddTag(t.TagId)}
+                                                style={{ padding: "6px 10px", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, fontSize: "0.8rem", borderBottom: "1px solid var(--border)" }}
+                                                className="tag-menu-item"
+                                            >
+                                                <div style={{ width: 10, height: 10, borderRadius: "50%", background: t.Color }} />
+                                                {t.Name}
+                                            </div>
+                                        ))}
+                                        {allTags.filter(t => !selectedConversation.Tags?.some(st => st.TagId === t.TagId)).length === 0 && (
+                                            <div style={{ padding: 10, fontSize: "0.75rem", color: "#888" }}>Nenhuma tag disponível</div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div className="actions" style={{ display: "flex", gap: 10, flexShrink: 0 }}>
@@ -286,8 +353,11 @@ export function ChatWindow({ setView, showToast }: { setView: (v: any) => void, 
 
             <div className="chat-messages" ref={chatContainerRef} onScroll={handleScroll}>
                 {messages.map((m) => (
-                    <div key={m.MessageId} className={`bubble-row ${m.Direction === "OUT" ? "out" : "in"}`}>
-                        <div className="bubble">
+                    <div key={m.MessageId} className={`bubble-row ${m.Direction === "INTERNAL" ? "internal" : m.Direction === "OUT" ? "out" : "in"}`}>
+                        <div className="bubble" style={m.Direction === "INTERNAL" ? { background: "#fef3c7", border: "1px solid #fbbf24" } : undefined}>
+                            {m.Direction === "INTERNAL" && (
+                                <div className="sender" style={{ color: "#92400e", display: "flex", alignItems: "center", gap: 4 }}>📌 Nota Interna</div>
+                            )}
                             {m.Direction === "IN" && (
                                 <div className="sender">{selectedConversation.Title && !selectedConversation.Title.startsWith("WhatsApp") ? selectedConversation.Title : formatPhone(m.SenderExternalId) || "Cliente"}</div>
                             )}
@@ -312,7 +382,7 @@ export function ChatWindow({ setView, showToast }: { setView: (v: any) => void, 
                                 <DocumentCard url={m.MediaUrl} name={m.Body || 'Documento'} direction={m.Direction as any} />
                             )}
 
-                            <div className="text">{m.Body}</div>
+                            <div className="text" style={m.Direction === "INTERNAL" ? { color: "#78350f" } : undefined}>{m.Body}</div>
                             <div className="timestamp">
                                 {formatTime(m.CreatedAt)}
                                 {m.Direction === "OUT" && (
@@ -369,15 +439,23 @@ export function ChatWindow({ setView, showToast }: { setView: (v: any) => void, 
                 <button onClick={() => setShowTemplateModal(true)} style={{ background: "none", border: "none", cursor: "pointer", padding: "0 10px", color: "var(--text-secondary)" }} title="Modelos (HSM)">
                     <FileText size={24} />
                 </button>
+                <button
+                    onClick={() => setNoteMode(!noteMode)}
+                    style={{ background: "none", border: "none", cursor: "pointer", padding: "0 10px", color: noteMode ? "#f59e0b" : "var(--text-secondary)" }}
+                    title={noteMode ? "Modo Nota (clique para voltar)" : "Nota Interna"}
+                >
+                    <StickyNote size={24} />
+                </button>
                 <input
                     ref={inputRef}
-                    placeholder="Digite uma mensagem (ou / para respostas rápidas)"
+                    placeholder={noteMode ? "📌 Escreva uma nota interna..." : "Digite uma mensagem (ou / para respostas rápidas)"}
                     value={text}
                     onChange={handleInput}
                     onKeyDown={handleKeyDown}
+                    style={noteMode ? { background: "#fef3c7", color: "#78350f" } : undefined}
                 />
-                <button className="btn btn-primary" onClick={() => sendReply()} disabled={sending} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <Send size={18} /> {sending ? "Enviando…" : "Enviar"}
+                <button className={noteMode ? "btn" : "btn btn-primary"} onClick={() => sendReply()} disabled={sending} style={{ display: "flex", alignItems: "center", gap: 6, ...(noteMode ? { background: "#f59e0b", color: "#fff", border: "none", borderRadius: 6, padding: "8px 16px", cursor: "pointer" } : {}) }}>
+                    {noteMode ? <StickyNote size={18} /> : <Send size={18} />} {sending ? "Enviando…" : noteMode ? "Nota" : "Enviar"}
                 </button>
             </div>
 
@@ -402,6 +480,16 @@ export function ChatWindow({ setView, showToast }: { setView: (v: any) => void, 
                 }}>
                     <div style={{ background: "var(--bg-secondary)", padding: 25, borderRadius: 10, width: 420 }}>
                         <h3 style={{ marginTop: 0, marginBottom: 20 }}>Transferir Atendimento</h3>
+
+                        <div style={{ marginBottom: 15 }}>
+                            <label style={{ display: "block", marginBottom: 6, fontSize: "0.85rem", color: "#8696a0" }}>Motivo da transferência (opcional)</label>
+                            <textarea
+                                value={transferReason}
+                                onChange={e => setTransferReason(e.target.value)}
+                                placeholder="Ex: Cliente precisa de suporte técnico avançado..."
+                                style={{ width: "100%", padding: 10, borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", resize: "vertical", minHeight: 60, fontFamily: "inherit", fontSize: 14, boxSizing: "border-box" }}
+                            />
+                        </div>
 
                         <div style={{ display: "flex", borderBottom: "1px solid var(--border)", marginBottom: 15 }}>
                             <button

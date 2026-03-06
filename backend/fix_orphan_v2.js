@@ -5,7 +5,7 @@ async function main() {
         const pool = await getPool();
 
         // Find the conversation
-        const convRes = await pool.query("SELECT TOP 1 ConversationId, TenantId FROM omni.Conversation WHERE Title LIKE '%leo%'");
+        const convRes = await pool.query("SELECT TOP 1 ConversationId, TenantId FROM altdesk.Conversation WHERE Title LIKE '%leo%'");
         if (convRes.recordset.length === 0) {
             console.error('Conversation not found');
             process.exit(1);
@@ -13,7 +13,7 @@ async function main() {
         const { ConversationId, TenantId } = convRes.recordset[0];
 
         // Find connector
-        const connRes = await pool.query("SELECT TOP 1 ConnectorId FROM omni.ChannelConnector WHERE Provider = 'GTI' AND IsActive = 1");
+        const connRes = await pool.query("SELECT TOP 1 ConnectorId FROM altdesk.ChannelConnector WHERE Provider = 'GTI' AND IsActive = 1");
         if (connRes.recordset.length === 0) {
             console.error('Active GTI connector not found');
             process.exit(1);
@@ -29,9 +29,9 @@ async function main() {
             .input("externalId", phone)
             .input("conversationId", ConversationId)
             .query(`
-                DELETE FROM omni.ExternalThreadMap WHERE ConversationId = @conversationId;
+                DELETE FROM altdesk.ExternalThreadMap WHERE ConversationId = @conversationId;
                 
-                INSERT INTO omni.ExternalThreadMap (TenantId, ConnectorId, ExternalChatId, ExternalUserId, ConversationId)
+                INSERT INTO altdesk.ExternalThreadMap (TenantId, ConnectorId, ExternalChatId, ExternalUserId, ConversationId)
                 VALUES (@tenantId, @connectorId, @externalId, @externalId, @conversationId);
             `);
 

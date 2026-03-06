@@ -21,14 +21,14 @@ async function run() {
     const tenantId = "42D2AD5C-D9D1-4FF9-A285-7DD0CE4CDE5D";
 
     // Check Channel
-    let channel = await pool.query(`SELECT TOP 1 ChannelId FROM omni.Channel WHERE TenantId='${tenantId}'`);
+    let channel = await pool.query(`SELECT TOP 1 ChannelId FROM altdesk.Channel WHERE TenantId='${tenantId}'`);
     let channelId = "";
 
     if (channel.recordset.length === 0) {
         console.log("Creating dummy Channel...");
         const res = await pool.query(`
             DECLARE @cid UNIQUEIDENTIFIER = NEWID();
-            INSERT INTO omni.Channel (ChannelId, TenantId, Name, IsActive)
+            INSERT INTO altdesk.Channel (ChannelId, TenantId, Name, IsActive)
             VALUES (@cid, '${tenantId}', 'WhatsApp Principal', 1);
             SELECT @cid AS ChannelId;
         `);
@@ -39,11 +39,11 @@ async function run() {
     }
 
     // Check Connector
-    const conn = await pool.query(`SELECT TOP 1 ConnectorId FROM omni.ChannelConnector WHERE ChannelId='${channelId}' AND Provider='WHATSAPP'`);
+    const conn = await pool.query(`SELECT TOP 1 ConnectorId FROM altdesk.ChannelConnector WHERE ChannelId='${channelId}' AND Provider='WHATSAPP'`);
     if (conn.recordset.length === 0) {
         console.log("Creating dummy Connector...");
         await pool.query(`
-            INSERT INTO omni.ChannelConnector (ConnectorId, ChannelId, Provider, ConfigJson, IsActive)
+            INSERT INTO altdesk.ChannelConnector (ConnectorId, ChannelId, Provider, ConfigJson, IsActive)
             VALUES (NEWID(), '${channelId}', 'WHATSAPP', '{}', 1);
         `);
     } else {
@@ -51,11 +51,11 @@ async function run() {
     }
 
     // Check WebChat Connector
-    const wc = await pool.query(`SELECT TOP 1 ConnectorId FROM omni.ChannelConnector WHERE ChannelId='${channelId}' AND Provider='WEBCHAT'`);
+    const wc = await pool.query(`SELECT TOP 1 ConnectorId FROM altdesk.ChannelConnector WHERE ChannelId='${channelId}' AND Provider='WEBCHAT'`);
     if (wc.recordset.length === 0) {
         console.log("Creating dummy WebChat Connector...");
         await pool.query(`
-            INSERT INTO omni.ChannelConnector (ConnectorId, ChannelId, Provider, ConfigJson, IsActive)
+            INSERT INTO altdesk.ChannelConnector (ConnectorId, ChannelId, Provider, ConfigJson, IsActive)
             VALUES (NEWID(), '${channelId}', 'WEBCHAT', '{}', 1);
         `);
     } else {

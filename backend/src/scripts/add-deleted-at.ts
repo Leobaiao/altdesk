@@ -4,9 +4,9 @@ async function run() {
     const pool = await getPool();
     try {
         await pool.request().query(`
-            IF COL_LENGTH('omni.ChannelConnector', 'DeletedAt') IS NULL
+            IF COL_LENGTH('altdesk.ChannelConnector', 'DeletedAt') IS NULL
             BEGIN
-                ALTER TABLE omni.ChannelConnector ADD DeletedAt DATETIME2 NULL;
+                ALTER TABLE altdesk.ChannelConnector ADD DeletedAt DATETIME2 NULL;
             END
         `);
         console.log("DeletedAt column added successfully.");

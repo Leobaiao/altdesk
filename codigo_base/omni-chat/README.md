@@ -1,4 +1,4 @@
-# OmniChat (dev scaffold)
+# AltDesk (dev scaffold)
 Starter kit para um sistema omnichannel (WhatsApp não-oficial + oficial), multi-agente, tickets/escalonamento, respostas rápidas e automações.
 **Ambiente alvo inicial:** SQL Server Express/Dev (local). Depois migra para nuvem sem refazer.
 
@@ -8,7 +8,7 @@ Starter kit para um sistema omnichannel (WhatsApp não-oficial + oficial), multi
 - (Opcional) Docker Desktop
 
 ## 1) Banco (SQL Server)
-Crie um banco chamado `OmniChatDev` e rode os scripts na ordem:
+Crie um banco chamado `AltDeskDev` e rode os scripts na ordem:
 1. `db/01-schema.sql`
 2. `db/02-canned-and-automation.sql`
 3. (Opcional) `db/03-seed.sql`

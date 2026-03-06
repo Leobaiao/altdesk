@@ -20,7 +20,7 @@ const config: SqlConfig = {
   }
 };
 
-let pool: any = null;
+let pool: pkg.ConnectionPool | null = null;
 
 export async function getPool() {
   if (pool) return pool;

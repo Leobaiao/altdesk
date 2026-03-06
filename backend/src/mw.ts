@@ -1,11 +1,12 @@
-import { NextFunction, Request, Response } from "express";
+import { NextFunction, Response } from "express";
 import { verifyToken } from "./auth.js";
+import { AuthenticatedRequest } from "./types/index.js";
 
-export function authMw(req: Request, res: Response, next: NextFunction) {
+export function authMw(req: any, res: Response, next: NextFunction) {
   const h = req.headers.authorization;
   if (!h?.startsWith("Bearer ")) return res.status(401).json({ error: "No token" });
   try {
-    (req as any).user = verifyToken(h.slice(7));
+    req.user = verifyToken(h.slice(7));
     next();
   } catch {
     return res.status(401).json({ error: "Invalid token" });
@@ -13,8 +14,8 @@ export function authMw(req: Request, res: Response, next: NextFunction) {
 }
 
 export function requireRole(...roles: string[]) {
-  return (req: Request, res: Response, next: NextFunction) => {
-    const u = (req as any).user;
+  return (req: any, res: Response, next: NextFunction) => {
+    const u = req.user;
     if (!u) return res.status(403).json({ error: "Forbidden" });
 
     // SUPERADMIN can access ADMIN routes

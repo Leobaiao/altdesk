@@ -14,7 +14,7 @@ export async function listTemplates(tenantId: string): Promise<Template[]> {
     const result = await pool.request()
         .input("tenantId", tenantId)
         .query(`
-      SELECT * FROM omni.Template
+      SELECT * FROM altdesk.Template
       WHERE TenantId = @tenantId
       ORDER BY Name ASC
     `);
@@ -33,7 +33,7 @@ export async function createTemplate(tenantId: string, name: string, content: st
         .input("content", content)
         .input("variables", JSON.stringify(variables))
         .query(`
-      INSERT INTO omni.Template (TenantId, Name, Content, Variables)
+      INSERT INTO altdesk.Template (TenantId, Name, Content, Variables)
       VALUES (@tenantId, @name, @content, @variables)
     `);
 }
@@ -44,7 +44,7 @@ export async function deleteTemplate(tenantId: string, templateId: string) {
         .input("tenantId", tenantId)
         .input("templateId", templateId)
         .query(`
-      DELETE FROM omni.Template
+      DELETE FROM altdesk.Template
       WHERE TenantId = @tenantId AND TemplateId = @templateId
     `);
 }

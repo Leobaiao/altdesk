@@ -1,10 +1,16 @@
 import { Router } from "express";
 import { resolveConversationForInbound, saveInboundMessage, updateMessageStatus } from "../services/conversation.js";
 import { Orchestrator, TriageBot } from "../agents.js";
-import { loadConnector } from "../utils.js";
+import { loadConnector, verifyWebhookSignature } from "../utils.js";
 import { processCpfValidationFlow, getPendingCpfSession, findContactByCpf } from "../services/cpfValidation.js";
+import { webhookLimiter } from "../middleware/rateLimiter.js";
+import { emitConversationEvent } from "../services/socketService.js";
+import { isWithinBusinessHours, getOffHoursMessage } from "../services/businessHoursService.js";
+import { saveOutboundMessage } from "../services/conversation.js";
+import { listQueues, distributeConversation } from "../services/queue.js";
 
 const router = Router();
+router.use(webhookLimiter);
 const orch = new Orchestrator([new TriageBot()]);
 
 router.post("/whatsapp/:provider/:connectorId/*", async (req, res, next) => {
@@ -13,6 +19,21 @@ router.post("/whatsapp/:provider/:connectorId/*", async (req, res, next) => {
         const connectorId = req.params.connectorId;
 
         const connector = await loadConnector(connectorId);
+
+        // Security: Webhook Signature Verification
+        if (connector.WebhookSecret) {
+            const sig = req.headers["x-h-signature"] || req.headers["x-hub-signature-256"];
+            const isValid = verifyWebhookSignature(
+                (req as any).rawBody,
+                connector.WebhookSecret,
+                String(sig || ""),
+                provider
+            );
+            if (!isValid) {
+                console.warn(`[Webhook] Unauthorized attempt for connector ${connectorId}: Invalid Signature`);
+                return res.status(401).json({ error: "Unauthorized: Invalid Signature" });
+            }
+        }
         const adapters = req.app.get("adapters");
         const adapter = adapters[provider];
 
@@ -32,7 +53,7 @@ router.post("/whatsapp/:provider/:connectorId/*", async (req, res, next) => {
 
                 const io = req.app.get("io");
                 if (io && conversationId) {
-                    io.to(`tenant:${statusUpdate.tenantId}`).emit("message:status", {
+                    emitConversationEvent(io, statusUpdate.tenantId, conversationId, "message:status", {
                         conversationId,
                         externalMessageId: statusUpdate.externalMessageId,
                         status: statusUpdate.status
@@ -49,6 +70,22 @@ router.post("/whatsapp/:provider/:connectorId/*", async (req, res, next) => {
 
         const conversationId = await resolveConversationForInbound(inbound, connector.ConnectorId, connector.ChannelId);
         await saveInboundMessage(inbound, conversationId);
+
+        // --- Business Hours Check ---
+        const withinHours = await isWithinBusinessHours(inbound.tenantId);
+        if (!withinHours) {
+            const offMsg = await getOffHoursMessage(inbound.tenantId);
+            if (offMsg) {
+                try {
+                    const fetchConn = { ConnectorId: connector.ConnectorId, Provider: connector.Provider, ConfigJson: connector.ConfigJson };
+                    await adapter.sendText(fetchConn, inbound.externalUserId, offMsg);
+                    await saveOutboundMessage(inbound.tenantId, conversationId, offMsg);
+                } catch (err) {
+                    console.error("[BusinessHours] Error sending off-hours message:", err);
+                }
+            }
+        }
+        // --- End Business Hours Check ---
 
         // --- Fluxo de Validação de CPF ---
         // Verifica se existe sessão pendente de CPF OU se é um contato novo
@@ -87,8 +124,7 @@ router.post("/whatsapp/:provider/:connectorId/*", async (req, res, next) => {
 
         const io = req.app.get("io");
         if (io) {
-            // Emit to specific conversation room (for cross-tenant monitoring/SUPERADMIN)
-            io.to(conversationId).emit("message:new", {
+            emitConversationEvent(io, inbound.tenantId, conversationId, "message:new", {
                 conversationId,
                 senderExternalId: inbound.externalUserId,
                 text: inbound.text ?? `[${inbound.mediaType}]`,
@@ -97,17 +133,7 @@ router.post("/whatsapp/:provider/:connectorId/*", async (req, res, next) => {
                 direction: "IN"
             });
 
-            // Keep emitting to tenant room for sidebar updates
-            io.to(`tenant:${inbound.tenantId}`).emit("message:new", {
-                conversationId,
-                senderExternalId: inbound.externalUserId,
-                text: inbound.text ?? `[${inbound.mediaType}]`,
-                mediaType: inbound.mediaType,
-                mediaUrl: inbound.mediaUrl,
-                direction: "IN"
-            });
-
-            io.to(`tenant:${inbound.tenantId}`).emit("conversation:updated", {
+            emitConversationEvent(io, inbound.tenantId, conversationId, "conversation:updated", {
                 conversationId,
                 lastMessage: inbound.text ?? `[${inbound.mediaType}]`,
                 direction: "IN",
@@ -120,8 +146,24 @@ router.post("/whatsapp/:provider/:connectorId/*", async (req, res, next) => {
             tenantId: inbound.tenantId,
             conversationId,
             externalSenderId: inbound.externalUserId
-        }).then(decisions => {
-            // For now, decisions are just logged or can be used to trigger other actions/socket events
+        }).then(async decisions => {
+            const escalation = decisions.find(d => d.type === "ESCALATE");
+            if (escalation) {
+                // If AI escalates, try to distribute to a human agent
+                const queues = await listQueues(inbound.tenantId);
+                const targetQueue = queues[0]?.QueueId; // Pick first queue as default for now
+                if (targetQueue) {
+                    const assignedTo = await distributeConversation(inbound.tenantId, conversationId, targetQueue);
+                    if (assignedTo && io) {
+                        emitConversationEvent(io, inbound.tenantId, conversationId, "conversation:updated", {
+                            conversationId,
+                            assignedUserId: assignedTo,
+                            status: "OPEN",
+                            timestamp: new Date().toISOString()
+                        });
+                    }
+                }
+            }
         }).catch(err => {
             console.error("Orchestrator background error:", err);
         });
@@ -147,17 +189,16 @@ router.post("/external/webchat/message", async (req, res, next) => {
         const conversationId = await resolveConversationForInbound(inbound, connector.ConnectorId, connector.ChannelId);
         await saveInboundMessage(inbound, conversationId);
 
+        // --- Automatic Distribution ---
+        const queues = await listQueues(inbound.tenantId);
+        const targetQueue = queues[0]?.QueueId;
+        if (targetQueue) {
+            await distributeConversation(inbound.tenantId, conversationId, targetQueue);
+        }
+
         const io = req.app.get("io");
         if (io) {
-            io.to(`tenant:${inbound.tenantId}`).emit("message:new", {
-                conversationId,
-                senderExternalId: inbound.externalUserId,
-                text: inbound.text ?? `[${inbound.mediaType}]`,
-                mediaType: inbound.mediaType,
-                mediaUrl: inbound.mediaUrl,
-                direction: "IN"
-            });
-            io.to(conversationId).emit("message:new", {
+            emitConversationEvent(io, inbound.tenantId, conversationId, "message:new", {
                 conversationId,
                 senderExternalId: inbound.externalUserId,
                 text: inbound.text ?? `[${inbound.mediaType}]`,
