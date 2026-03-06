@@ -9,9 +9,9 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["favicon.ico", "apple-touch-icon.png", "masked-icon.svg"],
       manifest: {
-        name: "OmniChat",
-        short_name: "OmniChat",
-        description: "Plataforma de Atendimento OmniChannel",
+        name: "Altdesk",
+        short_name: "Altdesk",
+        description: "Plataforma de Atendimento e Chamados",
         theme_color: "#00a884",
         icons: [
           {
@@ -29,16 +29,17 @@ export default defineConfig({
     })
   ],
   server: {
-    port: 5173,
+    port: 5174,
     proxy: {
       "/api": {
-        target: "http://localhost:3001",
+        target: "http://localhost:3003",
         changeOrigin: true
       },
       "/socket.io": {
-        target: "http://localhost:3001",
+        target: "http://localhost:3003",
         ws: true
       }
     }
   }
 });
+
