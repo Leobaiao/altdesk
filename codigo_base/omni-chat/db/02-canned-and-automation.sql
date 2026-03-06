@@ -1,0 +1,60 @@
+-- Respostas rápidas e automações (MVP)
+CREATE TABLE omni.CannedResponse (
+  CannedResponseId UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID() PRIMARY KEY,
+  TenantId UNIQUEIDENTIFIER NOT NULL,
+  Title NVARCHAR(200) NOT NULL,
+  Category NVARCHAR(100) NOT NULL,
+  ChannelType NVARCHAR(50) NULL,
+  Body NVARCHAR(MAX) NOT NULL,
+  IsActive BIT NOT NULL DEFAULT 1,
+  CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+  UpdatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+  CONSTRAINT FK_CannedResponse_Tenant FOREIGN KEY (TenantId) REFERENCES omni.Tenant(TenantId)
+);
+GO
+CREATE INDEX IX_CannedResponse_Tenant_Category ON omni.CannedResponse(TenantId, Category, IsActive);
+GO
+
+CREATE TABLE omni.CannedShortcut (
+  ShortcutId UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID() PRIMARY KEY,
+  TenantId UNIQUEIDENTIFIER NOT NULL,
+  Shortcut NVARCHAR(50) NOT NULL,
+  CannedResponseId UNIQUEIDENTIFIER NOT NULL,
+  IsActive BIT NOT NULL DEFAULT 1,
+  CONSTRAINT UQ_Shortcut UNIQUE (TenantId, Shortcut),
+  CONSTRAINT FK_Shortcut_Response FOREIGN KEY (CannedResponseId) REFERENCES omni.CannedResponse(CannedResponseId),
+  CONSTRAINT FK_Shortcut_Tenant FOREIGN KEY (TenantId) REFERENCES omni.Tenant(TenantId)
+);
+GO
+
+CREATE TABLE omni.AutomationRule (
+  RuleId UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID() PRIMARY KEY,
+  TenantId UNIQUEIDENTIFIER NOT NULL,
+  Name NVARCHAR(200) NOT NULL,
+  ChannelType NVARCHAR(50) NULL,
+  TriggerType NVARCHAR(50) NOT NULL,
+  TriggerJson NVARCHAR(MAX) NOT NULL,
+  ActionType NVARCHAR(50) NOT NULL,
+  ActionJson NVARCHAR(MAX) NOT NULL,
+  IsActive BIT NOT NULL DEFAULT 1,
+  CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+  UpdatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+  CONSTRAINT FK_Rule_Tenant FOREIGN KEY (TenantId) REFERENCES omni.Tenant(TenantId)
+);
+GO
+CREATE INDEX IX_AutomationRule_Tenant_Active ON omni.AutomationRule(TenantId, IsActive, TriggerType);
+GO
+
+CREATE TABLE omni.AgentSuggestion (
+  SuggestionId UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID() PRIMARY KEY,
+  TenantId UNIQUEIDENTIFIER NOT NULL,
+  ConversationId UNIQUEIDENTIFIER NOT NULL,
+  RuleId UNIQUEIDENTIFIER NULL,
+  SuggestionText NVARCHAR(MAX) NOT NULL,
+  Status NVARCHAR(20) NOT NULL DEFAULT 'PENDING',
+  CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+  CONSTRAINT FK_Sugg_Tenant FOREIGN KEY (TenantId) REFERENCES omni.Tenant(TenantId),
+  CONSTRAINT FK_Sugg_Conversation FOREIGN KEY (ConversationId) REFERENCES omni.Conversation(ConversationId),
+  CONSTRAINT FK_Sugg_Rule FOREIGN KEY (RuleId) REFERENCES omni.AutomationRule(RuleId)
+);
+GO

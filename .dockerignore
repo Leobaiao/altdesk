@@ -1,0 +1,27 @@
+# Dependências
+**/node_modules
+**/dist
+**/build
+
+# Git
+.git
+.gitignore
+
+# Docker
+.dockerignore
+docker-compose.yml
+Dockerfile*
+
+# Logs
+**/logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode
+.idea
+.gemini

@@ -1,0 +1,70 @@
+services:
+  # Banco de Dados
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: omnichat_db
+    user: root
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=Intamr17@
+    ports:
+      - "14333:1433"
+    volumes:
+      - mssql_data:/var/opt/mssql
+      - ./backend/db:/docker-entrypoint-initdb.d
+    restart: always
+
+  # Migração do Banco (executa e encerra)
+  db-migrate:
+    image: mcr.microsoft.com/mssql-tools:latest
+    container_name: omnichat_migrate
+    depends_on:
+      - db
+    volumes:
+      - ./backend/db:/scripts
+    environment:
+      - SA_PASSWORD=Intamr17@
+    entrypoint: >
+      /bin/bash -c "
+        echo 'Aguardando SQL Server iniciar...';
+        sleep 15;
+        echo 'Executando migração...';
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d OmniChatDev -i /scripts/03-migration-roles-cpf-audit.sql;
+        echo 'Migração concluída!';
+      "
+
+  # Backend (API)
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: omnichat_api
+    depends_on:
+      - db
+    environment:
+      PORT: 3002
+      DB_USER: sa
+      DB_PASS: "Intamr17@"
+      DB_NAME: OmniChatDev
+      DB_HOST: db
+      JWT_SECRET: "Intamr17@"
+    ports:
+      - "3002:3002"
+    restart: always
+
+  # Frontend (React + Nginx)
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        - VITE_API_URL=
+    container_name: omnichat_web
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+    restart: always
+
+volumes:
+  mssql_data:

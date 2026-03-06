@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OmniChat Widget</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        #chat-widget {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 350px;
+            height: 500px;
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            display: flex;
+            flexDirection: column;
+            overflow: hidden;
+            border: 1px solid #ddd;
+        }
+
+        #header {
+            background: #00a884;
+            color: #fff;
+            padding: 15px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        #messages {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+            background: #efeae2;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .msg {
+            max-width: 80%;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            word-wrap: break-word;
+        }
+
+        .msg.in {
+            background: #fff;
+            align-self: flex-start;
+            border-top-left-radius: 0;
+        }
+
+        .msg.out {
+            background: #d9fdd3;
+            align-self: flex-end;
+            border-top-right-radius: 0;
+        }
+
+        #footer {
+            padding: 10px;
+            border-top: 1px solid #ddd;
+            display: flex;
+            gap: 10px;
+            background: #f0f2f5;
+        }
+
+        input {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 20px;
+            outline: none;
+        }
+
+        button {
+            background: #00a884;
+            color: #fff;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+        }
+
+        #minimized {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: #00a884;
+            color: #fff;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 30px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+    </style>
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+</head>
+
+<body>
+
+    <div id="minimized" onclick="toggleChat()">💬</div>
+
+    <div id="chat-widget">
+        <div id="header">
+            <span>Suporte Online</span>
+            <span style="cursor:pointer" onclick="toggleChat()">_</span>
+        </div>
+        <div id="messages"></div>
+        <div id="footer">
+            <input type="text" id="inp" placeholder="Digite sua mensagem..." onkeypress="onKey(event)">
+            <button onclick="send()">Enviar</button>
+        </div>
+    </div>
+
+    <script>
+        // Config: Connector ID do canal WebChat (será passado via query param ou hardcoded para teste)
+        // Para teste, o user deve substituir pelo ConnectorId real do banco
+        const CONNECTOR_ID = new URLSearchParams(window.location.search).get("cid") || "30D70369-AD3F-4186-A8F5-F93813F26133";
+        const API = "http://localhost:3001";
+
+        let userId = localStorage.getItem("omni_guest_id");
+        if (!userId) {
+            userId = "guest_" + Math.random().toString(36).substr(2, 9);
+            localStorage.setItem("omni_guest_id", userId);
+        }
+
+        const socket = io(API);
+        let conversationId = localStorage.getItem("omni_conv_" + CONNECTOR_ID);
+
+        // Join conversation room if known
+        if (conversationId) {
+            console.log("Rejoining conversation", conversationId);
+            socket.emit("conversation:join", conversationId);
+        }
+
+        socket.on("message:new", (m) => {
+            console.log("New message", m);
+            // Regra de exibição:
+            // Se m.direction == "IN" (backend says IN means Client->Server), então fomos nós.
+            // Se m.direction == "OUT" (backend says OUT means Server->Client), então foi o agente.
+
+            if (m.direction === "OUT") {
+                appendMsg(m.text, "in"); // Agente fala, aparece na esquerda (in)
+            } else {
+                // Se for IN, fomos nós. Mas nós já demos appendMsg("out") otimista.
+                // Para não duplicar, podemos ignorar ou só confirmar.
+                // Simplificação MVP: só exibe se não tivermos acabado de enviar (difícil sincronizar).
+                // Melhor: Otimista mostra, e aqui ignoramos IN.
+            }
+        });
+
+        function toggleChat() {
+            const w = document.getElementById("chat-widget");
+            const m = document.getElementById("minimized");
+            if (w.style.display === "none") {
+                w.style.display = "flex";
+                m.style.display = "none";
+            } else {
+                w.style.display = "none";
+                m.style.display = "flex";
+            }
+        }
+
+        function appendMsg(text, type) {
+            const d = document.createElement("div");
+            d.className = "msg " + type;
+            d.innerText = text;
+            document.getElementById("messages").appendChild(d);
+            document.getElementById("messages").scrollTop = document.getElementById("messages").scrollHeight;
+        }
+
+        function onKey(e) {
+            if (e.key === "Enter") send();
+        }
+
+        async function send() {
+            const inp = document.getElementById("inp");
+            const text = inp.value.trim();
+            if (!text) return;
+
+            appendMsg(text, "out");
+            inp.value = "";
+
+            try {
+                const res = await fetch(`${API}/api/external/webchat/message`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        connectorId: CONNECTOR_ID,
+                        senderId: userId,
+                        text: text,
+                        mediaType: "text"
+                    })
+                });
+                const data = await res.json();
+                if (data.conversationId && data.conversationId !== conversationId) {
+                    conversationId = data.conversationId;
+                    localStorage.setItem("omni_conv_" + CONNECTOR_ID, conversationId);
+                    socket.emit("conversation:join", conversationId);
+                }
+            } catch (e) {
+                console.error(e);
+                appendMsg("Erro ao enviar", "in");
+            }
+        }
+    </script>
+
+</body>
+
+</html>
