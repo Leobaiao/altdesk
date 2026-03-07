@@ -38,15 +38,14 @@ BEGIN
     INSERT INTO altdesk.Channel (ChannelId, TenantId, Name) VALUES (@ChannelId, @TenantId, 'Canal WhatsApp');
 END
 
-IF NOT EXISTS (SELECT * FROM altdesk.ChannelConnector WHERE ConnectorId = 'whatsapp-gti-dev')
+IF NOT EXISTS (SELECT * FROM altdesk.ChannelConnector WHERE ConnectorId = 'A45E1676-A820-46AD-8E51-4B414226CAC1')
 BEGIN
-    INSERT INTO altdesk.ChannelConnector (ConnectorId, ChannelId, Provider, ConfigJson, WebhookSecret)
+    INSERT INTO altdesk.ChannelConnector (ConnectorId, ChannelId, Provider, ConfigJson)
     VALUES (
-        'whatsapp-gti-dev',
+        'A45E1676-A820-46AD-8E51-4B414226CAC1',
         @ChannelId,
         'GTI',
-        '{"baseUrl":"https://api.gtiapi.workers.dev", "token":"DEMO_TOKEN", "instance":"dev"}',
-        'segredo-webhook'
+        '{"baseUrl":"https://evo.altdesk.com.br", "token":"d7ef03be-cce7-4725-9ce7-79afa277265b", "instance":"altdesk"}'
     );
 END
 GO

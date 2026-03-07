@@ -52,7 +52,7 @@ export interface Message {
     MessageId: string;
     ConversationId?: string;
     Body: string;
-    Direction: "IN" | "OUT";
+    Direction: "IN" | "OUT" | "INTERNAL";
     SenderExternalId: string;
     SenderUserId?: string | null;
     MediaType?: "image" | "audio" | "video" | "document" | null;

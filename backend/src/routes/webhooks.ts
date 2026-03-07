@@ -41,6 +41,25 @@ router.post("/whatsapp/:provider/:connectorId/*", async (req, res, next) => {
 
         console.log(`[Webhook] Received ${provider} event: EventType=${req.body?.EventType}, keys=${Object.keys(req.body || {}).join(',')}`);
 
+        // Auto-update connector baseUrl from GTI webhook payload
+        if (req.body?.BaseUrl && connector.ConfigJson) {
+            try {
+                const cfg = JSON.parse(connector.ConfigJson);
+                const incomingBase = req.body.BaseUrl.replace(/\/$/, '');
+                if (cfg.baseUrl !== incomingBase) {
+                    cfg.baseUrl = incomingBase;
+                    const newConfig = JSON.stringify(cfg);
+                    const pool = await (await import('../db.js')).getPool();
+                    await pool.request()
+                        .input('connectorId', connectorId)
+                        .input('configJson', newConfig)
+                        .query('UPDATE altdesk.ChannelConnector SET ConfigJson = @configJson WHERE ConnectorId = @connectorId');
+                    connector.ConfigJson = newConfig;
+                    console.log(`[Webhook] Auto-updated connector baseUrl to: ${incomingBase}`);
+                }
+            } catch (e) { /* ignore config parse errors */ }
+        }
+
         // 1. Try status update (messages_update → delivered/read)
         if (adapter.parseStatusUpdate) {
             const statusUpdate = adapter.parseStatusUpdate(req.body, connector);

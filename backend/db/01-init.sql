@@ -75,6 +75,7 @@ BEGIN
         PasswordHash VARBINARY(MAX) NOT NULL,
         Role NVARCHAR(50) NOT NULL DEFAULT 'AGENT', -- ADMIN, AGENT, SUPERADMIN
         Name NVARCHAR(100) NULL,
+        DisplayName NVARCHAR(255) NULL,
         CPF NVARCHAR(14) NULL,
         Avatar NVARCHAR(MAX) NULL,
         Position NVARCHAR(100) NULL,
@@ -195,6 +196,7 @@ BEGIN
         Body NVARCHAR(MAX) NULL,
         MediaType NVARCHAR(50) NULL, -- image, audio, video, document
         MediaUrl NVARCHAR(MAX) NULL,
+        ExternalMessageId NVARCHAR(255) NULL,
         PayloadJson NVARCHAR(MAX) NULL,
         Status VARCHAR(20) DEFAULT 'SENT', -- SENT, DELIVERED, READ, FAILED
         CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME()
