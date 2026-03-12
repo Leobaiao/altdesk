@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useMemo, ReactNode } from "react";
+import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import io, { Socket } from "socket.io-client";
 
 import type { Conversation, Message } from "../../../shared/types";
@@ -19,14 +19,11 @@ const ChatContext = createContext<ChatContextType | undefined>(undefined);
 import { api } from "../lib/api";
 import { parseJwt } from "../lib/auth";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
-
 export function ChatProvider({ children, token, onLogout }: { children: ReactNode, token: string, onLogout: () => void }) {
     const [socket, setSocket] = useState<Socket | null>(null);
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
-
 
     const decoded = parseJwt(token);
     const tenantId = decoded?.tenantId;
@@ -66,6 +63,7 @@ export function ChatProvider({ children, token, onLogout }: { children: ReactNod
             newSocket.off("conversation:updated", onConvUpdated);
             newSocket.disconnect();
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [token, tenantId]);
 
     // 2. Load Messages when Conversation changes
@@ -75,52 +73,96 @@ export function ChatProvider({ children, token, onLogout }: { children: ReactNod
         // Clear old messages while loading
         setMessages([]);
 
-        api.get<Message[]>(`/api/conversations/${selectedConversationId}/messages`)
-            .then((res) => {
-                if (Array.isArray(res.data)) {
-                    setMessages(res.data);
-                } else {
-                    console.error("API returned non-array for messages:", res.data);
-                    setMessages([]);
-                }
-            })
-            .catch(console.error);
+        const fetchMessages = () => {
+            api.get<Message[]>(`/api/conversations/${selectedConversationId}/messages`)
+                .then((res) => {
+                    if (Array.isArray(res.data)) {
+                        setMessages(res.data);
+                    } else {
+                        setMessages([]);
+                    }
+                })
+                .catch(console.error);
+        };
 
+        fetchMessages();
         socket.emit("conversation:join", selectedConversationId);
 
-        // Global message listener
         const onNew = (m: any) => {
-            // If message is for THIS conversation, append it
-            if (m.conversationId === selectedConversationId) {
-                setMessages((prev) => [
-                    ...prev,
-                    {
-                        MessageId: crypto.randomUUID(),
-                        Body: m.text,
-                        Direction: m.direction ?? "IN",
-                        SenderExternalId: m.senderExternalId ?? "",
-                        MediaType: m.mediaType,
-                        MediaUrl: m.mediaUrl,
-                        CreatedAt: new Date().toISOString(),
-                    },
-                ]);
+            if (m.conversationId !== selectedConversationId) {
+                // Only update sidebar for other conversations
+                setConversations((prev) =>
+                    prev.map((c) =>
+                        c.ConversationId === m.conversationId
+                            ? { ...c, LastMessageAt: new Date().toISOString(), UnreadCount: (c.UnreadCount || 0) + 1 }
+                            : c
+                    )
+                );
+                return;
             }
 
-            // Always update sidebar preview
+            if (m.direction === "OUT") {
+                // Mensagens enviadas pelo agente: re-busca do banco para evitar duplicação
+                // (o backend já salvou no DB antes de emitir o socket)
+                fetchMessages();
+            } else {
+                // Mensagens recebidas (IN) e notas internas (INTERNAL): adiciona com deduplicação
+                setMessages((prev) => {
+                    // Deduplicação: evita mensagem duplicada com mesmo texto + direção em < 5 segundos
+                    const isDuplicate = prev.some(
+                        (p) =>
+                            p.Body === m.text &&
+                            p.Direction === (m.direction ?? "IN") &&
+                            Math.abs(new Date(p.CreatedAt).getTime() - Date.now()) < 5000
+                    );
+                    if (isDuplicate) return prev;
+
+                    return [
+                        ...prev,
+                        {
+                            MessageId: m.messageId || crypto.randomUUID(),
+                            Body: m.text,
+                            Direction: m.direction ?? "IN",
+                            SenderExternalId: m.senderExternalId ?? "",
+                            MediaType: m.mediaType ?? undefined,
+                            MediaUrl: m.mediaUrl ?? undefined,
+                            Status: m.status ?? undefined,
+                            CreatedAt: new Date().toISOString(),
+                        } as Message,
+                    ];
+                });
+            }
+
+            // Atualiza preview da sidebar
             setConversations((prev) =>
                 prev.map((c) =>
                     c.ConversationId === m.conversationId
-                        ? { ...c, LastMessageAt: new Date().toISOString(), UnreadCount: c.ConversationId === selectedConversationId ? 0 : (c.UnreadCount || 0) + 1 }
+                        ? { ...c, LastMessageAt: new Date().toISOString(), UnreadCount: 0 }
                         : c
                 )
             );
         };
 
+        const onStatusUpdate = (data: any) => {
+            if (data.conversationId !== selectedConversationId) return;
+            setMessages((prev) =>
+                prev.map((msg) =>
+                    msg.MessageId === data.messageId || (msg.Body && data.externalMessageId)
+                        ? { ...msg, Status: data.status }
+                        : msg
+                )
+            );
+        };
+
         socket.on("message:new", onNew);
+        socket.on("message:status", onStatusUpdate);
+
         return () => {
             socket.emit("conversation:leave", selectedConversationId);
             socket.off("message:new", onNew);
+            socket.off("message:status", onStatusUpdate);
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedConversationId, socket]);
 
     return (

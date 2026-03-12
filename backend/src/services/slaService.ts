@@ -1,8 +1,10 @@
 import { getPool } from "../db.js";
+import { logger } from "../lib/logger.js";
+import { writeAuditLog } from "./auditLog.js";
 
 /**
  * Checks for conversations that have exceeded their SLA deadline without a response.
- * Groups them by tenant if necessary for alerts (future implementation).
+ * Flags them as VIOLATED and records in AuditLog for traceability.
  */
 export async function checkSlaViolations() {
     const pool = await getPool();
@@ -17,11 +19,26 @@ export async function checkSlaViolations() {
     `);
 
         if (result.recordset.length > 0) {
-            console.log(`[SLA] Detected and flagged ${result.recordset.length} violations.`);
-            // Future: Trigger notifications, emit socket events, etc.
+            logger.warn(
+                { count: result.recordset.length },
+                `[SLA] ${result.recordset.length} violation(s) detected`
+            );
+
+            // Registrar cada violação no AuditLog para rastreabilidade
+            for (const row of result.recordset) {
+                await writeAuditLog({
+                    tenantId: row.TenantId,
+                    action: "SLA_VIOLATED",
+                    targetTable: "Conversation",
+                    targetId: row.ConversationId,
+                    afterValues: { slaStatus: "VIOLATED", detectedAt: new Date().toISOString() }
+                }).catch(err => logger.error({ err, conversationId: row.ConversationId }, "[SLA] Failed to write audit log"));
+            }
+        } else {
+            logger.debug({}, "[SLA] No violations found");
         }
     } catch (err) {
-        console.error("[SLA] Error checking violations:", err);
+        logger.error({ err }, "[SLA] Error checking violations");
     }
 }
 
@@ -29,6 +46,6 @@ export async function checkSlaViolations() {
  * Starts the periodic SLA background worker.
  */
 export function startSlaWorker(intervalMs: number = 60000) {
-    console.log(`[SLA] Worker started (Interval: ${intervalMs}ms)`);
+    logger.info({ intervalMs }, "[SLA] Worker started");
     setInterval(checkSlaViolations, intervalMs);
 }

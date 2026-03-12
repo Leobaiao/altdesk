@@ -58,9 +58,21 @@ export async function assignConversation(tenantId: string, conversationId: strin
 
 /**
  * Automatically distributes a conversation to the agent with the least active (OPEN) conversations.
+ * Only distributes if the conversation has no assigned user yet.
  */
 export async function distributeConversation(tenantId: string, conversationId: string, queueId: string) {
   const pool = await getPool();
+
+  // Check if conversation already has an assigned user
+  const existing = await pool.request()
+    .input("tenantId", tenantId)
+    .input("conversationId", conversationId)
+    .query(`SELECT AssignedUserId FROM altdesk.Conversation WHERE TenantId = @tenantId AND ConversationId = @conversationId`);
+
+  if (existing.recordset[0]?.AssignedUserId) {
+    // Already assigned, don't override
+    return existing.recordset[0].AssignedUserId;
+  }
 
   // 1. Find the agent with the fewest open conversations in this tenant.
   // We prioritize agents (HUMAN kind) who are active.

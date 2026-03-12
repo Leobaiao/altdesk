@@ -278,6 +278,8 @@ export async function deleteConversation(tenantId: string, conversationId: strin
       .input("tenantId", tenantId)
       .input("conversationId", conversationId)
       .query(`
+        DELETE FROM altdesk.ConversationHistory WHERE ConversationId = @conversationId;
+        DELETE FROM altdesk.ConversationTag WHERE ConversationId = @conversationId;
         DELETE FROM altdesk.Message WHERE ConversationId = @conversationId AND TenantId = @tenantId;
         DELETE FROM altdesk.ExternalThreadMap WHERE ConversationId = @conversationId AND TenantId = @tenantId;
         DELETE FROM altdesk.Conversation WHERE ConversationId = @conversationId AND TenantId = @tenantId;

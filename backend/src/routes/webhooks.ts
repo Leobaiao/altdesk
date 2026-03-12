@@ -1,17 +1,15 @@
 import { Router } from "express";
-import { resolveConversationForInbound, saveInboundMessage, updateMessageStatus } from "../services/conversation.js";
-import { Orchestrator, TriageBot } from "../agents.js";
+import { resolveConversationForInbound, saveInboundMessage, updateMessageStatus, saveOutboundMessage } from "../services/conversation.js";
 import { loadConnector, verifyWebhookSignature } from "../utils.js";
-import { processCpfValidationFlow, getPendingCpfSession, findContactByCpf } from "../services/cpfValidation.js";
 import { webhookLimiter } from "../middleware/rateLimiter.js";
 import { emitConversationEvent } from "../services/socketService.js";
 import { isWithinBusinessHours, getOffHoursMessage } from "../services/businessHoursService.js";
-import { saveOutboundMessage } from "../services/conversation.js";
 import { listQueues, distributeConversation } from "../services/queue.js";
+import { logger } from "../lib/logger.js";
+import { writeAuditLog } from "../services/auditLog.js";
 
 const router = Router();
 router.use(webhookLimiter);
-const orch = new Orchestrator([new TriageBot()]);
 
 router.post("/whatsapp/:provider/:connectorId/*", async (req, res, next) => {
     try {
@@ -30,7 +28,15 @@ router.post("/whatsapp/:provider/:connectorId/*", async (req, res, next) => {
                 provider
             );
             if (!isValid) {
-                console.warn(`[Webhook] Unauthorized attempt for connector ${connectorId}: Invalid Signature`);
+                logger.warn(
+                    { connectorId, provider, requestId: (req as any).requestId, ip: req.ip },
+                    "[Webhook] Invalid signature — unauthorized attempt"
+                );
+                await writeAuditLog({
+                    action: "WEBHOOK_INVALID_SIGNATURE",
+                    ipAddress: req.ip,
+                    afterValues: { connectorId, provider }
+                });
                 return res.status(401).json({ error: "Unauthorized: Invalid Signature" });
             }
         }
@@ -39,7 +45,10 @@ router.post("/whatsapp/:provider/:connectorId/*", async (req, res, next) => {
 
         if (!adapter) return res.status(404).send("Unknown provider");
 
-        console.log(`[Webhook] Received ${provider} event: EventType=${req.body?.EventType}, keys=${Object.keys(req.body || {}).join(',')}`);
+        logger.info(
+            { provider, connectorId, eventType: req.body?.EventType, requestId: (req as any).requestId },
+            "[Webhook] Event received"
+        );
 
         // Auto-update connector baseUrl from GTI webhook payload
         if (req.body?.BaseUrl && connector.ConfigJson) {
@@ -55,7 +64,7 @@ router.post("/whatsapp/:provider/:connectorId/*", async (req, res, next) => {
                         .input('configJson', newConfig)
                         .query('UPDATE altdesk.ChannelConnector SET ConfigJson = @configJson WHERE ConnectorId = @connectorId');
                     connector.ConfigJson = newConfig;
-                    console.log(`[Webhook] Auto-updated connector baseUrl to: ${incomingBase}`);
+                    logger.info({ connectorId, newBaseUrl: incomingBase }, "[Webhook] Auto-updated connector baseUrl");
                 }
             } catch (e) { /* ignore config parse errors */ }
         }
@@ -100,48 +109,15 @@ router.post("/whatsapp/:provider/:connectorId/*", async (req, res, next) => {
                     await adapter.sendText(fetchConn, inbound.externalUserId, offMsg);
                     await saveOutboundMessage(inbound.tenantId, conversationId, offMsg);
                 } catch (err) {
-                    console.error("[BusinessHours] Error sending off-hours message:", err);
+                    logger.error({ err, conversationId, tenantId: inbound.tenantId }, "[BusinessHours] Error sending off-hours message");
                 }
             }
         }
         // --- End Business Hours Check ---
 
-        // --- Fluxo de Validação de CPF ---
-        // Verifica se existe sessão pendente de CPF OU se é um contato novo
-        const hasPendingSession = getPendingCpfSession(inbound.externalUserId);
-        const phone = inbound.externalUserId.replace(/@.*$/, "");
-
-        if (hasPendingSession || !(await findContactByCpf(inbound.tenantId, phone))) {
-            // Só ativa o fluxo de CPF se o contato não tem CPF cadastrado
-            try {
-                const cpfResult = await processCpfValidationFlow(
-                    inbound.tenantId,
-                    inbound.externalUserId,
-                    phone,
-                    inbound.text ?? ""
-                );
-
-                // Enviar resposta do fluxo de CPF via adapter
-                if (cpfResult.response) {
-                    const fetchConnector = { ConnectorId: connector.ConnectorId, Provider: connector.Provider, ConfigJson: connector.ConfigJson };
-                    try {
-                        await adapter.sendText(fetchConnector, inbound.externalUserId, cpfResult.response);
-                    } catch (sendErr) {
-                        console.error("[CPF Flow] Erro ao enviar resposta:", sendErr);
-                    }
-                }
-
-                if (!cpfResult.completed) {
-                    // Ainda no fluxo de CPF, não prosseguir com orquestrador
-                    return res.status(200).json({ ok: true, conversationId, cpfFlow: true });
-                }
-            } catch (cpfErr) {
-                console.error("[CPF Flow] Erro no fluxo de validação:", cpfErr);
-            }
-        }
-        // --- Fim do Fluxo de CPF ---
-
         const io = req.app.get("io");
+
+        // Emite evento de nova mensagem para o frontend
         if (io) {
             emitConversationEvent(io, inbound.tenantId, conversationId, "message:new", {
                 conversationId,
@@ -160,35 +136,33 @@ router.post("/whatsapp/:provider/:connectorId/*", async (req, res, next) => {
             });
         }
 
-        // Run AI orchestration in background
-        orch.run("TriageBot", inbound.text ?? "[media]", {
-            tenantId: inbound.tenantId,
-            conversationId,
-            externalSenderId: inbound.externalUserId
-        }).then(async decisions => {
-            const escalation = decisions.find(d => d.type === "ESCALATE");
-            if (escalation) {
-                // If AI escalates, try to distribute to a human agent
-                const queues = await listQueues(inbound.tenantId);
-                const targetQueue = queues[0]?.QueueId; // Pick first queue as default for now
-                if (targetQueue) {
-                    const assignedTo = await distributeConversation(inbound.tenantId, conversationId, targetQueue);
-                    if (assignedTo && io) {
-                        emitConversationEvent(io, inbound.tenantId, conversationId, "conversation:updated", {
-                            conversationId,
-                            assignedUserId: assignedTo,
-                            status: "OPEN",
-                            timestamp: new Date().toISOString()
-                        });
-                    }
+        // Distribuição automática para fila de atendimento humano (se conversa sem atendente)
+        try {
+            const queues = await listQueues(inbound.tenantId);
+            const targetQueue = queues[0]?.QueueId;
+            if (targetQueue) {
+                const assignedTo = await distributeConversation(inbound.tenantId, conversationId, targetQueue);
+                if (assignedTo && io) {
+                    emitConversationEvent(io, inbound.tenantId, conversationId, "conversation:updated", {
+                        conversationId,
+                        assignedUserId: assignedTo,
+                        status: "OPEN",
+                        timestamp: new Date().toISOString()
+                    });
                 }
             }
-        }).catch(err => {
-            console.error("Orchestrator background error:", err);
-        });
+        } catch (distErr) {
+            logger.error({ err: distErr, conversationId: (typeof conversationId !== 'undefined' ? conversationId : 'unknown') }, "[Webhook] Auto-distribution failed");
+        }
 
         return res.status(200).json({ ok: true, conversationId });
     } catch (error) {
+        logger.error({ 
+            err: error, 
+            requestId: (req as any).requestId, 
+            payload: req.body,
+            url: req.originalUrl
+        }, "[Webhook] Request failed");
         next(error);
     }
 });
@@ -229,6 +203,11 @@ router.post("/external/webchat/message", async (req, res, next) => {
 
         res.json({ ok: true, conversationId });
     } catch (error) {
+        logger.error({ 
+            err: error, 
+            requestId: (req as any).requestId, 
+            payload: req.body 
+        }, "[Webhook] Webchat request failed");
         next(error);
     }
 });
