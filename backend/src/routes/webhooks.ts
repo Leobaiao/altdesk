@@ -106,7 +106,8 @@ router.post("/whatsapp/:provider/:connectorId/*", async (req, res, next) => {
         }
         // --- End Business Hours Check ---
 
-        // --- Fluxo de Validação de CPF ---
+        // --- Fluxo de Validação de CPF DESATIVADO ---
+        /*
         // Verifica se existe sessão pendente de CPF OU se é um contato novo
         const hasPendingSession = getPendingCpfSession(inbound.externalUserId);
         const phone = inbound.externalUserId.replace(/@.*$/, "");
@@ -139,6 +140,7 @@ router.post("/whatsapp/:provider/:connectorId/*", async (req, res, next) => {
                 console.error("[CPF Flow] Erro no fluxo de validação:", cpfErr);
             }
         }
+        */
         // --- Fim do Fluxo de CPF ---
 
         const io = req.app.get("io");
@@ -160,6 +162,7 @@ router.post("/whatsapp/:provider/:connectorId/*", async (req, res, next) => {
             });
         }
 
+        /* BOT DESATIVADO TEMPORARIAMENTE
         // Run AI orchestration in background
         orch.run("TriageBot", inbound.text ?? "[media]", {
             tenantId: inbound.tenantId,
@@ -186,6 +189,22 @@ router.post("/whatsapp/:provider/:connectorId/*", async (req, res, next) => {
         }).catch(err => {
             console.error("Orchestrator background error:", err);
         });
+        */
+
+        // Distribuição automática para bypass do bot
+        const queues = await listQueues(inbound.tenantId);
+        const targetQueue = queues[0]?.QueueId;
+        if (targetQueue) {
+            const assignedTo = await distributeConversation(inbound.tenantId, conversationId, targetQueue);
+            if (assignedTo && io) {
+                emitConversationEvent(io, inbound.tenantId, conversationId, "conversation:updated", {
+                    conversationId,
+                    assignedUserId: assignedTo,
+                    status: "OPEN",
+                    timestamp: new Date().toISOString()
+                });
+            }
+        }
 
         return res.status(200).json({ ok: true, conversationId });
     } catch (error) {

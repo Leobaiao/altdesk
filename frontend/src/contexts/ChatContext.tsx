@@ -88,14 +88,24 @@ export function ChatProvider({ children, token, onLogout }: { children: ReactNod
 
         socket.emit("conversation:join", selectedConversationId);
 
+        // De-duplication: track recent message fingerprints to avoid doubles
+        // (emitConversationEvent sends to both conversation room AND tenant room)
+        const recentMsgIds = new Set<string>();
+
         // Global message listener
         const onNew = (m: any) => {
+            // Build a fingerprint to detect duplicate deliveries
+            const fingerprint = `${m.conversationId}:${m.direction}:${m.text}:${m.senderExternalId ?? ""}`;
+            if (recentMsgIds.has(fingerprint)) return; // skip duplicate
+            recentMsgIds.add(fingerprint);
+            setTimeout(() => recentMsgIds.delete(fingerprint), 2000);
+
             // If message is for THIS conversation, append it
             if (m.conversationId === selectedConversationId) {
                 setMessages((prev) => [
                     ...prev,
                     {
-                        MessageId: crypto.randomUUID(),
+                        MessageId: m.messageId ?? crypto.randomUUID(),
                         Body: m.text,
                         Direction: m.direction ?? "IN",
                         SenderExternalId: m.senderExternalId ?? "",
