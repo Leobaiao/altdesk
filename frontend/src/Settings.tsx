@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { api } from "./lib/api";
+import { User, Briefcase, Image as ImageIcon, Lock, MonitorSmartphone, KeySquare, Blocks, ShieldCheck, PhoneCall } from "lucide-react";
 
 interface Props {
     token: string;
@@ -135,7 +136,7 @@ export function Settings({ token, onBack, role }: Props) {
                 <div style={{ background: "var(--bg-secondary)", padding: 30, borderRadius: 16, border: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 20 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <h3 style={{ fontSize: 18, fontWeight: 600, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 10, margin: 0 }}>
-                            👤 Perfil Pessoal
+                            <User size={20} className="text-accent" /> Perfil Pessoal
                         </h3>
                         <div style={{ display: "flex", alignItems: "center", gap: 6, background: "var(--bg-primary)", borderRadius: 8, padding: 3 }}>
                             <button
@@ -179,47 +180,81 @@ export function Settings({ token, onBack, role }: Props) {
                     )}
 
                     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                        <div style={{ display: "flex", gap: 20, alignItems: "center" }}>
+                            {/* Avatar Preview */}
+                            <div style={{ 
+                                width: 80, 
+                                height: 80, 
+                                borderRadius: "50%", 
+                                overflow: "hidden", 
+                                border: "2px solid var(--accent)",
+                                background: "var(--bg-primary)",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                flexShrink: 0
+                            }}>
+                                {avatar ? (
+                                    <img src={avatar} alt="Avatar Preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => (e.currentTarget.src = "")} />
+                                ) : (
+                                    <User size={40} color="var(--text-secondary)" opacity={0.5} />
+                                )}
+                            </div>
+
+                            <div style={{ flex: 1 }}>
+                                <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, color: "var(--text-secondary)", fontSize: "0.85rem" }}>
+                                    <ImageIcon size={14} /> URL da Foto (Avatar)
+                                </label>
+                                <input
+                                    type="text"
+                                    value={avatar}
+                                    onChange={e => setAvatar(e.target.value)}
+                                    placeholder="https://"
+                                    className="settings-input"
+                                    style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", transition: "all 0.2s" }}
+                                />
+                            </div>
+                        </div>
+
                         <div>
-                            <label style={{ display: "block", marginBottom: 8, color: "var(--text-secondary)", fontSize: "0.85rem" }}>Nome Completo</label>
+                            <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, color: "var(--text-secondary)", fontSize: "0.85rem" }}>
+                                <User size={14} /> Nome Completo
+                            </label>
                             <input
                                 type="text"
                                 value={name}
                                 onChange={e => setName(e.target.value)}
                                 placeholder="Seu nome"
-                                style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)" }}
+                                className="settings-input"
+                                style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", transition: "all 0.2s" }}
                             />
                         </div>
 
                         <div>
-                            <label style={{ display: "block", marginBottom: 8, color: "var(--text-secondary)", fontSize: "0.85rem" }}>Cargo / Função (Opcional)</label>
+                            <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, color: "var(--text-secondary)", fontSize: "0.85rem" }}>
+                                <Briefcase size={14} /> Cargo / Função (Opcional)
+                            </label>
                             <input
                                 type="text"
                                 value={position}
                                 onChange={e => setPosition(e.target.value)}
                                 placeholder="Ex: Atendente, Gerente..."
-                                style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)" }}
+                                className="settings-input"
+                                style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", transition: "all 0.2s" }}
                             />
                         </div>
 
                         <div>
-                            <label style={{ display: "block", marginBottom: 8, color: "var(--text-secondary)", fontSize: "0.85rem" }}>URL da Foto (Avatar)</label>
-                            <input
-                                type="text"
-                                value={avatar}
-                                onChange={e => setAvatar(e.target.value)}
-                                placeholder="https://..."
-                                style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)" }}
-                            />
-                        </div>
-
-                        <div>
-                            <label style={{ display: "block", marginBottom: 8, color: "var(--text-secondary)", fontSize: "0.85rem" }}>Nova Senha</label>
+                            <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, color: "var(--text-secondary)", fontSize: "0.85rem" }}>
+                                <Lock size={14} /> Nova Senha
+                            </label>
                             <input
                                 type="password"
                                 value={password}
                                 onChange={e => setPassword(e.target.value)}
                                 placeholder="Mínimo 6 caracteres"
-                                style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)" }}
+                                className="settings-input"
+                                style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", transition: "all 0.2s" }}
                             />
                             <p style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 6 }}>Deixe em branco para não alterar.</p>
                         </div>
@@ -228,23 +263,26 @@ export function Settings({ token, onBack, role }: Props) {
 
                 {/* Integração (Only for Admins) */}
                 {isAdmin && (
-                    <div style={{ background: "var(--bg-secondary)", padding: 30, borderRadius: 16, border: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 24 }}>
-                        <h3 style={{ fontSize: 18, fontWeight: 600, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 10 }}>
-                            🔌 Integração (Admin)
+                    <div style={{ background: "var(--bg-secondary)", padding: 30, borderRadius: 16, border: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 24, height: "fit-content" }}>
+                        <h3 style={{ fontSize: 18, fontWeight: 600, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 10, margin: 0 }}>
+                            <Blocks size={20} className="text-accent" /> Integração de Canais
                         </h3>
 
                         {instances.length === 0 ? (
-                            <div style={{ padding: 15, background: "rgba(234, 67, 53, 0.1)", color: "#ea4335", borderRadius: 8, fontSize: "0.9rem", border: "1px solid rgba(234, 67, 53, 0.2)" }}>
+                            <div style={{ padding: 15, background: "rgba(234, 67, 53, 0.1)", color: "#ea4335", borderRadius: 10, fontSize: "0.9rem", border: "1px solid rgba(234, 67, 53, 0.2)" }}>
                                 Nenhuma instância de conexão encontrada para essa empresa. Contate o Super Admin.
                             </div>
                         ) : (
                             <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
                                 <div>
-                                    <label style={{ display: "block", marginBottom: 8, color: "var(--text-secondary)", fontSize: "0.85rem" }}>Instância Padrão</label>
+                                    <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, color: "var(--text-secondary)", fontSize: "0.85rem" }}>
+                                        <MonitorSmartphone size={14} /> Instância Padrão
+                                    </label>
                                     <select
                                         value={selectedConnectorId}
                                         onChange={e => handleInstanceChange(e.target.value)}
-                                        style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)" }}
+                                        className="settings-input"
+                                        style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", transition: "all 0.2s" }}
                                     >
                                         {instances.map(inst => (
                                             <option key={inst.ConnectorId} value={inst.ConnectorId}>
@@ -258,55 +296,64 @@ export function Settings({ token, onBack, role }: Props) {
                                 </div>
 
                                 <div>
-                                    <label style={{ display: "block", marginBottom: 8, color: "var(--text-secondary)", fontSize: "0.85rem" }}>Instance ID / Phone ID</label>
+                                    <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, color: "var(--text-secondary)", fontSize: "0.85rem" }}>
+                                        <PhoneCall size={14} /> Instance ID / Phone ID
+                                    </label>
                                     <input
                                         type="text"
                                         value={instanceId}
                                         onChange={e => setInstanceId(e.target.value)}
                                         placeholder="Ex: instance_12345"
-                                        style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)" }}
+                                        className="settings-input"
+                                        style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", transition: "all 0.2s" }}
                                     />
                                 </div>
 
                                 <div>
-                                    <label style={{ display: "block", marginBottom: 8, color: "var(--text-secondary)", fontSize: "0.85rem" }}>Token / Access Token</label>
+                                    <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, color: "var(--text-secondary)", fontSize: "0.85rem" }}>
+                                        <KeySquare size={14} /> Token / Access Token
+                                    </label>
                                     <input
                                         type="password"
                                         value={tokenVal}
                                         onChange={e => setTokenVal(e.target.value)}
                                         placeholder="Ex: abc-123-xyz"
-                                        style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)" }}
+                                        className="settings-input"
+                                        style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", transition: "all 0.2s" }}
                                     />
                                 </div>
                             </div>
                         )}
-
-                        <div style={{ marginTop: "auto", paddingTop: 20 }}>
-                            <button
-                                onClick={handleSave}
-                                disabled={loading}
-                                className="btn btn-primary"
-                                style={{ width: "100%", padding: "14px", borderRadius: 10, fontWeight: 600, fontSize: "1rem" }}
-                            >
-                                {loading ? "Salvando..." : "Salvar Todas as Alterações"}
-                            </button>
-                        </div>
                     </div>
                 )}
+            </div>
 
-                {/* AGENT Save Button (Only if not Admin, because Admin has its own button in the Integration section) */}
-                {!isAdmin && (
-                    <div style={{ marginTop: 20 }}>
-                        <button
-                            onClick={handleSave}
-                            disabled={loading}
-                            className="btn btn-primary"
-                            style={{ width: "100%", padding: "14px", borderRadius: 10, fontWeight: 600, fontSize: "1rem" }}
-                        >
-                            {loading ? "Salvando..." : "Salvar Perfil"}
-                        </button>
-                    </div>
-                )}
+            {/* Unified Save Action */}
+            <div style={{ 
+                marginTop: 32, 
+                padding: "20px 30px", 
+                background: "var(--bg-secondary)", 
+                border: "1px solid var(--border)", 
+                borderRadius: 16,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center"
+            }}>
+                <div>
+                    <h4 style={{ margin: 0, fontSize: "1rem", fontWeight: 600 }}>Salvar Configurações</h4>
+                    <p style={{ margin: "4px 0 0 0", fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+                        Ao clicar em salvar, suas alterações de perfil e sistema (se aplicável) serão atualizadas.
+                    </p>
+                </div>
+                <button
+                    onClick={handleSave}
+                    disabled={loading}
+                    className="btn btn-primary"
+                    style={{ padding: "14px 40px", borderRadius: 10, fontWeight: 600, fontSize: "1rem", display: "flex", alignItems: "center", gap: 8 }}
+                >
+                    <ShieldCheck size={18} />
+                    {loading ? "Salvando..." : "Salvar Tudo"}
+                </button>
             </div>
         </div>
     );

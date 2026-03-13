@@ -9,7 +9,7 @@ COPY shared/ ./shared/
 
 # Instalar dependências do frontend
 WORKDIR /app/frontend
-RUN npm ci
+RUN npm install
 
 # Voltar para a raiz para copiar o código e buildar
 WORKDIR /app

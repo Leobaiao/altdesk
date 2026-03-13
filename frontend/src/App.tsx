@@ -134,7 +134,7 @@ import { SuperAdmin } from "./SuperAdmin";
 function MainLayout({ token, role, onLogout }: { token: string; role: string; onLogout: () => void }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { conversations, selectedConversationId, setSelectedConversationId, refreshConversations } = useChat();
+  const { conversations, setConversations, selectedConversationId, setSelectedConversationId, refreshConversations } = useChat();
   const [profile, setProfile] = useState<{ Name?: string; Avatar?: string; Position?: string } | null>(null);
 
   useEffect(() => {
@@ -168,7 +168,21 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
         });
 
         if (res.data.conversationId) {
-          // Atualiza a lista lateral para a nova conversa aparecer
+          // Atualiza localmente para bypassar o delay de loading
+          const decoded = parseJwt(token);
+          setConversations(prev => {
+              if (prev.some(c => c.ConversationId === res.data.conversationId)) return prev;
+              return [{
+                  ConversationId: res.data.conversationId,
+                  ExternalUserId: phone,
+                  Title: contact.Name || phone,
+                  Status: "OPEN",
+                  AssignedUserId: decoded?.userId || null,
+                  UnreadCount: 0,
+                  LastMessageAt: new Date().toISOString()
+              } as any, ...prev];
+          });
+          
           refreshConversations();
           setSelectedConversationId(res.data.conversationId);
         }

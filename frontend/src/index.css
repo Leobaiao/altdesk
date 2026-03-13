@@ -580,6 +580,17 @@ body,
   background: var(--bg-hover) !important;
 }
 
+/* Settings Forms */
+.settings-input:hover {
+  border-color: calc(var(--accent) - 40%);
+}
+
+.settings-input:focus {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px rgba(0, 168, 132, 0.15) !important;
+  outline: none;
+}
+
 /* Animations */
 @keyframes fadeIn {
   from {

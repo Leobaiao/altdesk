@@ -63,7 +63,7 @@ export class OfficialAdapter implements ChannelAdapter {
     }
   }
 
-  async sendText(connector: any, toExternalUserId: string, text: string): Promise<void> {
+  async sendText(connector: any, toExternalUserId: string, text: string): Promise<string | undefined> {
     const config = JSON.parse(connector.ConfigJson || "{}");
     const { phoneNumberId, accessToken } = config;
 
@@ -95,10 +95,12 @@ export class OfficialAdapter implements ChannelAdapter {
       body: JSON.stringify(body)
     });
 
+    const resBody = await res.json();
     if (!res.ok) {
-      const err = await res.json();
-      console.error("[OFFICIAL] Send error:", JSON.stringify(err, null, 2));
-      throw new Error(`WhatsApp API Error: ${err.error?.message || res.statusText}`);
+      console.error("[OFFICIAL] Send error:", JSON.stringify(resBody, null, 2));
+      throw new Error(`WhatsApp API Error: ${resBody.error?.message || res.statusText}`);
     }
+
+    return resBody.messages?.[0]?.id;
   }
 }

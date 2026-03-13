@@ -46,6 +46,12 @@ router.post("/", validateBody(z.object({
         const user = req.user;
         const { phone, name } = req.body;
         const conversationId = await findOrCreateConversation(user.tenantId || "", phone, name, user.userId);
+        
+        const { allowed } = await checkConversationAccess(user, conversationId);
+        if (!allowed) {
+            return res.status(403).json({ error: "Este contato já possui uma conversa atribuída a outro atendente." });
+        }
+
         res.json({ ok: true, conversationId });
     } catch (error) {
         next(error);
@@ -94,11 +100,14 @@ router.post("/:id/reply", validateBody(z.object({ text: z.string().min(1) })), (
         const { text } = req.body;
         const user = req.user;
 
+        console.log(`[REPLY DEBUG] Starting reply to ${conversationId}`);
+
         const { allowed, tenantId } = await checkConversationAccess(user, conversationId);
         if (!allowed) {
             return res.status(403).json({ error: "Você não tem permissão para responder nesta conversa." });
         }
-
+        
+        console.log(`[REPLY DEBUG] Access verified. Getting metadata...`);
         const metadata = await getReplyMetadata(conversationId, tenantId);
         if (!metadata) {
             return res.status(404).json({ error: "Conversa não encontrada ou sem canal externo" });
@@ -111,13 +120,26 @@ router.post("/:id/reply", validateBody(z.object({ text: z.string().min(1) })), (
             return res.status(400).json({ error: `Provider "${metadata.connector.Provider}" não suportado` });
         }
 
-        await adapter.sendText(metadata.connector, metadata.externalUserId, text);
-        await saveOutboundMessage(user.tenantId || "", conversationId, text);
+        console.log(`[REPLY DEBUG] Adapters loaded, starting adapter.sendText...`);
+        let externalMessageId: string | undefined;
+        try {
+            externalMessageId = await adapter.sendText(metadata.connector, metadata.externalUserId, text);
+            console.log(`[REPLY DEBUG] adapter.sendText finished successfully. ID: ${externalMessageId}`);
+        } catch (adapterErr) {
+            console.error(`[REPLY DEBUG] adapter.sendText threw an error:`, adapterErr);
+            throw adapterErr;
+        }
+
+        console.log(`[REPLY DEBUG] Starting saveOutboundMessage...`);
+        const messageId = await saveOutboundMessage(user.tenantId || "", conversationId, text, externalMessageId);
+        console.log(`[REPLY DEBUG] saveOutboundMessage finished successfully. Local ID: ${messageId}`);
 
         const io = req.app.get("io");
         if (io) {
             emitConversationEvent(io, tenantId!, conversationId, "message:new", {
                 conversationId,
+                MessageId: messageId,
+                ExternalMessageId: externalMessageId,
                 senderExternalId: "agent",
                 text,
                 direction: "OUT"
@@ -129,9 +151,12 @@ router.post("/:id/reply", validateBody(z.object({ text: z.string().min(1) })), (
                 timestamp: new Date().toISOString()
             });
         }
+        
+        console.log(`[REPLY DEBUG] Response OK via socket. Sending HTTP response.`);
 
         res.json({ ok: true, conversationId });
     } catch (error) {
+        console.error(`[REPLY DEBUG] Outer catch hit:`, error);
         next(error);
     }
 }) as any);

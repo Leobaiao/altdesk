@@ -96,7 +96,7 @@ export async function listConversations(user: UserContext, limit: number = 50, o
       LEFT JOIN altdesk.Contact ct ON ct.Phone = REPLACE(REPLACE(etm.ExternalUserId, '@s.whatsapp.net', ''), '@c.us', '') AND ct.TenantId = c.TenantId
       LEFT JOIN LastOutbound lo ON lo.ConversationId = c.ConversationId
       ${filterClause}
-      ORDER BY c.LastMessageAt DESC
+      ORDER BY COALESCE(c.LastMessageAt, c.CreatedAt) DESC
       OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
     `);
     return r.recordset.map(row => ({
@@ -116,7 +116,7 @@ export async function getConversationMessages(conversationId: string, tenantId: 
         .input("limit", limit)
         .input("offset", offset)
         .query(`
-      SELECT MessageId, Body, Direction, SenderExternalId, MediaType, MediaUrl, Status, CreatedAt
+      SELECT MessageId, ExternalMessageId, Body, Direction, SenderExternalId, MediaType, MediaUrl, Status, CreatedAt
       FROM altdesk.Message
       WHERE ConversationId = @conversationId AND TenantId = @tenantId
       ORDER BY CreatedAt DESC

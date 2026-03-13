@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useMemo, ReactNode } from "react";
+import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import io, { Socket } from "socket.io-client";
 
 import type { Conversation, Message } from "../../../shared/types";
@@ -19,14 +19,11 @@ const ChatContext = createContext<ChatContextType | undefined>(undefined);
 import { api } from "../lib/api";
 import { parseJwt } from "../lib/auth";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
-
 export function ChatProvider({ children, token, onLogout }: { children: ReactNode, token: string, onLogout: () => void }) {
     const [socket, setSocket] = useState<Socket | null>(null);
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
-
 
     const decoded = parseJwt(token);
     const tenantId = decoded?.tenantId;
@@ -35,7 +32,19 @@ export function ChatProvider({ children, token, onLogout }: { children: ReactNod
         api.get<Conversation[]>("/api/conversations")
             .then((res) => {
                 if (Array.isArray(res.data)) {
-                    setConversations(res.data);
+                    setConversations(prev => {
+                        const serverIds = new Set(res.data.map(c => c.ConversationId));
+                        // Prevent UI collapse by keeping any local conversations (like freshly created ones)
+                        // that the server hasn't returned yet (e.g. because they fell out of the first page due to null LastMessageAt)
+                        const optimistic = prev.filter(c => !serverIds.has(c.ConversationId));
+                        
+                        const merged = [...res.data, ...optimistic];
+                        return merged.sort((a, b) => {
+                            const dateA = new Date(a.LastMessageAt || a.CreatedAt || 0).getTime();
+                            const dateB = new Date(b.LastMessageAt || b.CreatedAt || 0).getTime();
+                            return dateB - dateA;
+                        });
+                    });
                 }
             })
             .catch(err => {
@@ -66,6 +75,7 @@ export function ChatProvider({ children, token, onLogout }: { children: ReactNod
             newSocket.off("conversation:updated", onConvUpdated);
             newSocket.disconnect();
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [token, tenantId]);
 
     // 2. Load Messages when Conversation changes
@@ -75,37 +85,33 @@ export function ChatProvider({ children, token, onLogout }: { children: ReactNod
         // Clear old messages while loading
         setMessages([]);
 
-        api.get<Message[]>(`/api/conversations/${selectedConversationId}/messages`)
-            .then((res) => {
-                if (Array.isArray(res.data)) {
-                    setMessages(res.data);
-                } else {
-                    console.error("API returned non-array for messages:", res.data);
-                    setMessages([]);
-                }
-            })
-            .catch(console.error);
+        const fetchMessages = () => {
+            api.get<Message[]>(`/api/conversations/${selectedConversationId}/messages`)
+                .then((res) => {
+                    if (Array.isArray(res.data)) {
+                        setMessages(res.data);
+                    } else {
+                        setMessages([]);
+                    }
+                })
+                .catch(console.error);
+        };
 
+        fetchMessages();
         socket.emit("conversation:join", selectedConversationId);
 
         // De-duplication: track recent message fingerprints to avoid doubles
         // (emitConversationEvent sends to both conversation room AND tenant room)
         const recentMsgIds = new Set<string>();
 
-        // Global message listener
         const onNew = (m: any) => {
-            // Build a fingerprint to detect duplicate deliveries
-            const fingerprint = `${m.conversationId}:${m.direction}:${m.text}:${m.senderExternalId ?? ""}`;
-            if (recentMsgIds.has(fingerprint)) return; // skip duplicate
-            recentMsgIds.add(fingerprint);
-            setTimeout(() => recentMsgIds.delete(fingerprint), 2000);
-
             // If message is for THIS conversation, append it
             if (m.conversationId === selectedConversationId) {
                 setMessages((prev) => [
-                    ...prev,
+                    ...prev.filter(msg => msg.MessageId !== m.MessageId), // Deduplication just in case
                     {
-                        MessageId: m.messageId ?? crypto.randomUUID(),
+                        MessageId: m.MessageId || crypto.randomUUID(),
+                        ExternalMessageId: m.ExternalMessageId,
                         Body: m.text,
                         Direction: m.direction ?? "IN",
                         SenderExternalId: m.senderExternalId ?? "",
@@ -116,21 +122,40 @@ export function ChatProvider({ children, token, onLogout }: { children: ReactNod
                 ]);
             }
 
-            // Always update sidebar preview
+            // Atualiza preview da sidebar
             setConversations((prev) =>
                 prev.map((c) =>
                     c.ConversationId === m.conversationId
-                        ? { ...c, LastMessageAt: new Date().toISOString(), UnreadCount: c.ConversationId === selectedConversationId ? 0 : (c.UnreadCount || 0) + 1 }
+                        ? { ...c, LastMessageAt: new Date().toISOString(), UnreadCount: 0 }
                         : c
                 )
             );
         };
 
+        const onStatusUpdate = (data: any) => {
+            if (data.conversationId !== selectedConversationId) return;
+            setMessages((prev) =>
+                prev.map((msg) => {
+                    const matchById = msg.MessageId === data.messageId;
+                    const matchByExternalId = !!(data.externalMessageId && msg.ExternalMessageId === data.externalMessageId);
+                    
+                    if (matchById || matchByExternalId) {
+                        return { ...msg, Status: data.status };
+                    }
+                    return msg;
+                })
+            );
+        };
+
         socket.on("message:new", onNew);
+        socket.on("message:status", onStatusUpdate);
+
         return () => {
             socket.emit("conversation:leave", selectedConversationId);
             socket.off("message:new", onNew);
+            socket.off("message:status", onStatusUpdate);
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedConversationId, socket]);
 
     return (

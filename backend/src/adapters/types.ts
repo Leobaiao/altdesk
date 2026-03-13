@@ -25,7 +25,7 @@ export interface ChannelAdapter {
   provider: NormalizedInbound["provider"];
   parseInbound(body: any, connector: Connector): NormalizedInbound | null;
   parseStatusUpdate?(body: any, connector: Connector): StatusUpdate | null;
-  sendText(connector: Connector, toExternalUserId: string, text: string): Promise<void>;
+  sendText(connector: Connector, toExternalUserId: string, text: string): Promise<string | undefined>;
   sendMenu?(connector: Connector, toExternalUserId: string, title: string, options: Array<{ id: string; text: string }>): Promise<void>;
   setWebhook?(connector: Connector, options: {
     url: string;

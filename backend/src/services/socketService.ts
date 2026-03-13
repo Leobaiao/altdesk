@@ -13,9 +13,7 @@ export function emitConversationEvent(
 ) {
     if (!io) return;
 
-    // 1. Emit to the specific conversation room (for users currently viewing this chat)
-    io.to(conversationId).emit(event, data);
-
-    // 2. Emit to the tenant room (for sidebar updates, counters, and monitoring)
-    io.to(`tenant:${tenantId}`).emit(event, data);
+    // Emit to both conversation room and tenant room simultaneously.
+    // By chaining .to(), Socket.IO automatically deduplicates the event for sockets joined to both rooms.
+    io.to(conversationId).to(`tenant:${tenantId}`).emit(event, data);
 }

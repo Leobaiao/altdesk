@@ -59,6 +59,7 @@ export interface Message {
     MediaUrl?: string | null;
     Status?: "SENT" | "DELIVERED" | "READ" | "FAILED" | null;
     CreatedAt: string;
+    ExternalMessageId?: string | null;
 }
 
 export interface KnowledgeArticle {

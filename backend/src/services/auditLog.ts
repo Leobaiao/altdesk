@@ -1,4 +1,5 @@
 import { getPool } from "../db.js";
+import { logger } from "../lib/logger.js";
 
 export interface AuditLogEntry {
   tenantId?: string;
@@ -34,7 +35,7 @@ export async function writeAuditLog(entry: AuditLogEntry): Promise<void> {
       `);
   } catch (err) {
     // Não deve interromper a operação principal se o log falhar
-    console.error("[AuditLog] Erro ao gravar log de auditoria:", err);
+    logger.error({ err }, "[AuditLog] Erro ao gravar log de auditoria");
   }
 }
 

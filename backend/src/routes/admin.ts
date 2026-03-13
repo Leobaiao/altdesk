@@ -7,6 +7,8 @@ import { hashPassword } from "../auth.js";
 import { validateBody } from "../middleware/validateMw.js";
 import { loadConnector } from "../utils.js";
 import { AuthenticatedRequest } from "../types/index.js";
+import { writeAuditLog, extractRequestInfo } from "../services/auditLog.js";
+import { logger } from "../lib/logger.js";
 
 import {
     listTenants,
@@ -59,6 +61,17 @@ router.post("/tenants", validateBody(z.object({
             planDays: body.planDays,
             agentsLimit: body.agentsLimit
         });
+
+        // Audit Log
+        const reqInfo = extractRequestInfo(req);
+        writeAuditLog({
+            ...reqInfo,
+            action: 'CREATE_TENANT',
+            targetTable: 'Tenant',
+            targetId: result.tenantId,
+            afterValues: { companyName: body.companyName, adminEmail: body.email }
+        });
+
         res.json({ ok: true, ...result });
     } catch (error) {
         next(error);
@@ -73,6 +86,17 @@ router.put("/tenants/:id", validateBody(z.object({
         const tenantId = req.params.id;
         const { agentsLimit } = req.body;
         await updateTenantSubscription(tenantId, agentsLimit);
+
+        // Audit Log
+        const reqInfo = extractRequestInfo(req);
+        writeAuditLog({
+            ...reqInfo,
+            action: 'UPDATE_SUBSCRIPTION',
+            targetTable: 'Tenant',
+            targetId: tenantId,
+            afterValues: { agentsLimit }
+        });
+
         res.json({ ok: true });
     } catch (error) {
         next(error);
@@ -83,6 +107,16 @@ router.delete("/tenants/:id", (async (req: AuthenticatedRequest, res: Response, 
     try {
         const tenantId = req.params.id;
         await setTenantStatus(tenantId, false);
+
+        // Audit Log
+        const reqInfo = extractRequestInfo(req);
+        writeAuditLog({
+            ...reqInfo,
+            action: 'DEACTIVATE_TENANT',
+            targetTable: 'Tenant',
+            targetId: tenantId
+        });
+
         res.json({ ok: true });
     } catch (error) {
         next(error);
@@ -93,6 +127,16 @@ router.put("/tenants/:id/reactivate", (async (req: AuthenticatedRequest, res: Re
     try {
         const tenantId = req.params.id;
         await setTenantStatus(tenantId, true);
+
+        // Audit Log
+        const reqInfo = extractRequestInfo(req);
+        writeAuditLog({
+            ...reqInfo,
+            action: 'ACTIVATE_TENANT',
+            targetTable: 'Tenant',
+            targetId: tenantId
+        });
+
         res.json({ ok: true });
     } catch (error) {
         next(error);
@@ -127,6 +171,17 @@ router.post("/instances", validateBody(z.object({
 })), (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const result = await createInstance(req.body);
+
+        // Audit Log
+        const reqInfo = extractRequestInfo(req);
+        writeAuditLog({
+            ...reqInfo,
+            action: 'CREATE_INSTANCE',
+            targetTable: 'ChannelConnector',
+            targetId: result.connectorId,
+            afterValues: { tenantId: req.body.tenantId, provider: req.body.provider, name: req.body.name }
+        });
+
         res.json({ ok: true, connectorId: result.connectorId });
     } catch (error) {
         next(error);
@@ -138,6 +193,17 @@ router.put("/instances/:connectorId/tenant", validateBody(z.object({ tenantId: z
         const { tenantId } = req.body;
         const { connectorId } = req.params;
         await updateInstanceTenant(connectorId, tenantId);
+
+        // Audit Log
+        const reqInfo = extractRequestInfo(req);
+        writeAuditLog({
+            ...reqInfo,
+            action: 'UPDATE_INSTANCE_TENANT',
+            targetTable: 'ChannelConnector',
+            targetId: connectorId,
+            afterValues: { newTenantId: tenantId }
+        });
+
         res.json({ ok: true });
     } catch (error) {
         next(error);
@@ -176,6 +242,17 @@ router.delete("/instances/:connectorId/webhook/:webhookId", (async (req: Authent
         }
 
         await adapter.removeWebhook(connector, webhookId);
+
+        // Audit Log
+        const reqInfo = extractRequestInfo(req);
+        writeAuditLog({
+            ...reqInfo,
+            action: 'REMOVE_WEBHOOK',
+            targetTable: 'ChannelConnector',
+            targetId: connectorId,
+            afterValues: { webhookId }
+        });
+
         res.json({ ok: true });
     } catch (error) {
         next(error);
@@ -215,6 +292,16 @@ router.post("/instances/:connectorId/set-webhook", validateBody(z.object({
             addUrlTypesMessages
         });
 
+        // Audit Log
+        const reqInfo = extractRequestInfo(req);
+        writeAuditLog({
+            ...reqInfo,
+            action: 'SET_WEBHOOK',
+            targetTable: 'ChannelConnector',
+            targetId: connectorId,
+            afterValues: { webhookUrl: fullWebhookUrl, enabled }
+        });
+
         res.json({ ok: true, webhookUrl: fullWebhookUrl });
     } catch (error) {
         next(error);
@@ -225,6 +312,16 @@ router.post("/instances/bulk-delete", validateBody(z.object({ connectorIds: z.ar
     try {
         const { connectorIds } = req.body;
         const count = await bulkDeleteInstances(connectorIds);
+
+        // Audit Log
+        const reqInfo = extractRequestInfo(req);
+        writeAuditLog({
+            ...reqInfo,
+            action: 'BULK_DELETE_INSTANCES',
+            targetTable: 'ChannelConnector',
+            afterValues: { connectorIds, count }
+        });
+
         res.json({ ok: true, count });
     } catch (error) {
         next(error);
@@ -257,6 +354,17 @@ router.post("/users", validateBody(z.object({
             passwordRaw: body.password,
             role: body.role
         });
+
+        // Audit Log
+        const reqInfo = extractRequestInfo(req);
+        writeAuditLog({
+            ...reqInfo,
+            action: 'CREATE_USER_GLOBAL',
+            targetTable: 'User',
+            targetId: userId,
+            afterValues: { email: body.email, tenantId: body.tenantId, role: body.role }
+        });
+
         res.json({ ok: true, userId });
     } catch (error: any) {
         if (error.message === 'Email já cadastrado') {
@@ -283,6 +391,17 @@ router.put("/users/:id", validateBody(z.object({
             passwordRaw: body.password,
             role: body.role
         });
+
+        // Audit Log
+        const reqInfo = extractRequestInfo(req);
+        writeAuditLog({
+            ...reqInfo,
+            action: 'UPDATE_USER_GLOBAL',
+            targetTable: 'User',
+            targetId: userId,
+            afterValues: { email: body.email, tenantId: body.tenantId, role: body.role }
+        });
+
         res.json({ ok: true });
     } catch (error: any) {
         if (error.code === 'EREQUEST' && error.message.includes('UK_User_Email')) {
@@ -297,6 +416,17 @@ router.put("/users/:id/status", validateBody(z.object({ isActive: z.boolean() })
         const userId = req.params.id;
         const { isActive } = req.body;
         await setUserActiveStatus(userId, isActive);
+
+        // Audit Log
+        const reqInfo = extractRequestInfo(req);
+        writeAuditLog({
+            ...reqInfo,
+            action: 'USER_STATUS_CHANGE_GLOBAL',
+            targetTable: 'User',
+            targetId: userId,
+            afterValues: { isActive }
+        });
+
         res.json({ ok: true });
     } catch (error) {
         next(error);

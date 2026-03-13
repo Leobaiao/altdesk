@@ -160,7 +160,7 @@ export function ChatWindow({ setView, showToast }: { setView: (v: any) => void, 
             setShowScrollButton(false);
             setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
         } catch (err: any) {
-            showToast("Erro: " + err.message, "error");
+            showToast("Erro: " + (err.response?.data?.error || err.message), "error");
         } finally {
             setSending(false);
         }

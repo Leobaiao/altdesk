@@ -149,16 +149,18 @@ export async function updateMessageStatus(tenantId: string, externalMessageId: s
   return r.recordset.length > 0 ? r.recordset[0].ConversationId : null;
 }
 
-export async function saveOutboundMessage(tenantId: string, conversationId: string, body: string) {
+export async function saveOutboundMessage(tenantId: string, conversationId: string, body: string, externalMessageId?: string) {
   const pool = await getPool();
-  await pool.request()
+  const created = await pool.request()
     .input("tenantId", tenantId)
     .input("conversationId", conversationId)
     .input("direction", "OUT")
     .input("body", body)
+    .input("externalMessageId", externalMessageId || null)
     .query(`
-      INSERT INTO altdesk.Message (TenantId, ConversationId, Direction, Body)
-      VALUES (@tenantId, @conversationId, @direction, @body);
+      DECLARE @msgId UNIQUEIDENTIFIER = NEWID();
+      INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, ExternalMessageId)
+      VALUES (@msgId, @tenantId, @conversationId, @direction, @body, @externalMessageId);
 
       UPDATE altdesk.Conversation 
       SET LastMessageAt = SYSUTCDATETIME(),
@@ -169,6 +171,8 @@ export async function saveOutboundMessage(tenantId: string, conversationId: stri
             ELSE SlaStatus 
           END
       WHERE ConversationId=@conversationId;
+
+      SELECT @msgId AS MessageId;
     `);
 
   // Registrar interação no histórico
@@ -178,6 +182,8 @@ export async function saveOutboundMessage(tenantId: string, conversationId: stri
     action: "REPLIED",
     metadata: { direction: "OUT" }
   });
+
+  return created.recordset[0].MessageId as string;
 }
 
 /**
@@ -278,6 +284,8 @@ export async function deleteConversation(tenantId: string, conversationId: strin
       .input("tenantId", tenantId)
       .input("conversationId", conversationId)
       .query(`
+        DELETE FROM altdesk.ConversationHistory WHERE ConversationId = @conversationId;
+        DELETE FROM altdesk.ConversationTag WHERE ConversationId = @conversationId;
         DELETE FROM altdesk.Message WHERE ConversationId = @conversationId AND TenantId = @tenantId;
         DELETE FROM altdesk.ExternalThreadMap WHERE ConversationId = @conversationId AND TenantId = @tenantId;
         DELETE FROM altdesk.Conversation WHERE ConversationId = @conversationId AND TenantId = @tenantId;
