@@ -16,6 +16,7 @@ import { logger } from "./lib/logger.js";
 // Import Routers
 import authRouter from "./routes/auth.js";
 import profileRouter from "./routes/profile.js";
+import adminRouter from "./routes/admin.js";
 import agentsRouter from "./routes/agents.js";
 import usersRouter from "./routes/users.js";
 import chatRouter from "./routes/chat.js";
@@ -121,24 +122,8 @@ io.on("connection", (socket) => {
 
 // --- API ROUTES ---
 app.use("/api/auth", authRouter);
-app.use("/api/profile", profileRouter);
-app.use("/api/agents", agentsRouter);
+app.use("/api/admin", adminRouter);
 app.use("/api/users", usersRouter);
-app.use("/api/conversations", chatRouter);
-app.use("/api/settings", settingsRouter);
-app.use("/api/queues", queuesRouter);
-app.use("/api/contacts", contactsRouter);
-app.use("/api/templates", templatesRouter);
-app.use("/api/canned-responses", cannedResponsesRouter);
-app.use("/api/dashboard", dashboardRouter);
-app.use("/api/roles", rolesRouter);
-app.use("/api/tags", tagsRouter);
-app.use("/api/knowledge", knowledgeRouter);
-app.use("/api/business-hours", businessHoursRouter);
-
-// Webhooks
-app.use("/api", webhooksRouter);
-app.use("/api/public", publicRouter);
 
 // Internal Demo Hook
 app.post("/api/demo/conversations/:id/messages", async (req, res, next) => {

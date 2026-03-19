@@ -66,5 +66,38 @@ services:
       - "80:80"
     restart: always
 
+  # Admin Backend (Gestão de Empresas)
+  admin-backend:
+    build:
+      context: .
+      dockerfile: admin/backend/Dockerfile
+    container_name: altdesk_admin_api
+    depends_on:
+      - db
+    environment:
+      PORT: 3002
+      DB_USER: sa
+      DB_PASS: "Intamr17@"
+      DB_NAME: AltDeskDev
+      DB_HOST: db
+      JWT_SECRET: "Intamr17@"
+    ports:
+      - "3003:3002"
+    restart: always
+
+  # Admin Frontend (Painel SuperAdmin)
+  admin-frontend:
+    build:
+      context: .
+      dockerfile: admin/frontend/Dockerfile
+      args:
+        - VITE_API_URL=
+    container_name: altdesk_admin_web
+    depends_on:
+      - admin-backend
+    ports:
+      - "8080:80"
+    restart: always
+
 volumes:
   mssql_data:

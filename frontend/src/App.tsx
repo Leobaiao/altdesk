@@ -128,7 +128,6 @@ function LoginScreen({ onLogin }: { onLogin: (token: string, role: string) => vo
 }
 
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
-import { SuperAdmin } from "./SuperAdmin";
 
 // ─── Main Layout ────────────────────────────────────
 function MainLayout({ token, role, onLogout }: { token: string; role: string; onLogout: () => void }) {
@@ -234,11 +233,6 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
           <NavIcon icon={Ticket} label="Chamados" active={currentPath.startsWith("/tickets")} onClick={() => navigate("/tickets")} />
         </div>
         <div className="footer-items">
-          {role === "SUPERADMIN" && (
-            <button onClick={() => navigate("/superadmin")} style={{ background: "none", border: "none", cursor: "pointer", opacity: 0.7, padding: 10 }} title="Super Admin">
-              <Bot size={24} />
-            </button>
-          )}
           <NavIcon icon={SettingsIcon} label="Config" active={currentPath.startsWith("/settings")} onClick={() => navigate("/settings")} />
           <button onClick={onLogout} style={{ background: "none", border: "none", cursor: "pointer", opacity: 0.7, padding: 10, color: "var(--text-secondary)" }} title="Sair">
             <LogOut size={24} />
@@ -266,10 +260,6 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
           <Route path="/knowledge" element={<KnowledgeBase onBack={() => navigate("/chat")} />} />
           <Route path="/business-hours" element={<BusinessHours onBack={() => navigate("/chat")} />} />
           <Route path="/tickets" element={<Tickets token={token} onBack={() => navigate("/chat")} role={role || 'AGENT'} />} />
-
-          {role === "SUPERADMIN" && (
-            <Route path="/superadmin" element={<SuperAdmin token={token} onBack={() => navigate("/chat")} />} />
-          )}
 
           <Route path="*" element={<Navigate to="/chat" replace />} />
         </Routes>
