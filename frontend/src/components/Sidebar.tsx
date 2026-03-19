@@ -121,6 +121,17 @@ export function Sidebar({ setView }: { setView: (view: any) => void }) {
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                             <span className="title" style={{ fontWeight: 600 }}>{c.Title || formatPhone(c.ExternalUserId)}</span>
                             <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
+                                {/* SLA Badge */}
+                                {c.SlaStatus === "VIOLATED" && (
+                                    <span title="SLA Violado" style={{ fontSize: "0.62rem", background: "rgba(234,67,53,0.15)", color: "#ea4335", padding: "2px 6px", borderRadius: 4, fontWeight: 700 }}>⚠ SLA</span>
+                                )}
+                                {c.SlaStatus === "PENDING" && c.SlaDeadline && (() => {
+                                    const minutesLeft = Math.round((new Date(c.SlaDeadline).getTime() - Date.now()) / 60000);
+                                    if (minutesLeft > 0 && minutesLeft <= 15) {
+                                        return <span title={`SLA expira em ${minutesLeft}min`} style={{ fontSize: "0.62rem", background: "rgba(255,152,0,0.15)", color: "#ff9800", padding: "2px 6px", borderRadius: 4, fontWeight: 700 }}>⏱ {minutesLeft}m</span>;
+                                    }
+                                    return null;
+                                })()}
                                 {c.QueueName && (
                                     <span style={{ fontSize: "0.65rem", background: "var(--bg-hover)", color: "var(--text-secondary)", padding: "1px 4px", borderRadius: 3 }}>
                                         {c.QueueName}

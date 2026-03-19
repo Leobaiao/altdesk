@@ -462,4 +462,53 @@ router.get("/instances/gti-info", (async (req: AuthenticatedRequest, res: Respon
     }
 }) as any);
 
+// --- AUDIT LOGS ---
+router.get("/audit-logs", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const pool = await getPool();
+        const { tenantId, action, from, to, page = "1", limit = "50" } = req.query as Record<string, string>;
+        const offset = (parseInt(page) - 1) * parseInt(limit);
+
+        let where = "WHERE 1=1";
+        const request = pool.request();
+
+        if (tenantId) {
+            where += " AND al.TenantId = @tenantId";
+            request.input("tenantId", tenantId);
+        }
+        if (action) {
+            where += " AND al.Action LIKE @action";
+            request.input("action", `%${action}%`);
+        }
+        if (from) {
+            where += " AND al.CreatedAt >= @from";
+            request.input("from", new Date(from));
+        }
+        if (to) {
+            where += " AND al.CreatedAt <= @to";
+            request.input("to", new Date(to));
+        }
+
+        request.input("limit", parseInt(limit));
+        request.input("offset", offset);
+
+        const r = await request.query(`
+            SELECT TOP (@limit)
+                al.LogId, al.Action, al.TargetTable, al.TargetId,
+                al.IpAddress, al.CreatedAt,
+                u.DisplayName AS UserName, u.Email AS UserEmail,
+                t.Name AS TenantName
+            FROM altdesk.AuditLog al
+            LEFT JOIN altdesk.[User] u ON u.UserId = al.UserId
+            LEFT JOIN altdesk.Tenant t ON t.TenantId = al.TenantId
+            ${where}
+            ORDER BY al.CreatedAt DESC
+            OFFSET @offset ROWS
+        `);
+        res.json(r.recordset);
+    } catch (error) {
+        next(error);
+    }
+}) as any);
+
 export default router;

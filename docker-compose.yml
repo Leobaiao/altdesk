@@ -27,10 +27,14 @@ services:
     entrypoint: >
       /bin/bash -c "
         echo 'Aguardando SQL Server iniciar...';
-        sleep 15;
-        echo 'Executando migração...';
+        sleep 20;
+        echo 'Executando migration 03 (roles/cpf/audit)...';
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/03-migration-roles-cpf-audit.sql;
-        echo 'Migração concluída!';
+        echo 'Executando migration 04 (fix displayname)...';
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/04-fix-user-displayname.sql;
+        echo 'Executando migration 05 (subscription PlanCode/StartsAt)...';
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/05-migration-subscription-fields.sql;
+        echo 'Todas as migrations concluidas!';
       "
 
   # Backend (API)

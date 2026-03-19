@@ -52,8 +52,8 @@ export async function createTenantWithAdmin(data: {
             .input("limit", data.agentsLimit)
             .input("expires", expiresAt)
             .query(`
-      INSERT INTO altdesk.Subscription (TenantId, PlanCode, AgentsSeatLimit, StartsAt, ExpiresAt, IsActive)
-      VALUES (@tenantId, 'TRIAL', @limit, SYSUTCDATETIME(), @expires, 1)
+      INSERT INTO altdesk.Subscription (TenantId, AgentsSeatLimit, ExpiresAt, IsActive)
+      VALUES (@tenantId, @limit, @expires, 1)
     `);
 
         const hash = await hashPassword(data.passwordRaw);

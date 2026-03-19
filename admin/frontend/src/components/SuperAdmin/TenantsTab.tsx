@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { api } from "../../lib/api";
 import { TenantModal } from "./Modals/TenantModal";
 import { LimitModal } from "./Modals/LimitModal";
-import { TenantDetailsModal } from "./Modals/TenantDetailsModal";
+import { Globe, Smartphone, User, ArrowLeft, MoreVertical, ShieldCheck, Mail, Calendar, Hash } from "lucide-react";
 
 interface TenantsTabProps {
     onShowModalChange: (show: boolean) => void;
@@ -11,25 +11,32 @@ interface TenantsTabProps {
 export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
     const [tenants, setTenants] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
-    const [showModal, setShowModal] = useState(false);
+    const [showCreateModal, setShowCreateModal] = useState(false);
     const [showLimitModal, setShowLimitModal] = useState(false);
     const [editTenant, setEditTenant] = useState<any>(null);
     const [selectedTenant, setSelectedTenant] = useState<any>(null);
+    const [search, setSearch] = useState("");
+    const [instances, setInstances] = useState<any[]>([]);
+    const [instancesLoading, setInstancesLoading] = useState(false);
 
     useEffect(() => {
         loadTenants();
     }, []);
 
+    useEffect(() => {
+        if (selectedTenant) {
+            loadInstances(selectedTenant.TenantId);
+        }
+    }, [selectedTenant]);
+
     const loadTenants = async () => {
         setLoading(true);
         try {
             const r = await api.get("/api/admin/tenants");
-            if (Array.isArray(r.data)) {
-                setTenants(r.data);
-            } else {
-                console.error("API returned non-array for tenants:", r.data);
-                setTenants([]);
-            }
+            const data = Array.isArray(r.data) ? r.data : [];
+            setTenants(data);
+            // Se não houver nenhum selecionado e houver empresas, seleciona a primeira (opcional, mas pro sidebar é bom)
+            // if (data.length > 0 && !selectedTenant) setSelectedTenant(data[0]);
         } catch (err) {
             console.error(err);
         } finally {
@@ -37,13 +44,25 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
         }
     };
 
+    const loadInstances = async (tenantId: string) => {
+        setInstancesLoading(true);
+        try {
+            const res = await api.get(`/api/admin/tenants/${tenantId}/instances`);
+            setInstances(res.data);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setInstancesLoading(false);
+        }
+    };
+
     const handleCreateTenant = async (data: any) => {
         try {
             await api.post("/api/admin/tenants", data);
             loadTenants();
-        } catch (err) {
-            console.error(err);
-            alert("Erro ao criar empresa");
+            setShowCreateModal(false);
+        } catch (err: any) {
+            alert("Erro ao criar empresa: " + (err.response?.data?.error || err.message));
         }
     };
 
@@ -51,8 +70,11 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
         try {
             await api.put(`/api/admin/tenants/${editTenant.TenantId}`, { agentsLimit: limit });
             loadTenants();
+            if (selectedTenant?.TenantId === editTenant.TenantId) {
+                setSelectedTenant({ ...selectedTenant, AgentsSeatLimit: limit });
+            }
+            setShowLimitModal(false);
         } catch (err) {
-            console.error(err);
             alert("Erro ao salvar limite");
         }
     };
@@ -67,113 +89,216 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
         }
     };
 
-    const handleReactivateTenant = async (tenantId: string) => {
-        try {
-            await api.put(`/api/admin/tenants/${tenantId}/reactivate`);
-            loadTenants();
-        } catch (err) {
-            console.error(err);
-        }
-    };
+    const filteredTenants = tenants.filter(t =>
+        !search || t.Name?.toLowerCase().includes(search.toLowerCase())
+    );
 
-    // Propagate showModal to parent to show "Nova Empresa" button in header if needed
-    // Actually, the button is in the parent. We can either move it here or keep it in parent.
-    // The current SuperAdmin has the button in the parent. Let's keep it there for now but we need a way to trigger it.
-    // Or just move it here.
+    const isExpired = (expiresAt: string) => expiresAt && new Date(expiresAt) < new Date();
 
     return (
-        <>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 32 }}>
-                <h2 style={{ fontSize: "1.5rem", margin: 0 }}>Empresas</h2>
-                <button onClick={() => setShowModal(true)} className="btn btn-primary" style={{ padding: "12px 20px", borderRadius: 12 }}>
-                    + Nova Empresa
-                </button>
+        <div style={{ display: "flex", gap: 20, height: "calc(100vh - 280px)", minHeight: 600 }}>
+            {/* Sidebar de empresas */}
+            <div style={{
+                width: 320,
+                background: "var(--bg-secondary)",
+                borderRadius: 16,
+                border: "1px solid var(--border)",
+                display: "flex",
+                flexDirection: "column",
+                overflow: "hidden"
+            }}>
+                {/* Busca no topo do sidebar */}
+                <div style={{ padding: 16, borderBottom: "1px solid var(--border)" }}>
+                    <div style={{ position: "relative" }}>
+                        <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--text-secondary)", fontSize: "0.8rem" }}>🔍</span>
+                        <input
+                            placeholder="Buscar empresa..."
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                            style={{
+                                width: "100%", padding: "8px 12px 8px 32px", fontSize: "0.85rem",
+                                borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)",
+                                color: "var(--text-primary)", outline: "none"
+                            }}
+                        />
+                    </div>
+                    <button
+                        onClick={() => setShowCreateModal(true)}
+                        className="btn btn-primary"
+                        style={{ width: "100%", marginTop: 12, borderRadius: 10, fontSize: "0.85rem", padding: "10px" }}
+                    >
+                        + Nova Empresa
+                    </button>
+                </div>
+
+                {/* Lista de empresas */}
+                <div style={{ flex: 1, overflowY: "auto", padding: "8px" }}>
+                    {loading && tenants.length === 0 ? (
+                        <div style={{ textAlign: "center", padding: 20, color: "var(--text-secondary)" }}>Carregando...</div>
+                    ) : filteredTenants.length === 0 ? (
+                        <div style={{ textAlign: "center", padding: 20, color: "var(--text-secondary)" }}>Nenhuma empresa.</div>
+                    ) : (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                            {filteredTenants.map(t => {
+                                const activeItem = selectedTenant?.TenantId === t.TenantId;
+                                const expired = isExpired(t.ExpiresAt);
+                                return (
+                                    <div
+                                        key={t.TenantId}
+                                        onClick={() => setSelectedTenant(t)}
+                                        style={{
+                                            padding: "12px 14px", borderRadius: 12, cursor: "pointer",
+                                            background: activeItem ? "rgba(0,168,132,0.12)" : "transparent",
+                                            border: activeItem ? "1px solid var(--accent)" : "1px solid transparent",
+                                            transition: "all 0.15s",
+                                            display: "flex", justifyContent: "space-between", alignItems: "center"
+                                        }}
+                                        className={!activeItem ? "table-row-hover" : ""}
+                                    >
+                                        <div style={{ overflow: "hidden" }}>
+                                            <div style={{ fontSize: "0.92rem", fontWeight: 600, color: activeItem ? "var(--accent)" : "var(--text-primary)", whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden" }}>
+                                                {t.Name}
+                                            </div>
+                                            <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", marginTop: 2 }}>{t.UserCount} usuários • {t.InstanceCount || 0} inst.</div>
+                                        </div>
+                                        {!t.IsActive ? <span style={{ color: "var(--danger)", fontSize: "0.6rem" }}>●</span> : expired ? <span style={{ color: "orange", fontSize: "0.6rem" }}>⚠</span> : null}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
             </div>
 
-            {loading && <p style={{ color: "var(--text-secondary)" }}>Carregando...</p>}
-            <div className="tenant-list" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 20 }}>
-                {tenants.map(t => (
-                    <div key={t.TenantId} style={{
-                        background: "var(--bg-secondary)",
-                        padding: 24,
-                        borderRadius: 16,
-                        border: "1px solid var(--border)",
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 16,
-                        transition: "all 0.2s",
-                        cursor: "pointer",
-                        position: "relative"
-                    }}
-                        className="card-hover"
-                        onClick={() => setSelectedTenant(t)}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                            <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 600, color: "var(--text-primary)" }}>{t.Name}</h3>
-                            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
-                                <span style={{ fontSize: "1.2rem" }}>🏢</span>
-                                <span style={{
-                                    fontSize: "0.65rem",
-                                    color: "var(--text-secondary)",
-                                    background: "var(--bg-primary)",
-                                    padding: "2px 6px",
-                                    borderRadius: 4,
-                                    border: "1px solid var(--border)"
-                                }}>ID: {t.TenantId.slice(0, 8)}...</span>
+            {/* Area de Detalhes (Nova Página / Panel Central) */}
+            <div style={{ flex: 1, background: "var(--bg-secondary)", borderRadius: 16, border: "1px solid var(--border)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+                {!selectedTenant ? (
+                    <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "var(--text-secondary)", gap: 16 }}>
+                        <div style={{ padding: 24, background: "var(--bg-primary)", borderRadius: "50%", border: "1px solid var(--border)" }}>
+                            <Globe size={48} opacity={0.3} />
+                        </div>
+                        <p style={{ fontSize: "1rem" }}>Selecione uma empresa para visualizar os detalhes</p>
+                    </div>
+                ) : (
+                    <div style={{ flex: 1, display: "flex", flexDirection: "column", animation: "fadeIn 0.2s ease-out" }}>
+                        {/* Detail Header */}
+                        <div style={{ padding: "20px 32px", borderBottom: "1px solid var(--border)", background: "var(--bg-primary)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <div>
+                                <h2 style={{ fontSize: "1.4rem", fontWeight: 800, margin: 0, display: "flex", alignItems: "center", gap: 10 }}>
+                                    {selectedTenant.Name}
+                                    <span style={{ fontSize: "0.65rem", padding: "3px 8px", borderRadius: 12, background: selectedTenant.IsActive ? "rgba(0,168,132,0.15)" : "rgba(234,67,53,0.15)", color: selectedTenant.IsActive ? "var(--accent)" : "var(--danger)", textTransform: "uppercase", fontWeight: 700 }}>
+                                        {selectedTenant.IsActive ? "Ativo" : "Inativo"}
+                                    </span>
+                                </h2>
+                                <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 4 }}>ID Global: {selectedTenant.TenantId}</div>
+                            </div>
+                            <div style={{ display: "flex", gap: 10 }}>
+                                <button
+                                    onClick={() => { setEditTenant(selectedTenant); setShowLimitModal(true); }}
+                                    className="btn btn-ghost"
+                                    style={{ padding: "8px 16px", borderRadius: 10, fontSize: "0.85rem", border: "1px solid var(--border)" }}
+                                >
+                                    ✎ Ajustar Limites
+                                </button>
+                                <button
+                                    onClick={() => handleDelete(selectedTenant.TenantId)}
+                                    className="btn btn-ghost"
+                                    style={{ padding: "4px 8px", borderRadius: 10, border: "1px solid var(--border)", color: "var(--danger)" }}
+                                >
+                                    🗑️
+                                </button>
                             </div>
                         </div>
 
-                        <div style={{ color: "var(--text-secondary)", fontSize: "0.9rem", display: "flex", flexDirection: "column", gap: 10 }}>
-                            <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                <span>Usuários: <b>{t.UserCount}</b></span>
-                                <span>Instâncias: <b>{t.InstanceCount || 0}</b></span>
+                        {/* Detail Content */}
+                        <div style={{ flex: 1, overflowY: "auto", padding: 32 }}>
+                            {/* Stats Grid */}
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20, marginBottom: 32 }}>
+                                <div style={{ background: "var(--bg-primary)", padding: 20, borderRadius: 20, border: "1px solid var(--border)", textAlign: "center", position: "relative" }}>
+                                    <div style={{ position: "absolute", right: 12, top: 12, color: "var(--accent)", opacity: 0.2 }}><User size={24} /></div>
+                                    <div style={{ fontSize: "2rem", fontWeight: 800 }}>{selectedTenant.UserCount}</div>
+                                    <div style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "var(--text-secondary)", fontWeight: 700, marginTop: 4 }}>Usuários Ativos</div>
+                                </div>
+                                <div style={{ background: "var(--bg-primary)", padding: 20, borderRadius: 20, border: "1px solid var(--border)", textAlign: "center", position: "relative" }}>
+                                    <div style={{ position: "absolute", right: 12, top: 12, color: "var(--secondary)", opacity: 0.2 }}><Smartphone size={24} /></div>
+                                    <div style={{ fontSize: "2rem", fontWeight: 800 }}>{selectedTenant.InstanceCount || 0}</div>
+                                    <div style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "var(--text-secondary)", fontWeight: 700, marginTop: 4 }}>Instâncias (Canais)</div>
+                                </div>
+                                <div style={{ background: "var(--bg-primary)", padding: 20, borderRadius: 20, border: "1px solid var(--border)", textAlign: "center", position: "relative" }}>
+                                    <div style={{ position: "absolute", right: 12, top: 12, color: "orange", opacity: 0.2 }}><ShieldCheck size={24} /></div>
+                                    <div style={{ fontSize: "2rem", fontWeight: 800 }}>{selectedTenant.AgentsSeatLimit}</div>
+                                    <div style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "var(--text-secondary)", fontWeight: 700, marginTop: 4 }}>Limite de Agentes</div>
+                                </div>
                             </div>
-                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                                <span>Limite Agentes: <b>{t.AgentsSeatLimit}</b></span>
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); setEditTenant(t); setShowLimitModal(true); }}
-                                    className="btn btn-ghost"
-                                    style={{ padding: "4px 10px", borderRadius: 8, fontSize: "0.75rem" }}
-                                >
-                                    ✎ Editar
-                                </button>
-                            </div>
-                            <div style={{ borderTop: "1px solid var(--border)", paddingTop: 12, marginTop: 4, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                <span>Expira: <b style={{ color: "var(--text-primary)" }}>{new Date(t.ExpiresAt).toLocaleDateString()}</b></span>
-                                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                                    <span style={{
-                                        fontSize: "0.7rem",
-                                        fontWeight: 700,
-                                        color: t.IsActive ? "var(--accent)" : "var(--danger)"
-                                    }}>
-                                        {t.IsActive ? "● ATIVO" : "● INATIVO"}
-                                    </span>
-                                    {t.IsActive ? (
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); handleDelete(t.TenantId); }}
-                                            style={{ background: "none", border: "none", cursor: "pointer", fontSize: "1rem" }}
-                                            title="Desativar"
-                                        >
-                                            🗑️
-                                        </button>
+
+                            <div style={{ display: "grid", gridTemplateColumns: "350px 1fr", gap: 32 }}>
+                                {/* Info Table */}
+                                <div>
+                                    <h3 style={{ fontSize: "0.95rem", fontWeight: 700, marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
+                                        <Globe size={16} /> Dados da Assinatura
+                                    </h3>
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                                        {[
+                                            { label: "Data de Início", value: new Date(selectedTenant.CreatedAt).toLocaleDateString(), icon: <Calendar size={14} /> },
+                                            { label: "Expiração", value: new Date(selectedTenant.ExpiresAt).toLocaleDateString(), icon: <Calendar size={14} />, color: isExpired(selectedTenant.ExpiresAt) ? "var(--danger)" : "var(--text-primary)" },
+                                            { label: "Plano Atual", value: "Enterprise TRIAL", icon: <ShieldCheck size={14} /> },
+                                            { label: "E-mail Principal", value: "admin@teste.com", icon: <Mail size={14} /> },
+                                        ].map(item => (
+                                            <div key={item.label} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "var(--bg-primary)", borderRadius: 12, border: "1px solid var(--border)" }}>
+                                                <div style={{ color: "var(--text-secondary)" }}>{item.icon}</div>
+                                                <div>
+                                                    <div style={{ fontSize: "0.65rem", textTransform: "uppercase", color: "var(--text-secondary)", fontWeight: 700 }}>{item.label}</div>
+                                                    <div style={{ fontSize: "0.9rem", fontWeight: 600, color: item.color || "var(--text-primary)" }}>{item.value}</div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Instances List */}
+                                <div>
+                                    <h3 style={{ fontSize: "0.95rem", fontWeight: 700, marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
+                                        <Smartphone size={16} /> Canais Ativos
+                                    </h3>
+                                    {instancesLoading ? (
+                                        <div style={{ padding: 20, textAlign: "center", color: "var(--text-secondary)" }}>Carregando canais...</div>
+                                    ) : instances.length === 0 ? (
+                                        <div style={{ padding: 32, textAlign: "center", background: "var(--bg-primary)", borderRadius: 16, border: "1px dashed var(--border)", color: "var(--text-secondary)" }}>
+                                            Nenhuma instância vinculada a esta empresa.
+                                        </div>
                                     ) : (
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); handleReactivateTenant(t.TenantId); }}
-                                            style={{ background: "none", border: "none", cursor: "pointer", fontSize: "1rem" }}
-                                            title="Reativar"
-                                        >
-                                            🔄
-                                        </button>
+                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                                            {instances.map(inst => (
+                                                <div key={inst.ConnectorId} style={{ padding: 16, background: "var(--bg-primary)", borderRadius: 16, border: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12 }}>
+                                                    <div style={{ width: 40, height: 40, borderRadius: 10, background: inst.IsActive ? "rgba(0,168,132,0.1)" : "rgba(234,67,53,0.1)", display: "flex", alignItems: "center", justifyContent: "center", color: inst.IsActive ? "var(--accent)" : "var(--danger)" }}>
+                                                        <Smartphone size={18} />
+                                                    </div>
+                                                    <div style={{ overflow: "hidden" }}>
+                                                        <div style={{ fontSize: "0.85rem", fontWeight: 700, whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden" }}>{inst.ChannelName || "Sem Nome"}</div>
+                                                        <div style={{ fontSize: "0.7rem", color: "var(--text-secondary)" }}>Provider: {inst.Provider}</div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
                                     )}
                                 </div>
                             </div>
                         </div>
                     </div>
-                ))}
+                )}
             </div>
 
-            {showModal && <TenantModal onClose={() => setShowModal(false)} onSubmit={handleCreateTenant} />}
-            {showLimitModal && editTenant && <LimitModal tenant={editTenant} onClose={() => setShowLimitModal(false)} onSubmit={handleSaveLimit} />}
-            {selectedTenant && <TenantDetailsModal tenant={selectedTenant} onClose={() => setSelectedTenant(null)} />}
-        </>
+            {showCreateModal && <TenantModal onClose={() => setShowCreateModal(false)} onSubmit={handleCreateTenant} />}
+            {showLimitModal && editTenant && (
+                <div style={{
+                    position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000
+                }}>
+                    <LimitModal tenant={editTenant} onClose={() => setShowLimitModal(false)} onSubmit={handleSaveLimit} />
+                </div>
+            )}
+        </div>
     );
 }
+
+// Pequeno mock de LimitModal inline ou importado (mantivemos o import mas por seguranca se o original quebrasse no sidebar)
+// Mas o original deve funcionar se referenciado corretamente.

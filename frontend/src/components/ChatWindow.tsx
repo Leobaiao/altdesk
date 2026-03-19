@@ -36,12 +36,13 @@ function getUserIdFromToken() {
 
 
 export function ChatWindow({ setView, showToast }: { setView: (v: any) => void, showToast: (m: string, t: "success" | "error" | "info") => void }) {
-    const { conversations, selectedConversationId, setSelectedConversationId, messages, refreshConversations } = useChat();
+    const { conversations, selectedConversationId, setSelectedConversationId, messages, refreshConversations, typingUsers, emitTyping } = useChat();
     const [text, setText] = useState("");
     const [sending, setSending] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const chatContainerRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+    const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const [showScrollButton, setShowScrollButton] = useState(false);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -130,6 +131,15 @@ export function ChatWindow({ setView, showToast }: { setView: (v: any) => void, 
             setCannedFilter(val.slice(1).toLowerCase());
         } else {
             setShowCannedMenu(false);
+        }
+
+        // Typing indicator
+        if (selectedConversationId) {
+            emitTyping(selectedConversationId, true);
+            if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+            typingTimeoutRef.current = setTimeout(() => {
+                emitTyping(selectedConversationId, false);
+            }, 2500);
         }
     };
 
@@ -411,6 +421,28 @@ export function ChatWindow({ setView, showToast }: { setView: (v: any) => void, 
             )}
 
             <div className="chat-input-bar" style={{ position: "relative", flexShrink: 0 }}>
+                {/* Typing Indicator */}
+                {selectedConversationId && typingUsers[selectedConversationId] && (
+                    <div style={{
+                        position: "absolute", top: -36, left: 16,
+                        display: "flex", alignItems: "center", gap: 8,
+                        background: "var(--bg-secondary)", border: "1px solid var(--border)",
+                        padding: "5px 14px", borderRadius: 20, fontSize: "0.8rem", color: "var(--text-secondary)",
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.15)", animation: "fadeIn 0.2s ease-out"
+                    }}>
+                        <span style={{ display: "flex", gap: 3, alignItems: "center" }}>
+                            {[0, 1, 2].map(i => (
+                                <span key={i} style={{
+                                    width: 6, height: 6, borderRadius: "50%", background: "var(--accent)",
+                                    display: "inline-block",
+                                    animation: `pulse 1.2s ease-in-out ${i * 0.2}s infinite`
+                                }} />
+                            ))}
+                        </span>
+                        <span>{typingUsers[selectedConversationId]} está digitando...</span>
+                    </div>
+                )}
+
                 {showEmojiPicker && (
                     <div style={{ position: "absolute", bottom: "60px", left: "0" }}>
                         <EmojiPicker onSelect={(emoji) => setText(prev => prev + emoji)} onClose={() => setShowEmojiPicker(false)} />

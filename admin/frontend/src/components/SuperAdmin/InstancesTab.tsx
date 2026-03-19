@@ -12,6 +12,8 @@ export function InstancesTab() {
     const [showWebhookModal, setShowWebhookModal] = useState(false);
     const [webhookConnectorId, setWebhookConnectorId] = useState("");
     const [selectedInstanceIds, setSelectedInstanceIds] = useState<Set<string>>(new Set());
+    const [search, setSearch] = useState("");
+    const [reassigningId, setReassigningId] = useState<string | null>(null);
 
     useEffect(() => {
         loadData();
@@ -24,20 +26,8 @@ export function InstancesTab() {
                 api.get("/api/admin/instances"),
                 api.get("/api/admin/tenants")
             ]);
-
-            if (Array.isArray(rInstances.data)) {
-                setInstancesList(rInstances.data);
-            } else {
-                console.error("API returned non-array for instances:", rInstances.data);
-                setInstancesList([]);
-            }
-
-            if (Array.isArray(rTenants.data)) {
-                setTenants(rTenants.data);
-            } else {
-                console.error("API returned non-array for tenants (instances tab):", rTenants.data);
-                setTenants([]);
-            }
+            setInstancesList(Array.isArray(rInstances.data) ? rInstances.data : []);
+            setTenants(Array.isArray(rTenants.data) ? rTenants.data : []);
         } catch (err) {
             console.error(err);
         } finally {
@@ -55,17 +45,22 @@ export function InstancesTab() {
         }
     };
 
+    // BUG FIX: Corrected route from /reassign to /tenant (matching backend definition)
     const handleReassign = async (connectorId: string, newTenantId: string) => {
+        setReassigningId(connectorId);
         try {
-            await api.put(`/api/admin/instances/${connectorId}/reassign`, { tenantId: newTenantId });
+            await api.put(`/api/admin/instances/${connectorId}/tenant`, { tenantId: newTenantId });
             loadData();
-        } catch (err) {
+        } catch (err: any) {
             console.error(err);
+            alert("Erro ao reatribuir instância: " + (err.response?.data?.error || err.message));
+        } finally {
+            setReassigningId(null);
         }
     };
 
     const handleBulkDelete = async () => {
-        if (!confirm(`Excluir ${selectedInstanceIds.size} instâncias?`)) return;
+        if (!confirm(`Excluir ${selectedInstanceIds.size} instâncias permanentemente?`)) return;
         try {
             await api.post("/api/admin/instances/bulk-delete", { connectorIds: Array.from(selectedInstanceIds) });
             setSelectedInstanceIds(new Set());
@@ -75,9 +70,14 @@ export function InstancesTab() {
         }
     };
 
+    const filteredInstances = instancesList.filter(i => {
+        const q = search.toLowerCase();
+        return !q || i.ChannelName?.toLowerCase().includes(q) || i.Provider?.toLowerCase().includes(q) || i.TenantName?.toLowerCase().includes(q);
+    });
+
     const toggleSelectAll = () => {
-        if (selectedInstanceIds.size === instancesList.length) setSelectedInstanceIds(new Set());
-        else setSelectedInstanceIds(new Set(instancesList.map(i => i.ConnectorId)));
+        if (selectedInstanceIds.size === filteredInstances.length) setSelectedInstanceIds(new Set());
+        else setSelectedInstanceIds(new Set(filteredInstances.map((i: any) => i.ConnectorId)));
     };
 
     const toggleSelectOne = (id: string) => {
@@ -87,22 +87,40 @@ export function InstancesTab() {
         setSelectedInstanceIds(next);
     };
 
+    const providerStyle = (provider: string) => {
+        const map: Record<string, { bg: string; color: string }> = {
+            GTI: { bg: "rgba(0,168,132,0.15)", color: "#00a884" },
+            OFFICIAL: { bg: "rgba(66,133,244,0.15)", color: "#4285f4" },
+            WEBCHAT: { bg: "rgba(255,152,0,0.15)", color: "#ff9800" },
+        };
+        return map[provider] || { bg: "rgba(255,255,255,0.08)", color: "#aaa" };
+    };
+
     return (
         <>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--text-secondary)" }}>
-                    <Smartphone size={18} />
-                    {loading ? <span>Carregando...</span> : <span>{instancesList.length} instâncias encontradas</span>}
+            {/* Toolbar */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, gap: 12, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1 }}>
+                    <div style={{ position: "relative", flex: 1, maxWidth: 360 }}>
+                        <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--text-secondary)", pointerEvents: "none", fontSize: "0.9rem" }}>🔍</span>
+                        <input
+                            placeholder="Buscar por nome, provider ou empresa..."
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                            style={{ width: "100%", padding: "10px 14px 10px 38px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", fontSize: "0.9rem", outline: "none", transition: "box-shadow 0.2s" }}
+                            onFocus={e => (e.target.style.boxShadow = "0 0 0 2px var(--accent)")}
+                            onBlur={e => (e.target.style.boxShadow = "none")}
+                        />
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--text-secondary)", fontSize: "0.85rem", whiteSpace: "nowrap" }}>
+                        <Smartphone size={15} />
+                        {loading ? "Carregando..." : <><b style={{ color: "var(--text-primary)" }}>{filteredInstances.length}</b> instâncias</>}
+                    </div>
                 </div>
-
-                <div style={{ display: "flex", gap: 12 }}>
+                <div style={{ display: "flex", gap: 10 }}>
                     {selectedInstanceIds.size > 0 && (
-                        <button
-                            onClick={handleBulkDelete}
-                            className="btn"
-                            style={{ background: "var(--danger)", color: "white", padding: "10px 18px", borderRadius: 10 }}
-                        >
-                            Excluir Selecionados ({selectedInstanceIds.size})
+                        <button onClick={handleBulkDelete} className="btn" style={{ background: "rgba(234,67,53,0.12)", color: "var(--danger)", border: "1px solid rgba(234,67,53,0.3)", borderRadius: 10, fontWeight: 600 }}>
+                            🗑 Excluir ({selectedInstanceIds.size})
                         </button>
                     )}
                     <button onClick={() => setShowInstanceModal(true)} className="btn btn-primary" style={{ borderRadius: 10 }}>
@@ -111,79 +129,71 @@ export function InstancesTab() {
                 </div>
             </div>
 
+            {/* Table */}
             <div style={{ overflowX: "auto", background: "var(--bg-secondary)", borderRadius: 16, border: "1px solid var(--border)" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", color: "var(--text-primary)" }}>
                     <thead>
                         <tr style={{ background: "var(--bg-active)", textAlign: "left" }}>
-                            <th style={{ padding: "16px 20px" }}>
-                                <input
-                                    type="checkbox"
-                                    checked={instancesList.length > 0 && selectedInstanceIds.size === instancesList.length}
-                                    onChange={toggleSelectAll}
-                                    style={{ accentColor: "var(--accent)", width: 16, height: 16, cursor: "pointer" }}
-                                />
+                            <th style={{ padding: "14px 20px" }}>
+                                <input type="checkbox" checked={filteredInstances.length > 0 && selectedInstanceIds.size === filteredInstances.length} onChange={toggleSelectAll} style={{ accentColor: "var(--accent)", width: 15, height: 15, cursor: "pointer" }} />
                             </th>
-                            <th style={{ padding: "16px 20px" }}>Nome</th>
-                            <th style={{ padding: "16px 20px" }}>Número/ID</th>
-                            <th style={{ padding: "16px 20px" }}>Provider</th>
-                            <th style={{ padding: "16px 20px" }}>Empresa (Dona)</th>
-                            <th style={{ padding: "16px 20px" }}>Token/Chave</th>
-                            <th style={{ padding: "16px 20px" }}>Status</th>
-                            <th style={{ padding: "16px 20px", textAlign: "right" }}>Ações</th>
+                            {["Nome / Canal", "Provider", "Empresa (Dona)", "Token / Chave", "Status", "Webhook"].map(h => (
+                                <th key={h} style={{ padding: "14px 20px", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.6px", color: "var(--text-secondary)", fontWeight: 700, textAlign: h === "Webhook" ? "right" : "left" }}>{h}</th>
+                            ))}
                         </tr>
                     </thead>
                     <tbody>
-                        {instancesList.map(i => {
+                        {filteredInstances.length === 0 ? (
+                            <tr><td colSpan={7} style={{ padding: 48, textAlign: "center", color: "var(--text-secondary)" }}>{loading ? "⏳ Carregando..." : "Nenhuma instância encontrada."}</td></tr>
+                        ) : filteredInstances.map(i => {
                             const config = i.ConfigJson ? JSON.parse(i.ConfigJson) : {};
-                            let phone = i.Provider === "GTI" || i.Provider === "WHATSAPP" || i.Provider === "OFFICIAL" ? config.phoneNumberId || "-" : "-";
-                            let tokenVal = i.Provider === "GTI" ? config.apiKey || "-" : i.WebhookSecret || "-";
+                            const tokenVal = config.apiKey || config.token || i.WebhookSecret || "-";
                             const isSelected = selectedInstanceIds.has(i.ConnectorId);
+                            const isReassigning = reassigningId === i.ConnectorId;
+                            const ps = providerStyle(i.Provider);
 
                             return (
-                                <tr key={i.ConnectorId} style={{ borderBottom: "1px solid var(--border)", background: isSelected ? "rgba(0, 168, 132, 0.05)" : "transparent", transition: "all 0.2s" }} className="table-row-hover">
-                                    <td style={{ padding: "16px 20px" }}>
-                                        <input
-                                            type="checkbox"
-                                            checked={isSelected}
-                                            onChange={() => toggleSelectOne(i.ConnectorId)}
-                                            style={{ accentColor: "var(--accent)", width: 16, height: 16, cursor: "pointer" }}
-                                        />
+                                <tr key={i.ConnectorId} style={{ borderBottom: "1px solid var(--border)", background: isSelected ? "rgba(0,168,132,0.05)" : "transparent", transition: "background 0.15s" }} className="table-row-hover">
+                                    <td style={{ padding: "14px 20px" }}>
+                                        <input type="checkbox" checked={isSelected} onChange={() => toggleSelectOne(i.ConnectorId)} style={{ accentColor: "var(--accent)", width: 15, height: 15, cursor: "pointer" }} />
                                     </td>
-                                    <td style={{ padding: "16px 20px", fontWeight: 500 }}>{i.ChannelName}</td>
-                                    <td style={{ padding: "16px 20px", color: "var(--text-secondary)" }}>{phone}</td>
-                                    <td style={{ padding: "16px 20px" }}>
-                                        <span style={{ background: "var(--bg-primary)", padding: "4px 8px", borderRadius: 6, fontSize: "0.75rem", border: "1px solid var(--border)" }}>{i.Provider}</span>
+                                    <td style={{ padding: "14px 20px" }}>
+                                        <div style={{ fontWeight: 600 }}>{i.ChannelName}</div>
+                                        <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", marginTop: 2 }}>{i.ConnectorId.slice(0, 12)}…</div>
                                     </td>
-                                    <td style={{ padding: "16px 20px" }}>
+                                    <td style={{ padding: "14px 20px" }}>
+                                        <span style={{ background: ps.bg, color: ps.color, padding: "3px 10px", borderRadius: 8, fontSize: "0.73rem", fontWeight: 700, letterSpacing: "0.5px" }}>{i.Provider}</span>
+                                    </td>
+                                    <td style={{ padding: "14px 20px", minWidth: 190 }}>
                                         <select
                                             value={i.TenantId}
-                                            onChange={(e) => handleReassign(i.ConnectorId, e.target.value)}
-                                            style={{ padding: "8px 12px", borderRadius: 10, background: "var(--bg-primary)", color: "white", border: "1px solid var(--border)", fontSize: "0.85rem", outline: "none", cursor: "pointer" }}
+                                            onChange={e => handleReassign(i.ConnectorId, e.target.value)}
+                                            disabled={isReassigning}
+                                            style={{ padding: "7px 10px", borderRadius: 8, background: "var(--bg-primary)", color: "var(--text-primary)", border: "1px solid var(--border)", fontSize: "0.85rem", width: "100%", opacity: isReassigning ? 0.6 : 1, cursor: isReassigning ? "wait" : "pointer", outline: "none" }}
                                         >
-                                            {tenants.map(t => (
-                                                <option key={t.TenantId} value={t.TenantId}>{t.Name}</option>
-                                            ))}
+                                            {tenants.map((t: any) => <option key={t.TenantId} value={t.TenantId}>{t.Name}</option>)}
                                         </select>
+                                        {isReassigning && <div style={{ fontSize: "0.68rem", color: "var(--accent)", marginTop: 3 }}>💾 Salvando...</div>}
                                     </td>
-                                    <td style={{ padding: "16px 20px" }}>
+                                    <td style={{ padding: "14px 20px" }}>
                                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                            <code style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>{tokenVal.length > 20 ? tokenVal.slice(0, 20) + "..." : tokenVal}</code>
-                                            <button onClick={() => { navigator.clipboard.writeText(tokenVal); alert("Copiado!"); }} className="btn btn-ghost" style={{ padding: 4, borderRadius: 6 }} title="Copiar Token"><Copy size={12} /></button>
+                                            <code style={{ fontSize: "0.78rem", color: "var(--text-secondary)", background: "var(--bg-primary)", padding: "3px 8px", borderRadius: 6, border: "1px solid var(--border)" }}>
+                                                {tokenVal.length > 16 ? tokenVal.slice(0, 16) + "…" : tokenVal}
+                                            </code>
+                                            <button onClick={() => navigator.clipboard.writeText(tokenVal)} className="btn btn-ghost" style={{ padding: "4px 8px", height: "auto", borderRadius: 6 }} title="Copiar">
+                                                <Copy size={12} />
+                                            </button>
                                         </div>
                                     </td>
-                                    <td style={{ padding: "16px 20px" }}>
+                                    <td style={{ padding: "14px 20px" }}>
                                         <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.85rem", fontWeight: 600, color: i.IsActive ? "var(--accent)" : "var(--danger)" }}>
-                                            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "currentColor" }} />
+                                            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "currentColor", boxShadow: i.IsActive ? "0 0 6px var(--accent)" : "none" }} />
                                             {i.IsActive ? "Conectado" : "Offline"}
                                         </div>
                                     </td>
-                                    <td style={{ padding: "16px 20px", textAlign: "right" }}>
-                                        <button
-                                            onClick={() => { setWebhookConnectorId(i.ConnectorId); setShowWebhookModal(true); }}
-                                            className="btn btn-primary"
-                                            style={{ padding: "8px 12px", borderRadius: 10, fontSize: "0.75rem", display: "inline-flex", alignItems: "center", gap: 6 }}
-                                        >
-                                            <Anchor size={14} /> Webhook
+                                    <td style={{ padding: "14px 20px", textAlign: "right" }}>
+                                        <button onClick={() => { setWebhookConnectorId(i.ConnectorId); setShowWebhookModal(true); }} className="btn btn-ghost" style={{ padding: "7px 14px", borderRadius: 8, fontSize: "0.78rem", display: "inline-flex", alignItems: "center", gap: 5, height: "auto" }}>
+                                            <Anchor size={13} /> Webhook
                                         </button>
                                     </td>
                                 </tr>

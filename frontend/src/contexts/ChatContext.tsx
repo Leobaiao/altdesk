@@ -12,6 +12,8 @@ type ChatContextType = {
     messages: Message[];
     setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
     refreshConversations: () => void;
+    typingUsers: Record<string, string>; // conversationId → userName
+    emitTyping: (conversationId: string, isTyping: boolean) => void;
 };
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -24,6 +26,12 @@ export function ChatProvider({ children, token, onLogout }: { children: ReactNod
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
+    const [typingUsers, setTypingUsers] = useState<Record<string, string>>({});
+
+    const emitTyping = (conversationId: string, isTyping: boolean) => {
+        if (!socket) return;
+        socket.emit(isTyping ? "typing:start" : "typing:stop", { conversationId });
+    };
 
     const decoded = parseJwt(token);
     const tenantId = decoded?.tenantId;
@@ -70,9 +78,24 @@ export function ChatProvider({ children, token, onLogout }: { children: ReactNod
         const onConvUpdated = () => refreshConversations();
         newSocket.on("conversation:updated", onConvUpdated);
 
+        const onTypingStart = ({ conversationId, userName }: { conversationId: string; userName: string }) => {
+            setTypingUsers(prev => ({ ...prev, [conversationId]: userName }));
+        };
+        const onTypingStop = ({ conversationId }: { conversationId: string }) => {
+            setTypingUsers(prev => {
+                const next = { ...prev };
+                delete next[conversationId];
+                return next;
+            });
+        };
+        newSocket.on("typing:start", onTypingStart);
+        newSocket.on("typing:stop", onTypingStop);
+
         return () => {
             newSocket.emit("tenant:leave", tenantId);
             newSocket.off("conversation:updated", onConvUpdated);
+            newSocket.off("typing:start", onTypingStart);
+            newSocket.off("typing:stop", onTypingStop);
             newSocket.disconnect();
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -167,7 +190,9 @@ export function ChatProvider({ children, token, onLogout }: { children: ReactNod
             setSelectedConversationId,
             messages,
             setMessages,
-            refreshConversations
+            refreshConversations,
+            typingUsers,
+            emitTyping
         }}>
             {children}
         </ChatContext.Provider>

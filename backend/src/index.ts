@@ -32,6 +32,7 @@ import knowledgeRouter from "./routes/knowledge.js";
 import businessHoursRouter from "./routes/business-hours.js";
 import publicRouter from "./routes/public.js";
 import { startSlaWorker } from "./services/slaService.js";
+import reportsRouter from "./routes/reports.js";
 
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(",")
@@ -117,6 +118,16 @@ io.on("connection", (socket) => {
   });
 
   socket.on("tenant:leave", (tenantId: string) => socket.leave(`tenant:${tenantId}`));
+
+  // Typing indicator: broadcast to all others in conversation room
+  socket.on("typing:start", ({ conversationId }: { conversationId: string }) => {
+    const userName = (user as any).displayName || (user as any).email || "Agente";
+    socket.to(conversationId).emit("typing:start", { conversationId, userName });
+  });
+
+  socket.on("typing:stop", ({ conversationId }: { conversationId: string }) => {
+    socket.to(conversationId).emit("typing:stop", { conversationId });
+  });
 });
 
 // --- API ROUTES ---
@@ -135,6 +146,7 @@ app.use("/api/roles", rolesRouter);
 app.use("/api/tags", tagsRouter);
 app.use("/api/knowledge", knowledgeRouter);
 app.use("/api/business-hours", businessHoursRouter);
+app.use("/api/reports", reportsRouter);
 
 // Webhooks
 app.use("/api", webhooksRouter);

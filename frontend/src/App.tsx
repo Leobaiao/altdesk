@@ -14,12 +14,14 @@ import { Tickets } from "./Tickets";
 import { TagsSettings } from "./TagsSettings";
 import { KnowledgeBase } from "./KnowledgeBase";
 import { BusinessHours } from "./BusinessHours";
-import { Tag as TagIcon, Book, Clock } from "lucide-react";
+import { Tag as TagIcon, Book, Clock, BarChart2 } from "lucide-react";
 
 // Novas importações do refactoring
 import { ChatProvider, useChat } from "./contexts/ChatContext";
 import { Sidebar } from "./components/Sidebar";
 import { ChatWindow } from "./components/ChatWindow";
+import { Reports } from "./Reports";
+import { usePushNotifications } from "./hooks/usePushNotifications";
 
 import {
   LayoutDashboard,
@@ -133,8 +135,11 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from
 function MainLayout({ token, role, onLogout }: { token: string; role: string; onLogout: () => void }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { conversations, setConversations, selectedConversationId, setSelectedConversationId, refreshConversations } = useChat();
+  const { conversations, setConversations, selectedConversationId, setSelectedConversationId, refreshConversations, socket } = useChat();
   const [profile, setProfile] = useState<{ Name?: string; Avatar?: string; Position?: string } | null>(null);
+
+  // Push Notifications
+  usePushNotifications(socket, selectedConversationId, conversations);
 
   useEffect(() => {
     api.get("/api/profile").then(res => setProfile(res.data)).catch(console.error);
@@ -231,6 +236,7 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
           <NavIcon icon={Book} label="Base de Conhecimento" active={currentPath.startsWith("/knowledge")} onClick={() => navigate("/knowledge")} />
           <NavIcon icon={Clock} label="Horário de Atendimento" active={currentPath.startsWith("/business-hours")} onClick={() => navigate("/business-hours")} />
           <NavIcon icon={Ticket} label="Chamados" active={currentPath.startsWith("/tickets")} onClick={() => navigate("/tickets")} />
+          <NavIcon icon={BarChart2} label="Relatórios" active={currentPath.startsWith("/reports")} onClick={() => navigate("/reports")} />
         </div>
         <div className="footer-items">
           <NavIcon icon={SettingsIcon} label="Config" active={currentPath.startsWith("/settings")} onClick={() => navigate("/settings")} />
@@ -260,6 +266,7 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
           <Route path="/knowledge" element={<KnowledgeBase onBack={() => navigate("/chat")} />} />
           <Route path="/business-hours" element={<BusinessHours onBack={() => navigate("/chat")} />} />
           <Route path="/tickets" element={<Tickets token={token} onBack={() => navigate("/chat")} role={role || 'AGENT'} />} />
+          <Route path="/reports" element={<Reports onBack={() => navigate("/chat")} />} />
 
           <Route path="*" element={<Navigate to="/chat" replace />} />
         </Routes>

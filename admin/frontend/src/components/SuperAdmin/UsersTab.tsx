@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { Users as UsersIcon, Edit2, Play, Pause } from "lucide-react";
+import { Edit2, Play, Pause } from "lucide-react";
 import { api } from "../../lib/api";
 import { UserModal } from "./Modals/UserModal";
+
+type RoleFilter = "ALL" | "SUPERADMIN" | "ADMIN" | "AGENT";
 
 export function UsersTab() {
     const [users, setUsers] = useState<any[]>([]);
@@ -9,6 +11,8 @@ export function UsersTab() {
     const [loading, setLoading] = useState(false);
     const [showModal, setShowModal] = useState(false);
     const [editUser, setEditUser] = useState<any>(null);
+    const [search, setSearch] = useState("");
+    const [roleFilter, setRoleFilter] = useState<RoleFilter>("ALL");
 
     useEffect(() => {
         loadData();
@@ -21,20 +25,8 @@ export function UsersTab() {
                 api.get("/api/admin/users"),
                 api.get("/api/admin/tenants")
             ]);
-
-            if (Array.isArray(rUsers.data)) {
-                setUsers(rUsers.data);
-            } else {
-                console.error("API returned non-array for users (tab):", rUsers.data);
-                setUsers([]);
-            }
-
-            if (Array.isArray(rTenants.data)) {
-                setTenants(rTenants.data);
-            } else {
-                console.error("API returned non-array for tenants (users tab):", rTenants.data);
-                setTenants([]);
-            }
+            setUsers(Array.isArray(rUsers.data) ? rUsers.data : []);
+            setTenants(Array.isArray(rTenants.data) ? rTenants.data : []);
         } catch (err) {
             console.error(err);
         } finally {
@@ -64,82 +56,117 @@ export function UsersTab() {
         }
     };
 
-    const openEditUser = (u: any) => {
-        setEditUser(u);
-        setShowModal(true);
+    const roleBadge = (role: string) => {
+        const map: Record<string, { bg: string; color: string; label: string }> = {
+            SUPERADMIN: { bg: "rgba(168,0,168,0.15)", color: "#d942f5", label: "SuperAdmin" },
+            ADMIN: { bg: "rgba(255,152,0,0.15)", color: "#ff9800", label: "Admin" },
+            AGENT: { bg: "rgba(0,168,132,0.15)", color: "#00a884", label: "Agente" },
+        };
+        return map[role] || { bg: "rgba(255,255,255,0.08)", color: "#aaa", label: role };
     };
 
-    const openNewUser = () => {
-        setEditUser(null);
-        setShowModal(true);
-    };
+    const roles: RoleFilter[] = ["ALL", "SUPERADMIN", "ADMIN", "AGENT"];
+
+    const filteredUsers = users.filter(u => {
+        const q = search.toLowerCase();
+        const matchesSearch = !q || u.AgentName?.toLowerCase().includes(q) || u.Email?.toLowerCase().includes(q) || u.TenantName?.toLowerCase().includes(q);
+        const matchesRole = roleFilter === "ALL" || u.Role === roleFilter;
+        return matchesSearch && matchesRole;
+    });
 
     return (
         <>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--text-secondary)" }}>
-                    <UsersIcon size={18} />
-                    {loading ? <span>Carregando...</span> : <span>{users.length} usuários encontrados</span>}
+            {/* Toolbar */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, gap: 12, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", gap: 10, alignItems: "center", flex: 1, flexWrap: "wrap" }}>
+                    <div style={{ position: "relative", maxWidth: 300, flex: 1 }}>
+                        <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--text-secondary)", pointerEvents: "none" }}>🔍</span>
+                        <input
+                            placeholder="Buscar por nome, email ou empresa..."
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                            style={{ width: "100%", padding: "10px 14px 10px 38px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", fontSize: "0.9rem", outline: "none" }}
+                            onFocus={e => (e.target.style.boxShadow = "0 0 0 2px var(--accent)")}
+                            onBlur={e => (e.target.style.boxShadow = "none")}
+                        />
+                    </div>
+                    <div style={{ display: "flex", gap: 6 }}>
+                        {roles.map(r => (
+                            <button
+                                key={r}
+                                onClick={() => setRoleFilter(r)}
+                                style={{
+                                    padding: "6px 12px", borderRadius: 20, fontSize: "0.75rem", fontWeight: 600, cursor: "pointer", transition: "all 0.15s", border: "none",
+                                    background: roleFilter === r ? "var(--accent)" : "var(--bg-primary)",
+                                    color: roleFilter === r ? "#fff" : "var(--text-secondary)"
+                                }}
+                            >
+                                {r === "ALL" ? "Todos" : r === "SUPERADMIN" ? "SuperAdmin" : r === "ADMIN" ? "Admin" : "Agente"}
+                            </button>
+                        ))}
+                    </div>
+                    {!loading && (
+                        <span style={{ color: "var(--text-secondary)", fontSize: "0.85rem", whiteSpace: "nowrap" }}>
+                            <b style={{ color: "var(--text-primary)" }}>{filteredUsers.length}</b> usuários
+                        </span>
+                    )}
                 </div>
-                <button onClick={openNewUser} className="btn btn-primary" style={{ borderRadius: 10 }}>
+                <button onClick={() => { setEditUser(null); setShowModal(true); }} className="btn btn-primary" style={{ borderRadius: 10 }}>
                     + Novo Usuário
                 </button>
             </div>
+
+            {/* Table */}
             <div style={{ overflowX: "auto", background: "var(--bg-secondary)", borderRadius: 16, border: "1px solid var(--border)" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", color: "var(--text-primary)" }}>
                     <thead>
                         <tr style={{ background: "var(--bg-active)", textAlign: "left" }}>
-                            <th style={{ padding: "16px 20px" }}>Nome</th>
-                            <th style={{ padding: "16px 20px" }}>Email</th>
-                            <th style={{ padding: "16px 20px" }}>Permissão</th>
-                            <th style={{ padding: "16px 20px" }}>Empresa</th>
-                            <th style={{ padding: "16px 20px" }}>Status</th>
-                            <th style={{ padding: "16px 20px", textAlign: "right" }}>Ações</th>
+                            {["Nome", "Email", "Permissão", "Empresa", "Status", "Ações"].map((h, idx) => (
+                                <th key={h} style={{ padding: "14px 20px", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.6px", color: "var(--text-secondary)", fontWeight: 700, textAlign: idx === 5 ? "right" : "left" }}>{h}</th>
+                            ))}
                         </tr>
                     </thead>
                     <tbody>
-                        {users.map(u => (
-                            <tr key={u.UserId} style={{ borderBottom: "1px solid var(--border)", opacity: u.IsActive ? 1 : 0.6, transition: "background 0.2s" }} className="table-row-hover">
-                                <td style={{ padding: "16px 20px", fontWeight: 500 }}>{u.AgentName || u.Name || "-"}</td>
-                                <td style={{ padding: "16px 20px", color: "var(--text-secondary)" }}>{u.Email}</td>
-                                <td style={{ padding: "16px 20px" }}>
-                                    <span style={{
-                                        padding: "4px 10px", borderRadius: 8, fontSize: "0.75rem", fontWeight: 700,
-                                        background: u.Role === "SUPERADMIN" ? "rgba(168, 0, 132, 0.15)" : (u.Role === "ADMIN" ? "rgba(255, 152, 0, 0.15)" : "rgba(0, 168, 132, 0.15)"),
-                                        color: u.Role === "SUPERADMIN" ? "#d942f5" : (u.Role === "ADMIN" ? "#ff9800" : "#00a884")
-                                    }}>
-                                        {u.Role}
-                                    </span>
-                                </td>
-                                <td style={{ padding: "16px 20px" }}>{u.TenantName || "Sem Tenant"}</td>
-                                <td style={{ padding: "16px 20px" }}>
-                                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.85rem", fontWeight: 600, color: u.IsActive ? "var(--accent)" : "var(--danger)" }}>
-                                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: "currentColor" }} />
-                                        {u.IsActive ? "Ativo" : "Inativo"}
-                                    </div>
-                                </td>
-                                <td style={{ padding: "16px 20px", textAlign: "right" }}>
-                                    <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-                                        <button
-                                            onClick={() => openEditUser(u)}
-                                            className="btn btn-ghost"
-                                            style={{ padding: 8, borderRadius: 8 }}
-                                            title="Editar Usuário"
-                                        >
-                                            <Edit2 size={16} />
-                                        </button>
-                                        <button
-                                            onClick={() => handleToggleUserStatus(u.UserId, u.IsActive)}
-                                            className="btn btn-ghost"
-                                            style={{ padding: 8, borderRadius: 8, color: u.IsActive ? "var(--danger)" : "var(--accent)" }}
-                                            title={u.IsActive ? "Desativar" : "Ativar"}
-                                        >
-                                            {u.IsActive ? <Pause size={16} /> : <Play size={16} />}
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
+                        {filteredUsers.length === 0 ? (
+                            <tr><td colSpan={6} style={{ padding: 48, textAlign: "center", color: "var(--text-secondary)" }}>
+                                {loading ? "⏳ Carregando..." : "Nenhum usuário encontrado."}
+                            </td></tr>
+                        ) : filteredUsers.map(u => {
+                            const rb = roleBadge(u.Role);
+                            return (
+                                <tr key={u.UserId} style={{ borderBottom: "1px solid var(--border)", opacity: u.IsActive ? 1 : 0.55, transition: "all 0.15s" }} className="table-row-hover">
+                                    <td style={{ padding: "14px 20px" }}>
+                                        <div style={{ fontWeight: 600 }}>{u.AgentName || u.Name || "—"}</div>
+                                    </td>
+                                    <td style={{ padding: "14px 20px", color: "var(--text-secondary)", fontSize: "0.9rem" }}>{u.Email}</td>
+                                    <td style={{ padding: "14px 20px" }}>
+                                        <span style={{ background: rb.bg, color: rb.color, padding: "3px 10px", borderRadius: 20, fontSize: "0.73rem", fontWeight: 700 }}>{rb.label}</span>
+                                    </td>
+                                    <td style={{ padding: "14px 20px", color: "var(--text-secondary)" }}>{u.TenantName || "—"}</td>
+                                    <td style={{ padding: "14px 20px" }}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: "0.85rem", fontWeight: 600, color: u.IsActive ? "var(--accent)" : "var(--danger)" }}>
+                                            <span style={{ width: 7, height: 7, borderRadius: "50%", background: "currentColor" }} />
+                                            {u.IsActive ? "Ativo" : "Inativo"}
+                                        </div>
+                                    </td>
+                                    <td style={{ padding: "14px 20px", textAlign: "right" }}>
+                                        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+                                            <button onClick={() => { setEditUser(u); setShowModal(true); }} className="btn btn-ghost" style={{ padding: 8, borderRadius: 8, height: "auto" }} title="Editar">
+                                                <Edit2 size={15} />
+                                            </button>
+                                            <button
+                                                onClick={() => handleToggleUserStatus(u.UserId, u.IsActive)}
+                                                className="btn btn-ghost"
+                                                style={{ padding: 8, borderRadius: 8, height: "auto", color: u.IsActive ? "var(--danger)" : "var(--accent)" }}
+                                                title={u.IsActive ? "Desativar" : "Ativar"}
+                                            >
+                                                {u.IsActive ? <Pause size={15} /> : <Play size={15} />}
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            );
+                        })}
                     </tbody>
                 </table>
             </div>
