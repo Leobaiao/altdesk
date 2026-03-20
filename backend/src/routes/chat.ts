@@ -125,9 +125,11 @@ router.post("/:id/reply", validateBody(z.object({ text: z.string().min(1) })), (
         try {
             externalMessageId = await adapter.sendText(metadata.connector, metadata.externalUserId, text);
             console.log(`[REPLY DEBUG] adapter.sendText finished successfully. ID: ${externalMessageId}`);
-        } catch (adapterErr) {
+        } catch (adapterErr: any) {
             console.error(`[REPLY DEBUG] adapter.sendText threw an error:`, adapterErr);
-            throw adapterErr;
+            return res.status(502).json({ 
+                error: `Erro ao enviar mensagem: falha na comunicação com o provedor (${metadata.provider}). Verifique as configurações de conexão ou a disponibilidade do serviço externo.` 
+            });
         }
 
         console.log(`[REPLY DEBUG] Starting saveOutboundMessage...`);
