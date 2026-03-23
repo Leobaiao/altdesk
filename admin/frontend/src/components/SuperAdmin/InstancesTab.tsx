@@ -3,6 +3,7 @@ import { Smartphone, Copy, Anchor } from "lucide-react";
 import { api } from "../../lib/api";
 import { InstanceModal } from "./Modals/InstanceModal";
 import { WebhookModal } from "./Modals/WebhookModal";
+import { ConnectModal } from "./Modals/ConnectModal";
 
 export function InstancesTab() {
     const [instancesList, setInstancesList] = useState<any[]>([]);
@@ -11,6 +12,8 @@ export function InstancesTab() {
     const [showInstanceModal, setShowInstanceModal] = useState(false);
     const [showWebhookModal, setShowWebhookModal] = useState(false);
     const [webhookConnectorId, setWebhookConnectorId] = useState("");
+    const [showConnectModal, setShowConnectModal] = useState(false);
+    const [connectConnectorId, setConnectConnectorId] = useState("");
     const [selectedInstanceIds, setSelectedInstanceIds] = useState<Set<string>>(new Set());
     const [search, setSearch] = useState("");
     const [reassigningId, setReassigningId] = useState<string | null>(null);
@@ -192,6 +195,11 @@ export function InstancesTab() {
                                         </div>
                                     </td>
                                     <td style={{ padding: "14px 20px", textAlign: "right" }}>
+                                        {i.Provider === "GTI" && (
+                                            <button onClick={() => { setConnectConnectorId(i.ConnectorId); setShowConnectModal(true); }} className="btn btn-ghost" style={{ padding: "7px 14px", borderRadius: 8, fontSize: "0.78rem", display: "inline-flex", alignItems: "center", gap: 5, height: "auto", marginRight: 8, color: "#00a884", border: "1px solid rgba(0,168,132,0.3)" }}>
+                                                🔗 Conectar
+                                            </button>
+                                        )}
                                         <button onClick={() => { setWebhookConnectorId(i.ConnectorId); setShowWebhookModal(true); }} className="btn btn-ghost" style={{ padding: "7px 14px", borderRadius: 8, fontSize: "0.78rem", display: "inline-flex", alignItems: "center", gap: 5, height: "auto" }}>
                                             <Anchor size={13} /> Webhook
                                         </button>
@@ -205,6 +213,7 @@ export function InstancesTab() {
 
             {showInstanceModal && <InstanceModal tenants={tenants} onClose={() => setShowInstanceModal(false)} onSubmit={handleCreateInstance} />}
             {showWebhookModal && <WebhookModal connectorId={webhookConnectorId} onClose={() => setShowWebhookModal(false)} />}
+            {showConnectModal && <ConnectModal connectorId={connectConnectorId} onClose={() => setShowConnectModal(false)} />}
         </>
     );
 }

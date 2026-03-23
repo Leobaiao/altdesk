@@ -16,6 +16,7 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
     const [editTenant, setEditTenant] = useState<any>(null);
     const [selectedTenant, setSelectedTenant] = useState<any>(null);
     const [search, setSearch] = useState("");
+    const [showInactive, setShowInactive] = useState(false);
     const [instances, setInstances] = useState<any[]>([]);
     const [instancesLoading, setInstancesLoading] = useState(false);
 
@@ -80,18 +81,36 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
     };
 
     const handleDelete = async (tenantId: string) => {
-        if (!confirm("Tem certeza que deseja desativar esta empresa?")) return;
+        if (!confirm("Tem certeza que deseja inativar esta empresa?")) return;
         try {
             await api.delete(`/api/admin/tenants/${tenantId}`);
             loadTenants();
+            if (selectedTenant?.TenantId === tenantId) {
+                setSelectedTenant({ ...selectedTenant, IsActive: false });
+            }
         } catch (err) {
             console.error(err);
         }
     };
 
-    const filteredTenants = tenants.filter(t =>
-        !search || t.Name?.toLowerCase().includes(search.toLowerCase())
-    );
+    const handleReactivate = async (tenantId: string) => {
+        if (!confirm("Tem certeza que deseja reativar esta empresa?")) return;
+        try {
+            await api.put(`/api/admin/tenants/${tenantId}/reactivate`);
+            loadTenants();
+            if (selectedTenant?.TenantId === tenantId) {
+                setSelectedTenant({ ...selectedTenant, IsActive: true });
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const filteredTenants = tenants.filter(t => {
+        const matchesSearch = !search || t.Name?.toLowerCase().includes(search.toLowerCase());
+        const matchesActive = showInactive || t.IsActive;
+        return matchesSearch && matchesActive;
+    });
 
     const isExpired = (expiresAt: string) => expiresAt && new Date(expiresAt) < new Date();
 
@@ -122,6 +141,10 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
                             }}
                         />
                     </div>
+                    <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12, fontSize: "0.8rem", color: "var(--text-secondary)", cursor: "pointer" }}>
+                        <input type="checkbox" checked={showInactive} onChange={e => setShowInactive(e.target.checked)} />
+                        Mostrar empresas inativas
+                    </label>
                     <button
                         onClick={() => setShowCreateModal(true)}
                         className="btn btn-primary"
@@ -200,13 +223,25 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
                                 >
                                     ✎ Ajustar Limites
                                 </button>
-                                <button
-                                    onClick={() => handleDelete(selectedTenant.TenantId)}
-                                    className="btn btn-ghost"
-                                    style={{ padding: "4px 8px", borderRadius: 10, border: "1px solid var(--border)", color: "var(--danger)" }}
-                                >
-                                    🗑️
-                                </button>
+                                {selectedTenant.IsActive ? (
+                                    <button
+                                        onClick={() => handleDelete(selectedTenant.TenantId)}
+                                        className="btn btn-ghost"
+                                        style={{ padding: "8px 16px", borderRadius: 10, fontSize: "0.85rem", border: "1px solid var(--border)", color: "var(--danger)" }}
+                                        title="Inativar Empresa"
+                                    >
+                                        🗑️ Inativar
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={() => handleReactivate(selectedTenant.TenantId)}
+                                        className="btn btn-ghost"
+                                        style={{ padding: "8px 16px", borderRadius: 10, fontSize: "0.85rem", border: "1px solid var(--border)", color: "#00a884" }}
+                                        title="Reativar Empresa"
+                                    >
+                                        ✅ Reativar
+                                    </button>
+                                )}
                             </div>
                         </div>
 

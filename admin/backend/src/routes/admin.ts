@@ -229,6 +229,42 @@ router.get("/instances/:connectorId/webhook", (async (req: AuthenticatedRequest,
     }
 }) as any);
 
+router.post("/instances/:connectorId/connect", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const { connectorId } = req.params;
+        const { phone } = req.body;
+        const connector = await loadConnector(connectorId);
+
+        if (connector.Provider !== "GTI") {
+            return res.status(400).json({ error: "Conexão por QR/Pair Code suportada apenas para provedor GTI." });
+        }
+
+        const cfg = JSON.parse(connector.ConfigJson);
+        const baseUrl = cfg.baseUrl ?? "https://api.gtiapi.workers.dev";
+        const token = cfg.token || cfg.apiKey;
+
+        const url = `${baseUrl}/instance/connect`;
+        const response = await fetch(url, {
+            method: "POST",
+            headers: {
+                "token": token,
+                "Content-Type": "application/json"
+            },
+            body: phone ? JSON.stringify({ phone }) : "{}"
+        });
+
+        if (!response.ok) {
+            const errBody = await response.text();
+            throw new Error(`GTI connect falhou: ${response.status} - ${errBody}`);
+        }
+
+        const data = await response.json();
+        res.json(data);
+    } catch (error) {
+        next(error);
+    }
+}) as any);
+
 router.delete("/instances/:connectorId/webhook/:webhookId", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const { connectorId, webhookId } = req.params;
