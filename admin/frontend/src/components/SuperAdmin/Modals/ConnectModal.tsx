@@ -34,7 +34,7 @@ export function ConnectModal({ connectorId, onClose }: ConnectModalProps) {
             backdropFilter: "blur(4px)",
             display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000
         }}>
-            <div style={{
+            <div className="admin-modal" style={{
                 background: "var(--bg-secondary)", border: "1px solid var(--border)",
                 width: "100%", maxWidth: 500, padding: 32, borderRadius: 20,
                 boxShadow: "0 20px 40px rgba(0,0,0,0.4)",

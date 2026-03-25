@@ -611,61 +611,140 @@ body,
 
 @media (max-width: 768px) {
   .app-layout {
-    flex-direction: column;
-  }
-
-  /* Bottom navigation for mobile instead of left sidebar */
-  .sidebar-main {
-    width: 100%;
-    height: 60px;
     flex-direction: row;
-    padding: 0 10px;
-    border-right: none;
-    border-top: 1px solid var(--border);
-    order: 3;
-    /* Move to bottom */
-    justify-content: space-around;
   }
 
-  .sidebar-main .brand,
-  .sidebar-main .footer-items {
+  /* ========= UNIVERSAL SIDEBAR ON MOBILE ========= */
+  .sidebar-main {
+    width: 65px !important;
+    height: 100vh !important;
+    flex-direction: column !important;
+    padding: 15px 0 !important;
+    border-right: 1px solid var(--border);
+    border-top: none !important;
+    order: 0 !important;
+    justify-content: flex-start !important;
+    overflow-y: auto !important;
+  }
+
+  .sidebar-main::-webkit-scrollbar {
     display: none;
-    /* Hide brand and footer on mobile nav */
+  }
+
+  .sidebar-main .brand {
+    display: block !important;
+    font-size: 1.2rem;
+    margin-bottom: 30px;
+  }
+  
+  .sidebar-main .footer-items {
+    display: flex !important;
+  }
+
+  .sidebar-main .profile-selection {
+    margin-bottom: 20px !important;
+  }
+
+  .sidebar-avatar, 
+  .sidebar-avatar-placeholder {
+    width: 38px;
+    height: 38px;
+    font-size: 1rem;
   }
 
   .sidebar-main .nav-items {
-    flex-direction: row;
-    gap: 15px;
-    justify-content: space-around;
-    width: 100%;
+    flex-direction: column !important;
+    gap: 12px !important;
+    width: 100% !important;
+    padding-right: 0 !important;
   }
 
   .nav-icon-wrapper {
-    padding: 8px;
-    border-left: none;
-    border-bottom: 3px solid transparent;
+    padding: 10px !important;
+    border-left: 3px solid transparent !important;
+    border-bottom: none !important;
   }
 
   .nav-icon-wrapper.active {
-    border-left-color: transparent;
-    border-bottom-color: var(--accent);
+    border-left-color: var(--accent) !important;
+    border-bottom-color: transparent !important;
+    background: rgba(0, 168, 132, 0.2) !important;
   }
 
-  .conversation-list-panel {
-    width: 100%;
-    height: calc(100vh - 60px);
-    /* Fill space above nav */
+  /* Chat List Appears Next to Sidebar */
+  .app-layout.is-chat .conversation-list-panel {
+    display: flex;
+    width: calc(100% - 65px) !important;
+    height: 100vh !important;
     border-right: none;
     order: 1;
   }
 
-  .chat-area {
+  .app-layout.is-chat .chat-area {
     display: none;
-    width: 100%;
-    height: calc(100vh - 60px);
     order: 2;
   }
 
+  /* Details Panel Appears Next to Sidebar for other routes */
+  .app-layout.not-chat .conversation-list-panel {
+    display: none;
+  }
+
+  .app-layout.not-chat .chat-area {
+    display: flex;
+    flex-direction: column !important;
+    width: calc(100vw - 65px) !important;
+    height: 100vh;
+    order: 2;
+    overflow-x: hidden !important;
+  }
+
+  /* ========= CONVERSATION OPEN (WHATSAPP MOBILE BEHAVIOR) ========= */
+  /* Hide sidebar and list, show only chat area full screen */
+  .app-layout.is-chat.mobile-detail-open .sidebar-main {
+    display: none !important;
+  }
+
+  .app-layout.is-chat.mobile-detail-open .conversation-list-panel {
+    display: none !important;
+  }
+
+  .app-layout.is-chat.mobile-detail-open .chat-area {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    overflow-x: hidden !important;
+  }
+
+  /* Fix header actions expanding the screen */
+  .chat-header {
+    flex-wrap: wrap;
+    padding: 10px;
+    gap: 8px;
+  }
+  .chat-header .actions {
+    width: 100%;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+  .chat-input-bar {
+    padding: 8px;
+    gap: 6px;
+  }
+  .chat-input-bar input {
+    min-width: 0;
+  }
+
+  .settings-page {
+    padding: 16px 10px !important;
+  }
+
+  .app-layout.not-chat .chat-area > div {
+    padding: 15px 10px !important;
+  }
+
+  /* General Mobile Tweaks */
   .mobile-back-btn {
     display: block;
     background: none;
@@ -677,22 +756,17 @@ body,
     padding: 4px;
   }
 
-  /* When chat is open on mobile */
-  .app-layout.mobile-detail-open .conversation-list-panel {
-    display: none;
-  }
-
-  .app-layout.mobile-detail-open .sidebar-main {
-    display: none;
-  }
-
-  .app-layout.mobile-detail-open .chat-area {
-    display: flex;
-    height: 100vh;
-    /* Full screen when chat is open */
-  }
-
   .bubble {
     max-width: 85%;
+  }
+
+  .ticket-item-row {
+    flex-wrap: wrap;
+    gap: 8px !important;
+  }
+  .ticket-item-row > div:nth-child(3), 
+  .ticket-item-row > div:nth-child(4) {
+    min-width: auto !important;
+    text-align: left !important;
   }
 }

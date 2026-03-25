@@ -69,6 +69,28 @@ router.post("/whatsapp/:provider/:connectorId/*", async (req, res, next) => {
             } catch (e) { /* ignore config parse errors */ }
         }
 
+        // --- Connection Status Update ---
+        if (req.body?.EventType === "connection" && (req.body?.state || req.body?.status)) {
+            try {
+                const cfg = JSON.parse(connector.ConfigJson);
+                const state = req.body.state || req.body.status;
+                if (cfg.connectionStatus !== state) {
+                    cfg.connectionStatus = state;
+                    const newConfig = JSON.stringify(cfg);
+                    const pool = await (await import('../db.js')).getPool();
+                    await pool.request()
+                        .input('connectorId', connectorId)
+                        .input('configJson', newConfig)
+                        .query('UPDATE altdesk.ChannelConnector SET ConfigJson = @configJson WHERE ConnectorId = @connectorId');
+                    connector.ConfigJson = newConfig;
+                    logger.info({ connectorId, state }, "[Webhook] Updated connection status");
+                }
+            } catch (e) {
+                logger.error({ err: e, connectorId }, "[Webhook] Error updating connection status");
+            }
+        }
+        // --- End Connection Status Update ---
+
         // 1. Try status update (messages_update → delivered/read)
         if (adapter.parseStatusUpdate) {
             const statusUpdate = adapter.parseStatusUpdate(req.body, connector);

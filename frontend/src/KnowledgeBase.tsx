@@ -94,7 +94,7 @@ export function KnowledgeBase({ onBack }: Props) {
                         />
                     </div>
 
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 20 }}>
                         <div>
                             <label style={{ display: "block", marginBottom: 8, fontSize: "0.85rem", color: "#8696a0" }}>Categoria</label>
                             <input
@@ -172,7 +172,7 @@ export function KnowledgeBase({ onBack }: Props) {
 
     return (
         <div className="kb-page" style={{ padding: 20 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 30 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 30, flexWrap: "wrap", gap: 15 }}>
                 <div style={{ display: "flex", alignItems: "center" }}>
                     <button onClick={onBack} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", marginRight: 15 }}>
                         <ArrowLeft size={24} />

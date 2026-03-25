@@ -115,8 +115,8 @@ export function Users({ token, onBack, role }: Props) {
     }
 
     return (
-        <div style={{ padding: "32px", maxWidth: 1200, margin: "0 auto", height: "100%", overflowY: "auto" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 32 }}>
+        <div className="settings-page" style={{ height: "100%", overflowY: "auto" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 32, flexWrap: "wrap", gap: 15 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
                     <button
                         onClick={onBack}
@@ -162,7 +162,7 @@ export function Users({ token, onBack, role }: Props) {
                 background: "var(--bg-secondary)",
                 borderRadius: 20,
                 border: "1px solid var(--border)",
-                overflow: "hidden",
+                overflowX: "auto",
                 boxShadow: "0 4px 20px rgba(0,0,0,0.1)"
             }}>
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>

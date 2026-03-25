@@ -21,6 +21,7 @@ type Tab = "tenants" | "users" | "instances" | "audit";
 export function SuperAdmin({ token, onBack }: { token: string; onBack: () => void }) {
     const [tab, setTab] = useState<Tab>("tenants");
     const [metrics, setMetrics] = useState<{ tenants: number; users: number; instances: number } | null>(null);
+    const [showMetrics, setShowMetrics] = useState(window.innerWidth > 768);
 
     useEffect(() => {
         loadMetrics();
@@ -82,28 +83,52 @@ export function SuperAdmin({ token, onBack }: { token: string; onBack: () => voi
                 </div>
             </div>
 
-            {/* Metric Cards */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 32 }}>
-                {METRIC_CARDS.map(card => (
-                    <div key={card.label} className="admin-metric-card" style={{
-                        background: "var(--bg-secondary)", border: "1px solid var(--border)",
-                        borderRadius: 14, padding: "20px 24px",
-                        display: "flex", alignItems: "center", gap: 16,
-                        transition: "all 0.2s"
-                    }}>
-                        <div style={{ width: 48, height: 48, borderRadius: 12, background: card.bg, display: "flex", alignItems: "center", justifyContent: "center", color: card.color, flexShrink: 0 }}>
-                            {card.icon}
-                        </div>
-                        <div>
-                            <div style={{ fontSize: "1.8rem", fontWeight: 800, lineHeight: 1, color: "var(--text-primary)" }}>{card.value}</div>
-                            <div style={{ fontSize: "0.78rem", color: "var(--text-secondary)", marginTop: 4, textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 600 }}>{card.label}</div>
-                        </div>
-                    </div>
-                ))}
+            {/* Metric Cards Toggle */}
+            <div 
+                onClick={() => setShowMetrics(!showMetrics)}
+                style={{ 
+                    display: "flex", justifyContent: "space-between", alignItems: "center", 
+                    marginBottom: showMetrics ? 16 : 28, 
+                    cursor: "pointer", background: "var(--bg-secondary)", 
+                    padding: "12px 20px", borderRadius: 14, border: "1px solid var(--border)",
+                    transition: "all 0.2s"
+                }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = "var(--accent)"}
+                onMouseLeave={e => e.currentTarget.style.borderColor = "var(--border)"}
+            >
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--accent)", boxShadow: "0 0 8px var(--accent)" }} />
+                    <span style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--text-primary)" }}>Visão Geral do Sistema</span>
+                </div>
+                <span style={{ color: "var(--text-secondary)", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.5px" }}>
+                    {showMetrics ? "OCULTAR ▲" : "MOSTRAR ▼"}
+                </span>
             </div>
 
+            {/* Metric Cards */}
+            {showMetrics && (
+                <div className="admin-metrics-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 32, animation: "fadeIn 0.2s ease-out" }}>
+                    {METRIC_CARDS.map(card => (
+                        <div key={card.label} className="admin-metric-card" style={{
+                            background: "var(--bg-secondary)", border: "1px solid var(--border)",
+                            borderRadius: 14, padding: "20px 24px",
+                            display: "flex", alignItems: "center", gap: 16,
+                            transition: "all 0.2s"
+                        }}>
+                            <div style={{ width: 48, height: 48, borderRadius: 12, background: card.bg, display: "flex", alignItems: "center", justifyContent: "center", color: card.color, flexShrink: 0 }}>
+                                {card.icon}
+                            </div>
+                            <div>
+                                <div className="admin-metric-value" style={{ fontSize: "1.8rem", fontWeight: 800, lineHeight: 1, color: "var(--text-primary)" }}>{card.value}</div>
+                                <div style={{ fontSize: "0.78rem", color: "var(--text-secondary)", marginTop: 4, textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 600 }}>{card.label}</div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
             {/* Tab Navigation */}
-            <div style={{ display: "flex", gap: 4, marginBottom: 28, background: "var(--bg-secondary)", padding: 4, borderRadius: 12, border: "1px solid var(--border)", width: "fit-content" }}>
+            <div className="admin-tabs" style={{ display: "flex", gap: 4, marginBottom: 28, background: "var(--bg-secondary)", padding: 4, borderRadius: 12, border: "1px solid var(--border)", width: "fit-content" }}>
                 {TABS.map(t => (
                     <button
                         key={t.id}

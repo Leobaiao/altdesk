@@ -109,7 +109,7 @@ export function Reports({ onBack }: { onBack: () => void }) {
             </div>
 
             {/* Report selector */}
-            <div style={{ display: "flex", gap: 4, background: "var(--bg-secondary)", padding: 4, borderRadius: 12, border: "1px solid var(--border)", width: "fit-content", marginBottom: 28 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 4, background: "var(--bg-secondary)", padding: 4, borderRadius: 12, border: "1px solid var(--border)", width: "fit-content", maxWidth: "100%", marginBottom: 28 }}>
                 {REPORTS.map(r => (
                     <button key={r.id} onClick={() => setReport(r.id)}
                         style={{ padding: "9px 20px", borderRadius: 10, border: "none", cursor: "pointer", fontWeight: 600, fontSize: "0.88rem", display: "flex", alignItems: "center", gap: 8, background: report === r.id ? "var(--accent)" : "transparent", color: report === r.id ? "#fff" : "var(--text-secondary)", transition: "all 0.2s" }}>

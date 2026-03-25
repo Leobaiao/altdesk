@@ -6,17 +6,54 @@ import { AuthenticatedRequest } from "../types/index.js";
 const router = Router();
 router.use(authMw);
 
+const HEADER_MAP: Record<string, string> = {
+    ConversationId: "ID_Conversa",
+    Status: "Situacao",
+    SourceChannel: "Canal",
+    CreatedAt: "Data_Criacao",
+    LastMessageAt: "Ultima_Mensagem",
+    AssignedAgent: "Atendente",
+    QueueName: "Fila",
+    MessageCount: "Total_Mensagens",
+    SlaStatus: "SLA_Status",
+    SlaDeadline: "SLA_Prazo",
+    Agent: "Agente",
+    Email: "Email",
+    Resolved: "Resolvidos",
+    Open: "Abertos",
+    Total: "Total",
+    SlaViolations: "SLA_Violacoes",
+    SlaOk: "SLA_No_Prazo",
+    SlaViolated: "SLA_Atrasados",
+    SlaPending: "SLA_Pendentes",
+    CompliancePercent: "Taxa_Sucesso_SLA_Pct"
+};
+
+function formatCSVDate(dateObj: any): string {
+    if (!(dateObj instanceof Date)) return String(dateObj);
+    if (isNaN(dateObj.getTime())) return "";
+    const p = (n: number) => n.toString().padStart(2, '0');
+    return `${p(dateObj.getDate())}/${p(dateObj.getMonth() + 1)}/${dateObj.getFullYear()} ${p(dateObj.getHours())}:${p(dateObj.getMinutes())}:${p(dateObj.getSeconds())}`;
+}
+
 // Helper: convert recordset to CSV string
 function toCSV(rows: any[]): string {
     if (!rows.length) return "";
-    const headers = Object.keys(rows[0]);
+    const originalHeaders = Object.keys(rows[0]);
+    const translatedHeaders = originalHeaders.map(h => HEADER_MAP[h] || h);
+
     const lines = [
-        headers.join(","),
+        translatedHeaders.join(","),
         ...rows.map(row =>
-            headers.map(h => {
+            originalHeaders.map(h => {
                 const v = row[h];
                 if (v === null || v === undefined) return "";
-                const str = String(v).replace(/"/g, '""');
+                let str = "";
+                if (v instanceof Date) {
+                    str = formatCSVDate(v);
+                } else {
+                    str = String(v).replace(/"/g, '""');
+                }
                 return str.includes(",") || str.includes("\n") || str.includes('"') ? `"${str}"` : str;
             }).join(",")
         )

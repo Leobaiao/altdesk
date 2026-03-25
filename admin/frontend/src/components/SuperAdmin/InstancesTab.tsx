@@ -62,6 +62,16 @@ export function InstancesTab() {
         }
     };
 
+    const handleCheckStatus = async (connectorId: string) => {
+        try {
+            await api.get(`/api/admin/instances/${connectorId}/status`);
+            loadData();
+        } catch (err: any) {
+            console.error(err);
+            alert("Erro ao verificar status: " + (err.response?.data?.error || err.message));
+        }
+    };
+
     const handleBulkDelete = async () => {
         if (!confirm(`Excluir ${selectedInstanceIds.size} instâncias permanentemente?`)) return;
         try {
@@ -133,7 +143,7 @@ export function InstancesTab() {
             </div>
 
             {/* Table */}
-            <div style={{ overflowX: "auto", background: "var(--bg-secondary)", borderRadius: 16, border: "1px solid var(--border)" }}>
+            <div className="admin-table-container" style={{ overflowX: "auto", background: "var(--bg-secondary)", borderRadius: 16, border: "1px solid var(--border)" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", color: "var(--text-primary)" }}>
                     <thead>
                         <tr style={{ background: "var(--bg-active)", textAlign: "left" }}>
@@ -189,16 +199,39 @@ export function InstancesTab() {
                                         </div>
                                     </td>
                                     <td style={{ padding: "14px 20px" }}>
-                                        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.85rem", fontWeight: 600, color: i.IsActive ? "var(--accent)" : "var(--danger)" }}>
-                                            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "currentColor", boxShadow: i.IsActive ? "0 0 6px var(--accent)" : "none" }} />
-                                            {i.IsActive ? "Conectado" : "Offline"}
-                                        </div>
+                                        {(() => {
+                                            if (!i.IsActive) {
+                                                return (
+                                                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.85rem", fontWeight: 600, color: "var(--danger)" }}>
+                                                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: "currentColor" }} /> Desativado
+                                                    </div>
+                                                );
+                                            }
+                                            const status = config.connectionStatus || (i.IsActive ? "unknown" : "close");
+                                            let color = "var(--text-secondary)";
+                                            let label = "Desconhecido";
+                                            let glow = "none";
+                                            if (status === "open" || status === "connected") { color = "var(--accent)"; label = "Online"; glow = "0 0 6px var(--accent)"; }
+                                            else if (status === "connecting") { color = "#ff9800"; label = "Aguardando..."; glow = "0 0 6px #ff9800"; }
+                                            else if (status === "close" || status === "disconnected") { color = "var(--danger)"; label = "Desconectado"; }
+                                            
+                                            return (
+                                                <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.85rem", fontWeight: 600, color }}>
+                                                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: "currentColor", boxShadow: glow }} /> {label}
+                                                </div>
+                                            );
+                                        })()}
                                     </td>
                                     <td style={{ padding: "14px 20px", textAlign: "right" }}>
                                         {i.Provider === "GTI" && (
-                                            <button onClick={() => { setConnectConnectorId(i.ConnectorId); setShowConnectModal(true); }} className="btn btn-ghost" style={{ padding: "7px 14px", borderRadius: 8, fontSize: "0.78rem", display: "inline-flex", alignItems: "center", gap: 5, height: "auto", marginRight: 8, color: "#00a884", border: "1px solid rgba(0,168,132,0.3)" }}>
-                                                🔗 Conectar
-                                            </button>
+                                            <>
+                                                <button onClick={() => handleCheckStatus(i.ConnectorId)} className="btn btn-ghost" style={{ padding: "7px 14px", borderRadius: 8, fontSize: "0.78rem", display: "inline-flex", alignItems: "center", gap: 5, height: "auto", marginRight: 8, color: "var(--text-secondary)", border: "1px solid var(--border)" }} title="Sincronizar Status com a GTI">
+                                                    🔄 Sync
+                                                </button>
+                                                <button onClick={() => { setConnectConnectorId(i.ConnectorId); setShowConnectModal(true); }} className="btn btn-ghost" style={{ padding: "7px 14px", borderRadius: 8, fontSize: "0.78rem", display: "inline-flex", alignItems: "center", gap: 5, height: "auto", marginRight: 8, color: "#00a884", border: "1px solid rgba(0,168,132,0.3)" }}>
+                                                    🔗 Conectar
+                                                </button>
+                                            </>
                                         )}
                                         <button onClick={() => { setWebhookConnectorId(i.ConnectorId); setShowWebhookModal(true); }} className="btn btn-ghost" style={{ padding: "7px 14px", borderRadius: 8, fontSize: "0.78rem", display: "inline-flex", alignItems: "center", gap: 5, height: "auto" }}>
                                             <Anchor size={13} /> Webhook

@@ -23,7 +23,7 @@ export function LimitModal({ tenant, onClose, onSubmit }: LimitModalProps) {
             backdropFilter: "blur(4px)",
             display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000
         }}>
-            <div style={{
+            <div className="admin-modal" style={{
                 background: "var(--bg-secondary)",
                 border: "1px solid var(--border)",
                 width: "100%", maxWidth: 400,

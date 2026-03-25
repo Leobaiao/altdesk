@@ -117,7 +117,7 @@ export function UsersTab() {
             </div>
 
             {/* Table */}
-            <div style={{ overflowX: "auto", background: "var(--bg-secondary)", borderRadius: 16, border: "1px solid var(--border)" }}>
+            <div className="admin-table-container" style={{ overflowX: "auto", background: "var(--bg-secondary)", borderRadius: 16, border: "1px solid var(--border)" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", color: "var(--text-primary)" }}>
                     <thead>
                         <tr style={{ background: "var(--bg-active)", textAlign: "left" }}>

@@ -65,8 +65,8 @@ export function TagsSettings({ onBack }: Props) {
 
             <div style={{ background: "var(--bg-secondary)", padding: 25, borderRadius: 12, border: "1px solid var(--border)", marginBottom: 30 }}>
                 <h3 style={{ marginTop: 0, marginBottom: 20, fontSize: "1.1rem", borderBottom: "1px solid var(--border)", paddingBottom: 10 }}>Criar Nova Tag</h3>
-                <form onSubmit={handleCreateTag} style={{ display: "flex", gap: 15, alignItems: "flex-end" }}>
-                    <div style={{ flex: 1 }}>
+                <form onSubmit={handleCreateTag} style={{ display: "flex", gap: 15, alignItems: "flex-end", flexWrap: "wrap" }}>
+                    <div style={{ flex: "1 1 150px" }}>
                         <label style={{ display: "block", marginBottom: 8, fontSize: "0.85rem", color: "#8696a0" }}>Nome da Tag</label>
                         <input
                             type="text"

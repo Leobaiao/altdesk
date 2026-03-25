@@ -131,7 +131,7 @@ export function Settings({ token, onBack, role }: Props) {
                 <h2 style={{ fontSize: "1.8rem", fontWeight: 700 }}>Configurações</h2>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))", gap: 24 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 24 }}>
                 {/* Perfil + Aparência */}
                 <div style={{ background: "var(--bg-secondary)", padding: 30, borderRadius: 16, border: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 20 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -337,7 +337,9 @@ export function Settings({ token, onBack, role }: Props) {
                 borderRadius: 16,
                 display: "flex",
                 justifyContent: "space-between",
-                alignItems: "center"
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: "15px"
             }}>
                 <div>
                     <h4 style={{ margin: 0, fontSize: "1rem", fontWeight: 600 }}>Salvar Configurações</h4>

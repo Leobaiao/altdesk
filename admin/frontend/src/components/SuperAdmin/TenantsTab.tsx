@@ -115,9 +115,9 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
     const isExpired = (expiresAt: string) => expiresAt && new Date(expiresAt) < new Date();
 
     return (
-        <div style={{ display: "flex", gap: 20, height: "calc(100vh - 280px)", minHeight: 600 }}>
+        <div className="tenants-layout" style={{ display: "flex", gap: 20, height: "calc(100vh - 280px)", minHeight: 600 }}>
             {/* Sidebar de empresas */}
-            <div style={{
+            <div className="tenants-sidebar" style={{
                 width: 320,
                 background: "var(--bg-secondary)",
                 borderRadius: 16,
@@ -248,7 +248,7 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
                         {/* Detail Content */}
                         <div style={{ flex: 1, overflowY: "auto", padding: 32 }}>
                             {/* Stats Grid */}
-                            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20, marginBottom: 32 }}>
+                            <div className="admin-metrics-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20, marginBottom: 32 }}>
                                 <div style={{ background: "var(--bg-primary)", padding: 20, borderRadius: 20, border: "1px solid var(--border)", textAlign: "center", position: "relative" }}>
                                     <div style={{ position: "absolute", right: 12, top: 12, color: "var(--accent)", opacity: 0.2 }}><User size={24} /></div>
                                     <div style={{ fontSize: "2rem", fontWeight: 800 }}>{selectedTenant.UserCount}</div>
@@ -266,7 +266,7 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
                                 </div>
                             </div>
 
-                            <div style={{ display: "grid", gridTemplateColumns: "350px 1fr", gap: 32 }}>
+                            <div className="tenants-detail-grid" style={{ display: "grid", gridTemplateColumns: "350px 1fr", gap: 32 }}>
                                 {/* Info Table */}
                                 <div>
                                     <h3 style={{ fontSize: "0.95rem", fontWeight: 700, marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>

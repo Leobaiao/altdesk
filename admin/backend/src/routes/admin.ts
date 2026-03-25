@@ -265,6 +265,57 @@ router.post("/instances/:connectorId/connect", (async (req: AuthenticatedRequest
     }
 }) as any);
 
+router.get("/instances/:connectorId/status", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const { connectorId } = req.params;
+        const connector = await loadConnector(connectorId);
+
+        if (connector.Provider !== "GTI") {
+            return res.status(400).json({ error: "Check status suportado apenas para provedor GTI." });
+        }
+
+        const cfg = JSON.parse(connector.ConfigJson);
+        const baseUrl = cfg.baseUrl ?? "https://api.gtiapi.workers.dev";
+        const token = cfg.token || cfg.apiKey;
+        const instance = cfg.instance;
+
+        // Try standard GTI/Evolution status endpoint
+        let response = await fetch(`${baseUrl}/instance/connectionState/${instance}`, {
+            method: "GET",
+            headers: { "apikey": token, "token": token }
+        });
+
+        if (!response.ok) {
+            response = await fetch(`${baseUrl}/instance/status`, {
+                method: "GET",
+                headers: { "apikey": token, "token": token }
+            });
+        }
+
+        if (!response.ok) {
+            throw new Error(`GTI status falhou: ${response.status} - ${await response.text()}`);
+        }
+
+        const data = await response.json();
+        // Evolution uses data.instance.state (open, close, connecting)
+        const state = data.instance?.state || data.state || (data.connected ? "open" : "close");
+
+        if (state && cfg.connectionStatus !== state) {
+            cfg.connectionStatus = state;
+            const newConfig = JSON.stringify(cfg);
+            const pool = await (await import('../db.js')).getPool();
+            await pool.request()
+                .input('connectorId', connectorId)
+                .input('configJson', newConfig)
+                .query('UPDATE altdesk.ChannelConnector SET ConfigJson = @configJson WHERE ConnectorId = @connectorId');
+        }
+
+        res.json({ status: state, raw: data });
+    } catch (error) {
+        next(error);
+    }
+}) as any);
+
 router.delete("/instances/:connectorId/webhook/:webhookId", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const { connectorId, webhookId } = req.params;

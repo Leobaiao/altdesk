@@ -91,7 +91,7 @@ export function Dashboard({ token, onBack }: { token: string; onBack: () => void
     const maxHourly = Math.max(...stats.hourlyVolume, 1);
 
     return (
-        <div style={{ padding: 30, color: "var(--text-primary)", overflowY: "auto", flex: 1 }}>
+        <div className="settings-page" style={{ color: "var(--text-primary)", height: "100%", overflowY: "auto", flex: 1 }}>
             {/* Header */}
             <div style={{ display: "flex", alignItems: "center", marginBottom: 30 }}>
                 <button onClick={onBack} title="Voltar" className="btn icon-btn" style={{ marginRight: 15, background: "transparent", border: "none" }}>

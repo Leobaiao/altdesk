@@ -22,6 +22,8 @@ import { Sidebar } from "./components/Sidebar";
 import { ChatWindow } from "./components/ChatWindow";
 import { Reports } from "./Reports";
 import { usePushNotifications } from "./hooks/usePushNotifications";
+import { ForgotPassword } from "./ForgotPassword";
+import { ResetPassword } from "./ResetPassword";
 
 import {
   LayoutDashboard,
@@ -124,6 +126,12 @@ function LoginScreen({ onLogin }: { onLogin: (token: string, role: string) => vo
         <button type="submit" className="btn btn-primary" disabled={loading}>
           {loading ? "Entrando…" : "Entrar"}
         </button>
+
+        <div style={{ marginTop: 20, textAlign: "center" }}>
+          <a href="/forgot-password" style={{ color: "var(--text-secondary)", fontSize: "14px", textDecoration: "none" }}>
+            Esqueceu sua senha?
+          </a>
+        </div>
       </form>
     </div>
   );
@@ -205,10 +213,10 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
 
   const currentPath = location.pathname;
   const isChat = currentPath.startsWith("/chat") || currentPath === "/";
-  const isMobileDetailOpen = !isChat || !!selectedConversationId;
+  const isMobileDetailOpen = isChat && !!selectedConversationId;
 
   return (
-    <div className={`app-layout ${isMobileDetailOpen ? "mobile-detail-open" : ""}`}>
+    <div className={`app-layout ${isChat ? "is-chat" : "not-chat"} ${isMobileDetailOpen ? "mobile-detail-open" : ""}`}>
       {/* Sidebar Principal (Menu de Ícones) */}
       <div className="sidebar-main">
         <div className="profile-selection" style={{ marginBottom: 30, textAlign: "center" }} onClick={() => navigate("/settings")}>
@@ -318,7 +326,10 @@ function AppContent() {
   if (!token) {
     return (
       <Routes>
-        <Route path="*" element={<LoginScreen onLogin={handleLogin} />} />
+        <Route path="/login" element={<LoginScreen onLogin={handleLogin} />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     );
   }

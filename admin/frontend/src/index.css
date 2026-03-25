@@ -731,4 +731,89 @@ body,
   .bubble {
     max-width: 85%;
   }
+
+  /* Admin Console Responsiveness */
+  .settings-page {
+    padding: 16px !important;
+    padding-bottom: 80px !important;
+  }
+
+  .admin-metrics-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+  .admin-metric-card {
+    padding: 12px 16px !important;
+    min-height: 80px !important;
+  }
+  .admin-metric-value {
+    font-size: 1.5rem !important;
+  }
+
+  .admin-tabs {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    border-left: none !important;
+    border-right: none !important;
+    border-bottom: none !important;
+    background: var(--bg-secondary) !important;
+    z-index: 1000 !important;
+    display: flex !important;
+    justify-content: space-around !important;
+    padding: 10px !important;
+    padding-bottom: env(safe-area-inset-bottom, 10px) !important;
+    box-shadow: 0 -4px 12px rgba(0,0,0,0.1) !important;
+  }
+
+  .admin-tabs button {
+    flex-direction: column !important;
+    font-size: 0.7rem !important;
+    padding: 8px 4px !important;
+    gap: 6px !important;
+    flex: 1;
+    text-align: center;
+    border-radius: 8px !important;
+  }
+
+  .admin-chat-area {
+    display: flex !important;
+    flex-direction: column;
+    height: 100vh !important;
+    padding: 0 !important;
+  }
+
+  .tenants-layout {
+    flex-direction: column !important;
+    height: auto !important;
+    min-height: auto !important;
+  }
+
+  .tenants-sidebar {
+    width: 100% !important;
+    height: 35vh !important;
+  }
+
+  .tenants-detail-grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+
+  .admin-table-container {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    width: 100% !important;
+    margin-bottom: 20px !important;
+  }
+
+  .admin-modal {
+    padding: 20px !important;
+    max-height: 90vh !important;
+    width: 95% !important;
+    margin: 0 auto !important;
+  }
 }

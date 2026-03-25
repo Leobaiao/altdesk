@@ -111,7 +111,7 @@ function AppContent() {
   return (
     <div className="app-layout">
       {/* Ocupa a tela inteira sem o Sidebar do chat */}
-      <div className="chat-area" style={{ flex: 1, padding: '20px', overflowY: 'auto' }}>
+      <div className="chat-area admin-chat-area" style={{ flex: 1, padding: '20px', overflowY: 'auto' }}>
         <Routes>
             <Route path="/" element={<SuperAdmin token={token} onBack={handleLogout} />} />
             <Route path="*" element={<Navigate to="/" replace />} />

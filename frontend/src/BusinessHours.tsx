@@ -66,7 +66,7 @@ export function BusinessHours({ onBack }: Props) {
     if (loading) return <div style={{ padding: 20, color: "var(--text-primary)" }}>Carregando...</div>;
 
     return (
-        <div style={{ padding: 30, color: "var(--text-primary)", overflowY: "auto", flex: 1 }}>
+        <div className="settings-page" style={{ height: "100%", overflowY: "auto" }}>
             <div style={{ display: "flex", alignItems: "center", marginBottom: 30 }}>
                 <button onClick={onBack} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", marginRight: 15 }}>
                     <ArrowLeft size={24} />
@@ -89,6 +89,7 @@ export function BusinessHours({ onBack }: Props) {
                         <div key={h.DayOfWeek} style={{
                             display: "flex",
                             alignItems: "center",
+                            flexWrap: "wrap",
                             gap: 15,
                             padding: "12px 16px",
                             borderRadius: 8,

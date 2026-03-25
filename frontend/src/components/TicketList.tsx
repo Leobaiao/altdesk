@@ -137,8 +137,8 @@ export function TicketList({ onSelect, selectedId, onBack }: TicketListProps) {
     return (
         <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
             {/* Header */}
-            <div style={{ padding: "24px 28px 16px", borderBottom: "1px solid var(--border)" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+            <div className="settings-page" style={{ borderBottom: "1px solid var(--border)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
                     <button onClick={onBack} className="btn btn-ghost" style={{ padding: 8, borderRadius: "50%" }} title="Voltar">
                         <ArrowLeft size={22} />
                     </button>
@@ -222,7 +222,7 @@ export function TicketList({ onSelect, selectedId, onBack }: TicketListProps) {
                             background: selectedId === t.ConversationId ? "rgba(0,168,132,0.08)" : "transparent",
                             transition: "background 0.15s"
                         }}
-                        className="table-row-hover"
+                        className="table-row-hover ticket-item-row"
                     >
                         {/* Channel icon */}
                         <div style={{
