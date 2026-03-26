@@ -133,16 +133,25 @@ export async function processCpfValidationFlow(
     const session = getPendingCpfSession(externalUserId);
 
     if (!session) {
-        // Iniciar sessão
         startCpfSession(externalUserId, tenantId);
         return {
-            response: "👋 Bem-vindo! Para iniciar seu atendimento, por favor informe seu *CPF*:",
+            response: "Olá, você está no helpdesk da nossa empresa. Por favor, digite seu CPF...\n(Se não souber, digite NÃO SEI).",
             completed: false
         };
     }
 
     if (session.step === "AWAITING_CPF") {
-        const cpf = messageText.trim();
+        const cpfText = messageText.trim().toUpperCase();
+        
+        if (cpfText === "NÃO SEI" || cpfText === "NAO SEI") {
+            updateCpfSession(externalUserId, "AWAITING_NAME", { phone });
+            return {
+                response: "Sem problemas. Vamos criar um cadastro manual.\n📝 Por favor, informe seu *nome completo*:",
+                completed: false
+            };
+        }
+
+        const cpf = cpfText;
         if (!isValidCpfFormat(cpf)) {
             return {
                 response: "❌ CPF inválido. Por favor, informe um CPF válido (ex: 000.000.000-00):",
@@ -155,7 +164,7 @@ export async function processCpfValidationFlow(
         if (existingContact) {
             clearCpfSession(externalUserId);
             return {
-                response: `✅ Olá, *${existingContact.Name}*! Seu cadastro foi identificado. Como posso ajudá-lo?`,
+                response: `✅ Identificamos seu cadastro, *${existingContact.Name}*!`,
                 completed: true,
                 contactId: existingContact.ContactId
             };
@@ -208,7 +217,7 @@ export async function processCpfValidationFlow(
 
         clearCpfSession(externalUserId);
         return {
-            response: `✅ Cadastro realizado com sucesso, *${session.partialData.name}*! Como posso ajudá-lo?`,
+            response: `✅ Cadastro realizado com sucesso, *${session.partialData.name}*!`,
             completed: true,
             contactId
         };

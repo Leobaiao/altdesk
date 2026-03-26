@@ -14,7 +14,8 @@ import { Tickets } from "./Tickets";
 import { TagsSettings } from "./TagsSettings";
 import { KnowledgeBase } from "./KnowledgeBase";
 import { BusinessHours } from "./BusinessHours";
-import { Tag as TagIcon, Book, Clock, BarChart2 } from "lucide-react";
+import { Billing } from "./Billing";
+import { Tag as TagIcon, Book, Clock, BarChart2, CreditCard } from "lucide-react";
 
 // Novas importações do refactoring
 import { ChatProvider, useChat } from "./contexts/ChatContext";
@@ -245,6 +246,7 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
           <NavIcon icon={Clock} label="Horário de Atendimento" active={currentPath.startsWith("/business-hours")} onClick={() => navigate("/business-hours")} />
           <NavIcon icon={Ticket} label="Chamados" active={currentPath.startsWith("/tickets")} onClick={() => navigate("/tickets")} />
           <NavIcon icon={BarChart2} label="Relatórios" active={currentPath.startsWith("/reports")} onClick={() => navigate("/reports")} />
+          <NavIcon icon={CreditCard} label="Faturamento" active={currentPath.startsWith("/billing")} onClick={() => navigate("/billing")} />
         </div>
         <div className="footer-items">
           <NavIcon icon={SettingsIcon} label="Config" active={currentPath.startsWith("/settings")} onClick={() => navigate("/settings")} />
@@ -275,6 +277,7 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
           <Route path="/business-hours" element={<BusinessHours onBack={() => navigate("/chat")} />} />
           <Route path="/tickets" element={<Tickets token={token} onBack={() => navigate("/chat")} role={role || 'AGENT'} />} />
           <Route path="/reports" element={<Reports onBack={() => navigate("/chat")} />} />
+          <Route path="/billing" element={<Billing onBack={() => navigate("/chat")} />} />
 
           <Route path="*" element={<Navigate to="/chat" replace />} />
         </Routes>

@@ -6,7 +6,7 @@ import { Request } from "express";
 export interface AuthUser {
     userId: string;
     tenantId: string | null;
-    role: 'AGENT' | 'ADMIN' | 'SUPERADMIN';
+    role: 'AGENT' | 'ADMIN' | 'SUPERADMIN' | 'SUPERVISOR' | 'END_USER';
     displayName?: string;
     email?: string;
 }

@@ -34,6 +34,10 @@ services:
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/04-fix-user-displayname.sql;
         echo 'Executando migration 05 (subscription PlanCode/StartsAt)...';
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/05-migration-subscription-fields.sql;
+        echo 'Executando migration 06 (password reset)...';
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/06-password-reset.sql;
+        echo 'Executando migration 07 (billing and service desk)...';
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/07-billing-and-service-desk.sql;
         echo 'Todas as migrations concluidas!';
       "
 

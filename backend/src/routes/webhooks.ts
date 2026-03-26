@@ -137,42 +137,83 @@ router.post("/whatsapp/:provider/:connectorId/*", async (req, res, next) => {
         }
         // --- End Business Hours Check ---
 
-        // --- Fluxo de Validação de CPF DESATIVADO ---
-        /*
-        // Verifica se existe sessão pendente de CPF OU se é um contato novo
-        const hasPendingSession = getPendingCpfSession(inbound.externalUserId);
-        const phone = inbound.externalUserId.replace(/@.*$/, "");
+        // --- Fluxo Integrado de CPF e Ticket (Service Desk) ---
+        const { getPendingCpfSession, processCpfValidationFlow } = await import("../services/cpfValidation.js");
+        const { getActiveTicketForConversation, createTicketForConversation } = await import("../services/ticketService.js");
+        const { getPool } = await import("../db.js");
 
-        if (hasPendingSession || !(await findContactByCpf(inbound.tenantId, phone))) {
-            // Só ativa o fluxo de CPF se o contato não tem CPF cadastrado
-            try {
-                const cpfResult = await processCpfValidationFlow(
-                    inbound.tenantId,
-                    inbound.externalUserId,
-                    phone,
-                    inbound.text ?? ""
-                );
+        let activeTicket = await getActiveTicketForConversation(inbound.tenantId, conversationId);
 
-                // Enviar resposta do fluxo de CPF via adapter
-                if (cpfResult.response) {
-                    const fetchConnector = { ConnectorId: connector.ConnectorId, Provider: connector.Provider, ConfigJson: connector.ConfigJson };
-                    try {
-                        await adapter.sendText(fetchConnector, inbound.externalUserId, cpfResult.response);
-                    } catch (sendErr) {
-                        console.error("[CPF Flow] Erro ao enviar resposta:", sendErr);
+        if (!activeTicket) {
+            // Se não tem ticket, verifica se o usuário já tem Contato vinculado
+            const phone = inbound.externalUserId.replace(/@.*$/, "");
+            const pool = await getPool();
+            const contactCheck = await pool.request()
+                .input("tenantId", inbound.tenantId)
+                .input("phone", phone)
+                .query(`SELECT TOP 1 ContactId, Name FROM altdesk.Contact WHERE TenantId = @tenantId AND (Phone = @phone OR Phone LIKE '%' + @phone + '%')`);
+            
+            const hasContact = contactCheck.recordset.length > 0;
+            const hasPendingSession = getPendingCpfSession(inbound.externalUserId);
+
+            if (hasPendingSession || !hasContact) {
+                try {
+                    const cpfResult = await processCpfValidationFlow(
+                        inbound.tenantId,
+                        inbound.externalUserId,
+                        phone,
+                        inbound.text ?? ""
+                    );
+
+                    // Enviar resposta do fluxo de CPF via adapter
+                    if (cpfResult.response) {
+                        const fetchConnector = { ConnectorId: connector.ConnectorId, Provider: connector.Provider, ConfigJson: connector.ConfigJson };
+                        try {
+                            await adapter.sendText(fetchConnector, inbound.externalUserId, cpfResult.response);
+                            await saveOutboundMessage(inbound.tenantId, conversationId, cpfResult.response);
+                        } catch (sendErr) {
+                            logger.error({ err: sendErr }, "[CPF Flow] Erro ao enviar resposta");
+                        }
                     }
-                }
 
-                if (!cpfResult.completed) {
-                    // Ainda no fluxo de CPF, não prosseguir com orquestrador
-                    return res.status(200).json({ ok: true, conversationId, cpfFlow: true });
+                    if (!cpfResult.completed) {
+                        // Ainda no fluxo de CPF, iterromper o processamento aqui
+                        return res.status(200).json({ ok: true, conversationId, cpfFlow: true });
+                    } else {
+                        // Cadastro concluído ou identificado, criar Ticket agora
+                        activeTicket = await createTicketForConversation(inbound.tenantId, conversationId);
+                        const ticketNumber = activeTicket.TicketId.split('-')[0].toUpperCase();
+                        const ticketMsg = `ESTE É SEU TICKET ${ticketNumber}...\n\nPor favor, digite seu problema ou dúvida para que possamos ajudá-lo.`;
+                        
+                        const fetchConnector = { ConnectorId: connector.ConnectorId, Provider: connector.Provider, ConfigJson: connector.ConfigJson };
+                        await adapter.sendText(fetchConnector, inbound.externalUserId, ticketMsg);
+                        await saveOutboundMessage(inbound.tenantId, conversationId, ticketMsg);
+                        
+                        // Fim do fluxo para esta mensagem, a próxima MSG do usuário será o problema em si
+                        return res.status(200).json({ ok: true, conversationId, ticketCreated: true });
+                    }
+                } catch (cpfErr) {
+                    logger.error({ err: cpfErr }, "[CPF Flow] Erro no fluxo de validação");
                 }
-            } catch (cpfErr) {
-                console.error("[CPF Flow] Erro no fluxo de validação:", cpfErr);
+            } else {
+                // Já é contato mas não tinha ticket (ex: contato recorrente criando nova conversa). Cria o ticket diretamente.
+                activeTicket = await createTicketForConversation(inbound.tenantId, conversationId);
+                const ticketNumber = activeTicket.TicketId.split('-')[0].toUpperCase();
+                const ticketMsg = `Olá, ${contactCheck.recordset[0].Name}! ESTE É SEU TICKET ${ticketNumber}...\n\nPor favor, digite qual o seu problema hoje.`;
+                
+                const fetchConnector = { ConnectorId: connector.ConnectorId, Provider: connector.Provider, ConfigJson: connector.ConfigJson };
+                try {
+                    await adapter.sendText(fetchConnector, inbound.externalUserId, ticketMsg);
+                    await saveOutboundMessage(inbound.tenantId, conversationId, ticketMsg);
+                } catch (sendErr) {
+                    logger.error({ err: sendErr }, "[Ticket Flow] Erro ao enviar ticket id");
+                }
+                return res.status(200).json({ ok: true, conversationId, ticketCreated: true });
             }
         }
-        */
-        // --- Fim do Fluxo de CPF ---
+        // Se já tem ticket ativo, prossegue para salvar a mensagem normalmente e distribuir.
+        // --- Fim do Fluxo de Ticket ---
+
         const io = req.app.get("io");
 
         // Emite evento de nova mensagem para o frontend

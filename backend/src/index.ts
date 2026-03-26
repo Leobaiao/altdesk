@@ -33,6 +33,7 @@ import businessHoursRouter from "./routes/business-hours.js";
 import publicRouter from "./routes/public.js";
 import { startSlaWorker } from "./services/slaService.js";
 import reportsRouter from "./routes/reports.js";
+import billingRouter from "./modules/billing/billing.controller.js";
 
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(",")
@@ -151,6 +152,9 @@ app.use("/api/reports", reportsRouter);
 // Webhooks
 app.use("/api", webhooksRouter);
 app.use("/api/public", publicRouter);
+
+// Billing (inclui webhook público + rotas autenticadas)
+app.use("/api/billing", billingRouter);
 
 // Internal Demo Hook
 app.post("/api/demo/conversations/:id/messages", async (req, res, next) => {
