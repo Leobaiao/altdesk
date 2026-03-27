@@ -34,6 +34,7 @@ import publicRouter from "./routes/public.js";
 import { startSlaWorker } from "./services/slaService.js";
 import reportsRouter from "./routes/reports.js";
 import billingRouter from "./modules/billing/billing.controller.js";
+import onboardingRouter from "./routes/onboarding.js";
 
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(",")
@@ -133,6 +134,7 @@ io.on("connection", (socket) => {
 
 // --- API ROUTES ---
 app.use("/api/auth", authRouter);
+app.use("/api/onboarding", onboardingRouter);
 app.use("/api/profile", profileRouter);
 app.use("/api/agents", agentsRouter);
 app.use("/api/users", usersRouter);

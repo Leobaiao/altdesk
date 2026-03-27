@@ -10,6 +10,9 @@ export async function listTenants() {
     const r = await pool.request().query(`
     SELECT t.TenantId, t.Name, t.CreatedAt, 
            s.IsActive, s.ExpiresAt, s.AgentsSeatLimit,
+           bs.Status as BillingStatus,
+           bs.NextDueDate as BillingNextDue,
+           bp.Name as PlanName,
            (SELECT COUNT(*) FROM altdesk.[User] u WHERE u.TenantId = t.TenantId AND u.IsActive=1) as UserCount,
            (
              SELECT COUNT(*) FROM altdesk.ChannelConnector cc 
@@ -18,6 +21,9 @@ export async function listTenants() {
            ) as InstanceCount
     FROM altdesk.Tenant t
     LEFT JOIN altdesk.Subscription s ON s.TenantId = t.TenantId
+    LEFT JOIN altdesk.BillingSubscription bs ON bs.TenantId = t.TenantId AND bs.Provider = 'asaas' AND bs.Status <> 'canceled'
+    LEFT JOIN altdesk.BillingPlan bp ON bp.PlanId = bs.PlanId
+    WHERE t.DeletedAt IS NULL
     ORDER BY t.CreatedAt DESC
   `);
     return r.recordset;
@@ -141,3 +147,49 @@ export async function setTenantStatus(tenantId: string, active: boolean) {
         throw err;
     }
 }
+
+/**
+ * Lista empresas na lixeira
+ */
+export async function listDeletedTenants() {
+    const pool = await getPool();
+    const r = await pool.request().query(`
+        SELECT t.TenantId, t.Name, t.DeletedAt, 
+               s.AgentsSeatLimit,
+               (SELECT COUNT(*) FROM altdesk.[User] u WHERE u.TenantId = t.TenantId) as UserCount
+        FROM altdesk.Tenant t
+        LEFT JOIN altdesk.Subscription s ON s.TenantId = t.TenantId
+        WHERE t.DeletedAt IS NOT NULL
+        ORDER BY t.DeletedAt DESC
+    `);
+    return r.recordset;
+}
+
+/**
+ * Restaura uma empresa da lixeira
+ */
+export async function restoreTenant(tenantId: string) {
+    const pool = await getPool();
+    const transaction = new sql.Transaction(pool);
+    await transaction.begin();
+
+    try {
+        await transaction.request()
+            .input("tenantId", tenantId)
+            .query("UPDATE altdesk.Tenant SET DeletedAt = NULL WHERE TenantId = @tenantId");
+
+        await transaction.request()
+            .input("tenantId", tenantId)
+            .query("UPDATE altdesk.Subscription SET IsActive = 1 WHERE TenantId = @tenantId");
+
+        await transaction.request()
+            .input("tenantId", tenantId)
+            .query("UPDATE altdesk.[User] SET IsActive = 1 WHERE TenantId = @tenantId AND DeletedAt IS NULL");
+
+        await transaction.commit();
+    } catch (err) {
+        await transaction.rollback();
+        throw err;
+    }
+}
+

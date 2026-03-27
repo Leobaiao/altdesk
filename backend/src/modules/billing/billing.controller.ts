@@ -16,6 +16,7 @@ const router = Router();
 
 // ─── WEBHOOK (Público — chamado pelo Asaas) ─────────────────
 
+
 router.post("/webhooks/asaas", (async (req: any, res: any) => {
     // 1. Validar token do webhook
     const webhookToken = req.header("asaas-access-token");
@@ -49,7 +50,7 @@ router.get("/plans", authMw, (async (req: any, res: any, next: any) => {
 router.get("/subscription", authMw, (async (req: any, res: any, next: any) => {
     try {
         const sub = await billingService.getSubscriptionStatus(req.user.tenantId);
-        res.json(sub || { status: "none" });
+        res.json(sub || { Status: "none" });
     } catch (err) { next(err); }
 }) as any);
 

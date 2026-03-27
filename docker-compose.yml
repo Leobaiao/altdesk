@@ -38,6 +38,10 @@ services:
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/06-password-reset.sql;
         echo 'Executando migration 07 (billing and service desk)...';
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/07-billing-and-service-desk.sql;
+        echo 'Executando migration 08 (trash system)...';
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/08-trash-system.sql;
+        echo 'Executando migration 09 (onboarding)...';
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/09-onboarding.sql;
         echo 'Todas as migrations concluidas!';
       "
 
@@ -49,6 +53,8 @@ services:
     container_name: altdesk_api
     depends_on:
       - db
+    env_file:
+      - ./backend/.env
     environment:
       PORT: 3002
       DB_USER: sa

@@ -21,7 +21,7 @@ router.get("/", async (req, res, next) => {
         SELECT u.UserId, u.Email, u.Role, u.IsActive, a.Name as AgentName
         FROM altdesk.[User] u
         LEFT JOIN altdesk.Agent a ON a.UserId = u.UserId
-        WHERE u.TenantId = @tenantId AND u.Role != 'SUPERADMIN'
+        WHERE u.TenantId = @tenantId AND u.Role != 'SUPERADMIN' AND u.DeletedAt IS NULL
         ORDER BY u.CreatedAt DESC
       `);
         res.json(r.recordset);
@@ -233,4 +233,55 @@ router.put("/:id/status", requireRole("ADMIN"), validateBody(z.object({ isActive
     }
 });
 
+router.delete("/:id", requireRole("ADMIN"), async (req, res, next) => {
+    try {
+        const u = (req as any).user;
+        const userId = req.params.id;
+        const pool = await getPool();
+
+        // Prevent deleting self or SUPERADMINs
+        if (userId === u.userId) return res.status(400).json({ error: "Não é possível excluir a si mesmo." });
+
+        const check = await pool.request()
+            .input("id", userId)
+            .input("tenantId", u.tenantId)
+            .query("SELECT Role FROM altdesk.[User] WHERE UserId=@id AND TenantId=@tenantId");
+
+        if (check.recordset.length === 0) return res.status(404).json({ error: "Usuário não encontrado." });
+        if (check.recordset[0].Role === 'SUPERADMIN') return res.status(403).json({ error: "Não é possível excluir SUPERADMIN." });
+
+        const transaction = new sql.Transaction(pool);
+        await transaction.begin();
+
+        try {
+            // Soft delete: Move to Trash
+            await transaction.request()
+                .input("id", userId).input("tenantId", u.tenantId)
+                .query("UPDATE altdesk.Agent SET IsActive=0 WHERE UserId=@id AND TenantId=@tenantId");
+
+            await transaction.request()
+                .input("id", userId).input("tenantId", u.tenantId)
+                .query("UPDATE altdesk.[User] SET IsActive=0, DeletedAt=GETDATE() WHERE UserId=@id AND TenantId=@tenantId");
+
+            await transaction.commit();
+
+            const reqInfo = extractRequestInfo(req);
+            writeAuditLog({
+                ...reqInfo,
+                action: 'SOFT_DELETE_USER',
+                targetTable: 'User',
+                targetId: userId,
+            });
+
+            res.json({ ok: true, message: "Usuário movido para a lixeira." });
+        } catch (err) {
+            await transaction.rollback();
+            throw err;
+        }
+    } catch (error) {
+        next(error);
+    }
+});
+
 export default router;
+

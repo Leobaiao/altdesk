@@ -23,6 +23,7 @@ export async function listAllUsers() {
            (SELECT Name FROM altdesk.Agent a WHERE a.UserId = u.UserId) as AgentName
     FROM altdesk.[User] u
     LEFT JOIN altdesk.Tenant t ON t.TenantId = u.TenantId
+    WHERE u.DeletedAt IS NULL
     ORDER BY u.Email ASC
   `)).recordset;
 }
@@ -149,3 +150,43 @@ export async function setUserActiveStatus(userId: string, isActive: boolean) {
         throw err;
     }
 }
+
+/**
+ * Lista usuários na lixeira
+ */
+export async function listDeletedUsers() {
+    const pool = await getPool();
+    return (await pool.request().query(`
+        SELECT u.UserId, u.Email, u.Role, u.DeletedAt, u.TenantId, t.Name as TenantName,
+               (SELECT Name FROM altdesk.Agent a WHERE a.UserId = u.UserId) as AgentName
+        FROM altdesk.[User] u
+        LEFT JOIN altdesk.Tenant t ON t.TenantId = u.TenantId
+        WHERE u.DeletedAt IS NOT NULL
+        ORDER BY u.DeletedAt DESC
+    `)).recordset;
+}
+
+/**
+ * Restaura um usuário da lixeira
+ */
+export async function restoreUser(userId: string) {
+    const pool = await getPool();
+    const transaction = new sql.Transaction(pool);
+    await transaction.begin();
+
+    try {
+        await transaction.request()
+            .input("id", userId)
+            .query("UPDATE altdesk.[User] SET DeletedAt = NULL, IsActive = 1 WHERE UserId = @id");
+
+        await transaction.request()
+            .input("id", userId)
+            .query("UPDATE altdesk.Agent SET IsActive = 1 WHERE UserId = @id");
+
+        await transaction.commit();
+    } catch (err) {
+        await transaction.rollback();
+        throw err;
+    }
+}
+

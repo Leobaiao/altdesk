@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Edit2, Play, Pause } from "lucide-react";
+import { Edit2, Play, Pause, Trash2 } from "lucide-react";
 import { api } from "../../lib/api";
 import { UserModal } from "./Modals/UserModal";
 
@@ -55,6 +55,17 @@ export function UsersTab() {
             console.error(err);
         }
     };
+
+    const handleDeleteUser = async (userId: string) => {
+        if (!confirm("Deseja mover este usuário para a LIXEIRA? Ele será desativado e poderá ser restaurado depois.")) return;
+        try {
+            await api.delete(`/api/admin/users/${userId}`);
+            loadData();
+        } catch (err: any) {
+            alert(err.response?.data?.error || "Erro ao mover para a lixeira");
+        }
+    };
+
 
     const roleBadge = (role: string) => {
         const map: Record<string, { bg: string; color: string; label: string }> = {
@@ -161,6 +172,14 @@ export function UsersTab() {
                                                 title={u.IsActive ? "Desativar" : "Ativar"}
                                             >
                                                 {u.IsActive ? <Pause size={15} /> : <Play size={15} />}
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteUser(u.UserId)}
+                                                className="btn btn-ghost"
+                                                style={{ padding: 8, borderRadius: 8, height: "auto", color: "var(--danger)" }}
+                                                title="Mover para Lixeira"
+                                            >
+                                                <Trash2 size={15} />
                                             </button>
                                         </div>
                                     </td>

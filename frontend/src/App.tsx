@@ -25,6 +25,7 @@ import { Reports } from "./Reports";
 import { usePushNotifications } from "./hooks/usePushNotifications";
 import { ForgotPassword } from "./ForgotPassword";
 import { ResetPassword } from "./ResetPassword";
+import { Onboarding } from "./Onboarding";
 
 import {
   LayoutDashboard,
@@ -308,8 +309,6 @@ function AppContent() {
       } else if (!role && decoded.role) {
         setRole(decoded.role);
       }
-    } else {
-      navigate("/login");
     }
   }, [token, role, navigate]);
 
@@ -330,6 +329,7 @@ function AppContent() {
     return (
       <Routes>
         <Route path="/login" element={<LoginScreen onLogin={handleLogin} />} />
+        <Route path="/onboarding" element={<Onboarding onLogin={handleLogin} />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="*" element={<Navigate to="/login" replace />} />

@@ -81,30 +81,30 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
     };
 
     const handleDelete = async (tenantId: string) => {
-        if (!confirm("Tem certeza que deseja inativar esta empresa?")) return;
+        if (!confirm("Deseja mover esta empresa para a LIXEIRA? Ela será desativada e ocultada da lista principal.")) return;
         try {
             await api.delete(`/api/admin/tenants/${tenantId}`);
             loadTenants();
+            setSelectedTenant(null);
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const handleSetStatus = async (tenantId: string, active: boolean) => {
+        const action = active ? "reativar" : "inativar";
+        if (!confirm(`Tem certeza que deseja ${action} esta empresa?`)) return;
+        try {
+            await api.put(`/api/admin/tenants/${tenantId}/status`, { isActive: active });
+            loadTenants();
             if (selectedTenant?.TenantId === tenantId) {
-                setSelectedTenant({ ...selectedTenant, IsActive: false });
+                setSelectedTenant({ ...selectedTenant, IsActive: active });
             }
         } catch (err) {
             console.error(err);
         }
     };
 
-    const handleReactivate = async (tenantId: string) => {
-        if (!confirm("Tem certeza que deseja reativar esta empresa?")) return;
-        try {
-            await api.put(`/api/admin/tenants/${tenantId}/reactivate`);
-            loadTenants();
-            if (selectedTenant?.TenantId === tenantId) {
-                setSelectedTenant({ ...selectedTenant, IsActive: true });
-            }
-        } catch (err) {
-            console.error(err);
-        }
-    };
 
     const filteredTenants = tenants.filter(t => {
         const matchesSearch = !search || t.Name?.toLowerCase().includes(search.toLowerCase());
@@ -225,16 +225,16 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
                                 </button>
                                 {selectedTenant.IsActive ? (
                                     <button
-                                        onClick={() => handleDelete(selectedTenant.TenantId)}
+                                        onClick={() => handleSetStatus(selectedTenant.TenantId, false)}
                                         className="btn btn-ghost"
-                                        style={{ padding: "8px 16px", borderRadius: 10, fontSize: "0.85rem", border: "1px solid var(--border)", color: "var(--danger)" }}
+                                        style={{ padding: "8px 16px", borderRadius: 10, fontSize: "0.85rem", border: "1px solid var(--border)", color: "#999" }}
                                         title="Inativar Empresa"
                                     >
-                                        🗑️ Inativar
+                                        ⏸️ Inativar
                                     </button>
                                 ) : (
                                     <button
-                                        onClick={() => handleReactivate(selectedTenant.TenantId)}
+                                        onClick={() => handleSetStatus(selectedTenant.TenantId, true)}
                                         className="btn btn-ghost"
                                         style={{ padding: "8px 16px", borderRadius: 10, fontSize: "0.85rem", border: "1px solid var(--border)", color: "#00a884" }}
                                         title="Reativar Empresa"
@@ -242,6 +242,14 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
                                         ✅ Reativar
                                     </button>
                                 )}
+                                <button
+                                    onClick={() => handleDelete(selectedTenant.TenantId)}
+                                    className="btn btn-ghost"
+                                    style={{ padding: "8px 16px", borderRadius: 10, fontSize: "0.85rem", border: "1px solid var(--border)", color: "var(--danger)" }}
+                                    title="Mover para Lixeira"
+                                >
+                                    🗑️ Excluir
+                                </button>
                             </div>
                         </div>
 
@@ -275,9 +283,24 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
                                     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                                         {[
                                             { label: "Data de Início", value: new Date(selectedTenant.CreatedAt).toLocaleDateString(), icon: <Calendar size={14} /> },
-                                            { label: "Expiração", value: new Date(selectedTenant.ExpiresAt).toLocaleDateString(), icon: <Calendar size={14} />, color: isExpired(selectedTenant.ExpiresAt) ? "var(--danger)" : "var(--text-primary)" },
-                                            { label: "Plano Atual", value: "Enterprise TRIAL", icon: <ShieldCheck size={14} /> },
-                                            { label: "E-mail Principal", value: "admin@teste.com", icon: <Mail size={14} /> },
+                                            { label: "Expiração (Sistema)", value: new Date(selectedTenant.ExpiresAt).toLocaleDateString(), icon: <Calendar size={14} />, color: isExpired(selectedTenant.ExpiresAt) ? "var(--danger)" : "var(--text-primary)" },
+                                            { 
+                                                label: "Plano Asaas", 
+                                                value: selectedTenant.PlanName || "Nenhum Plano Ativo", 
+                                                icon: <ShieldCheck size={14} />,
+                                                color: selectedTenant.PlanName ? "var(--accent)" : "var(--text-secondary)"
+                                            },
+                                            { 
+                                                label: "Status Financeiro", 
+                                                value: selectedTenant.BillingStatus ? selectedTenant.BillingStatus.toUpperCase() : "AGUARDANDO", 
+                                                icon: <Hash size={14} />,
+                                                color: selectedTenant.BillingStatus === 'active' ? "var(--accent)" : (selectedTenant.BillingStatus === 'past_due' ? "var(--danger)" : "var(--text-secondary)")
+                                            },
+                                            { 
+                                                label: "Próximo Vencimento", 
+                                                value: selectedTenant.BillingNextDue ? new Date(selectedTenant.BillingNextDue).toLocaleDateString() : "—", 
+                                                icon: <Calendar size={14} /> 
+                                            },
                                         ].map(item => (
                                             <div key={item.label} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "var(--bg-primary)", borderRadius: 12, border: "1px solid var(--border)" }}>
                                                 <div style={{ color: "var(--text-secondary)" }}>{item.icon}</div>

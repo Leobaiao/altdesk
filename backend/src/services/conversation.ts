@@ -245,7 +245,7 @@ export async function findOrCreateConversation(tenantId: string, phone: string, 
     `);
 
   if (conn.recordset.length === 0) {
-    throw new Error(`Nenhum canal ativo para criar conversa (Provider preferido: ${defaultProvider}).`);
+    throw new Error(`Sua instância do Altdesk ainda não possui um canal ativo. Por favor, entre em contato com o suporte ou administrador para concluir a configuração do seu ambiente.`);
   }
   const connectorId = conn.recordset[0].ConnectorId;
   const channelId = conn.recordset[0].ChannelId;

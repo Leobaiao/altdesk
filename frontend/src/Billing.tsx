@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { api } from "./lib/api";
-import { ArrowLeft, CreditCard, FileText, CheckCircle, AlertTriangle, XCircle, Clock } from "lucide-react";
+import { ArrowLeft, CreditCard, FileText, CheckCircle, AlertTriangle, XCircle, Clock, X, Loader2 } from "lucide-react";
 
 interface Plan {
   PlanId: string;
@@ -41,7 +41,6 @@ function statusBadge(status: string) {
     suspended: { color: "#f44336", icon: XCircle, label: "Suspenso" },
     canceled: { color: "#9e9e9e", icon: XCircle, label: "Cancelado" },
     none: { color: "#9e9e9e", icon: CreditCard, label: "Sem assinatura" },
-    // Invoice statuses
     pending: { color: "#ff9800", icon: Clock, label: "Pendente" },
     received: { color: "#00c853", icon: CheckCircle, label: "Pago" },
     confirmed: { color: "#00c853", icon: CheckCircle, label: "Confirmado" },
@@ -71,13 +70,68 @@ export function Billing({ onBack }: { onBack: () => void }) {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    Promise.all([
-      api.get("/api/billing/plans").then(r => setPlans(r.data)),
-      api.get("/api/billing/subscription").then(r => setSubscription(r.data)),
-      api.get("/api/billing/invoices").then(r => setInvoices(r.data)),
+  // Checkout modal state
+  const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
+  const [showCheckout, setShowCheckout] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [checkoutError, setCheckoutError] = useState("");
+  const [checkoutForm, setCheckoutForm] = useState({
+    name: "",
+    cpfCnpj: "",
+    email: "",
+    billingType: "PIX" as "PIX" | "BOLETO" | "CREDIT_CARD",
+  });
+
+  const loadAll = () => {
+    setLoading(true);
+    Promise.allSettled([
+      api.get("/api/billing/plans").then(r => setPlans(r.data)).catch(() => {}),
+      api.get("/api/billing/subscription").then(r => setSubscription(r.data)).catch(() => {}),
+      api.get("/api/billing/invoices").then(r => setInvoices(r.data)).catch(() => {}),
     ]).finally(() => setLoading(false));
-  }, []);
+  };
+
+  useEffect(() => { loadAll(); }, []);
+
+  const openCheckout = (plan: Plan) => {
+    setSelectedPlan(plan);
+    setCheckoutError("");
+    setShowCheckout(true);
+  };
+
+  const handleCheckout = async () => {
+    if (!selectedPlan) return;
+    if (!checkoutForm.name.trim()) { setCheckoutError("Nome é obrigatório."); return; }
+    if (!checkoutForm.cpfCnpj.trim()) { setCheckoutError("CPF/CNPJ é obrigatório."); return; }
+
+    setCheckoutLoading(true);
+    setCheckoutError("");
+
+    try {
+      // 1. Create or get billing customer
+      await api.post("/api/billing/customer", {
+        name: checkoutForm.name,
+        cpfCnpj: checkoutForm.cpfCnpj.replace(/[^\d]/g, ""),
+        email: checkoutForm.email || undefined,
+      });
+
+      // 2. Create subscription
+      await api.post("/api/billing/subscribe", {
+        planCode: selectedPlan.Code,
+        billingType: checkoutForm.billingType,
+      });
+
+      // 3. Reload data and close modal
+      setShowCheckout(false);
+      setSelectedPlan(null);
+      loadAll();
+    } catch (err: any) {
+      const msg = err.response?.data?.error || err.response?.data?.message || err.message;
+      setCheckoutError(msg || "Erro ao processar assinatura.");
+    } finally {
+      setCheckoutLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -154,7 +208,11 @@ export function Billing({ onBack }: { onBack: () => void }) {
             {subscription?.PlanCode === plan.Code ? (
               <span style={{ fontSize: 12, color: "var(--primary)", fontWeight: 600 }}>✓ Plano Atual</span>
             ) : (
-              <button className="btn btn-primary" style={{ width: "100%", marginTop: 8, fontSize: 13 }}>
+              <button
+                className="btn btn-primary"
+                style={{ width: "100%", marginTop: 8, fontSize: 13 }}
+                onClick={() => openCheckout(plan)}
+              >
                 Selecionar
               </button>
             )}
@@ -208,6 +266,158 @@ export function Billing({ onBack }: { onBack: () => void }) {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* ─── CHECKOUT MODAL ─────────────────────────────────── */}
+      {showCheckout && selectedPlan && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+          background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)",
+          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000
+        }}>
+          <div style={{
+            background: "var(--bg-secondary)", borderRadius: 16, padding: 32,
+            width: "100%", maxWidth: 480, border: "1px solid var(--border)",
+            position: "relative", animation: "fadeIn 0.2s ease-out"
+          }}>
+            {/* Close btn */}
+            <button
+              onClick={() => { setShowCheckout(false); setSelectedPlan(null); }}
+              style={{
+                position: "absolute", top: 16, right: 16, background: "none",
+                border: "none", color: "var(--text-secondary)", cursor: "pointer", padding: 4
+              }}
+            >
+              <X size={20} />
+            </button>
+
+            {/* Header */}
+            <h3 style={{ margin: "0 0 4px 0", fontSize: "1.2rem" }}>Confirmar Assinatura</h3>
+            <p style={{ margin: "0 0 20px 0", color: "var(--text-secondary)", fontSize: 14 }}>
+              Plano <strong>{selectedPlan.Name}</strong> — {formatCents(selectedPlan.PriceCents)}/mês
+            </p>
+
+            {/* Form */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
+                  Nome / Razão Social *
+                </label>
+                <input
+                  value={checkoutForm.name}
+                  onChange={e => setCheckoutForm({ ...checkoutForm, name: e.target.value })}
+                  placeholder="Empresa Ltda"
+                  style={{
+                    width: "100%", padding: "10px 12px", borderRadius: 10,
+                    border: "1px solid var(--border)", background: "var(--bg-primary)",
+                    color: "var(--text-primary)", fontSize: 14, outline: "none"
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
+                  CPF / CNPJ *
+                </label>
+                <input
+                  value={checkoutForm.cpfCnpj}
+                  onChange={e => setCheckoutForm({ ...checkoutForm, cpfCnpj: e.target.value })}
+                  placeholder="00.000.000/0001-00"
+                  style={{
+                    width: "100%", padding: "10px 12px", borderRadius: 10,
+                    border: "1px solid var(--border)", background: "var(--bg-primary)",
+                    color: "var(--text-primary)", fontSize: 14, outline: "none"
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
+                  Email (opcional)
+                </label>
+                <input
+                  value={checkoutForm.email}
+                  onChange={e => setCheckoutForm({ ...checkoutForm, email: e.target.value })}
+                  placeholder="financeiro@empresa.com"
+                  type="email"
+                  style={{
+                    width: "100%", padding: "10px 12px", borderRadius: 10,
+                    border: "1px solid var(--border)", background: "var(--bg-primary)",
+                    color: "var(--text-primary)", fontSize: 14, outline: "none"
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 8 }}>
+                  Forma de Pagamento *
+                </label>
+                <div style={{ display: "flex", gap: 8 }}>
+                  {(["PIX", "BOLETO", "CREDIT_CARD"] as const).map(type => {
+                    const labels: Record<string, string> = { PIX: "PIX", BOLETO: "Boleto", CREDIT_CARD: "Cartão" };
+                    const selected = checkoutForm.billingType === type;
+                    return (
+                      <button
+                        key={type}
+                        onClick={() => setCheckoutForm({ ...checkoutForm, billingType: type })}
+                        style={{
+                          flex: 1, padding: "10px 8px", borderRadius: 10, cursor: "pointer",
+                          border: selected ? "2px solid var(--primary)" : "1px solid var(--border)",
+                          background: selected ? "rgba(0,168,132,0.1)" : "var(--bg-primary)",
+                          color: selected ? "var(--primary)" : "var(--text-secondary)",
+                          fontSize: 13, fontWeight: 600, transition: "all 0.15s"
+                        }}
+                      >
+                        {labels[type]}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Error */}
+            {checkoutError && (
+              <div style={{
+                marginTop: 14, padding: "10px 14px", borderRadius: 10,
+                background: "rgba(244,67,54,0.1)", color: "#f44336", fontSize: 13, fontWeight: 500
+              }}>
+                {checkoutError}
+              </div>
+            )}
+
+            {/* Actions */}
+            <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+              <button
+                onClick={() => { setShowCheckout(false); setSelectedPlan(null); }}
+                className="btn"
+                style={{
+                  flex: 1, padding: "12px", borderRadius: 10, fontSize: 14,
+                  background: "var(--bg-primary)", border: "1px solid var(--border)",
+                  color: "var(--text-secondary)", cursor: "pointer"
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleCheckout}
+                disabled={checkoutLoading}
+                className="btn btn-primary"
+                style={{
+                  flex: 2, padding: "12px", borderRadius: 10, fontSize: 14,
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                  opacity: checkoutLoading ? 0.7 : 1
+                }}
+              >
+                {checkoutLoading ? (
+                  <><Loader2 size={16} className="spin" /> Processando...</>
+                ) : (
+                  <>✓ Confirmar Assinatura</>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

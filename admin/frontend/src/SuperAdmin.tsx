@@ -7,16 +7,20 @@ import {
     UserCheck,
     Wifi,
     Shield,
-    FileText
+    FileText,
+    CreditCard,
+    Trash2
 } from "lucide-react";
 
 import { TenantsTab } from "./components/SuperAdmin/TenantsTab";
 import { UsersTab } from "./components/SuperAdmin/UsersTab";
 import { InstancesTab } from "./components/SuperAdmin/InstancesTab";
 import { AuditTab } from "./components/SuperAdmin/AuditTab";
+import { BillingTab } from "./components/SuperAdmin/BillingTab";
+import { TrashTab } from "./components/SuperAdmin/TrashTab";
 import { api } from "./lib/api";
 
-type Tab = "tenants" | "users" | "instances" | "audit";
+type Tab = "tenants" | "users" | "instances" | "audit" | "billing" | "trash";
 
 export function SuperAdmin({ token, onBack }: { token: string; onBack: () => void }) {
     const [tab, setTab] = useState<Tab>("tenants");
@@ -49,6 +53,8 @@ export function SuperAdmin({ token, onBack }: { token: string; onBack: () => voi
         { id: "users", label: "Usuários", icon: <UsersIcon size={17} /> },
         { id: "instances", label: "Instâncias", icon: <Smartphone size={17} /> },
         { id: "audit", label: "Auditoria", icon: <FileText size={17} /> },
+        { id: "billing", label: "Faturamento", icon: <CreditCard size={17} /> },
+        { id: "trash", label: "Lixeira", icon: <Trash2 size={17} /> },
     ];
 
     const METRIC_CARDS = [
@@ -162,6 +168,8 @@ export function SuperAdmin({ token, onBack }: { token: string; onBack: () => voi
                 {tab === "users" && <UsersTab />}
                 {tab === "instances" && <InstancesTab />}
                 {tab === "audit" && <AuditTab />}
+                {tab === "billing" && <BillingTab />}
+                {tab === "trash" && <TrashTab />}
             </div>
         </div>
     );

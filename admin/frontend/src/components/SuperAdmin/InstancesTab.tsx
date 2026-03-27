@@ -207,7 +207,7 @@ export function InstancesTab() {
                                                     </div>
                                                 );
                                             }
-                                            const status = config.connectionStatus || (i.IsActive ? "unknown" : "close");
+                                            const status = String(config.connectionStatus || (i.IsActive ? "unknown" : "close")).toLowerCase();
                                             let color = "var(--text-secondary)";
                                             let label = "Desconhecido";
                                             let glow = "none";

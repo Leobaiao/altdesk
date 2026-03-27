@@ -27,8 +27,14 @@ import {
     listAllUsers,
     createGlobalUser,
     updateGlobalUser,
-    setUserActiveStatus
+    setUserActiveStatus,
+    listDeletedUsers,
+    restoreUser
 } from "../services/userService.js";
+import { 
+    listDeletedTenants,
+    restoreTenant
+} from "../services/tenantService.js";
 
 const router = Router();
 router.use(authMw as any, requireRole("SUPERADMIN") as any);
@@ -106,13 +112,22 @@ router.put("/tenants/:id", validateBody(z.object({
 router.delete("/tenants/:id", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const tenantId = req.params.id;
-        await setTenantStatus(tenantId, false);
+        const pool = await getPool();
+        
+        // Soft Delete: Move to Trash
+        await pool.request()
+            .input("id", tenantId)
+            .query("UPDATE altdesk.Tenant SET DeletedAt = GETDATE(), IsActive = 0 WHERE TenantId = @id");
+        
+        await pool.request()
+            .input("id", tenantId)
+            .query("UPDATE altdesk.Subscription SET IsActive = 0 WHERE TenantId = @id");
 
         // Audit Log
         const reqInfo = extractRequestInfo(req);
         writeAuditLog({
             ...reqInfo,
-            action: 'DEACTIVATE_TENANT',
+            action: 'SOFT_DELETE_TENANT',
             targetTable: 'Tenant',
             targetId: tenantId
         });
@@ -123,16 +138,61 @@ router.delete("/tenants/:id", (async (req: AuthenticatedRequest, res: Response, 
     }
 }) as any);
 
-router.put("/tenants/:id/reactivate", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+router.delete("/tenants/:id/permanent", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const tenantId = req.params.id;
-        await setTenantStatus(tenantId, true);
+        const pool = await getPool();
+
+        const transaction = new sql.Transaction(pool);
+        await transaction.begin();
+
+        try {
+            // Delete in order of dependencies (approximation)
+            const tables = [
+                "Message", "Ticket", "Conversation", "Contact", "Tag", 
+                "Agent", "Queue", "Connector", "KnowledgeItem", "CannedResponse",
+                "BillingSubscription", "BillingInvoice", "[User]"
+            ];
+
+            for (const table of tables) {
+                await transaction.request().input("tid", tenantId).query(`DELETE FROM altdesk.${table} WHERE TenantId = @tid`);
+            }
+
+            // Finally the tenant
+            await transaction.request().input("tid", tenantId).query("DELETE FROM altdesk.Tenant WHERE TenantId = @tid");
+
+            await transaction.commit();
+
+            // Audit
+            const reqInfo = extractRequestInfo(req);
+            await writeAuditLog({
+                ...reqInfo,
+                action: 'DELETE_TENANT_PERMANENT',
+                targetTable: 'Tenant',
+                targetId: tenantId
+            });
+
+            res.json({ ok: true });
+        } catch (err) {
+            await transaction.rollback();
+            throw err;
+        }
+    } catch (error) {
+        next(error);
+    }
+}) as any);
+
+router.put("/tenants/:id/status", validateBody(z.object({ isActive: z.boolean() })), (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const tenantId = req.params.id;
+        const { isActive } = req.body;
+        await setTenantStatus(tenantId, isActive);
 
         // Audit Log
         const reqInfo = extractRequestInfo(req);
         writeAuditLog({
             ...reqInfo,
-            action: 'ACTIVATE_TENANT',
+            action: isActive ? 'ACTIVATE_TENANT' : 'DEACTIVATE_TENANT',
             targetTable: 'Tenant',
             targetId: tenantId
         });
@@ -142,6 +202,36 @@ router.put("/tenants/:id/reactivate", (async (req: AuthenticatedRequest, res: Re
         next(error);
     }
 }) as any);
+
+// --- TRASH (LIXEIRA) ---
+router.get("/trash/tenants", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const tenants = await listDeletedTenants();
+        res.json(tenants);
+    } catch (error) { next(error); }
+}) as any);
+
+router.get("/trash/users", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const users = await listDeletedUsers();
+        res.json(users);
+    } catch (error) { next(error); }
+}) as any);
+
+router.post("/trash/tenants/:id/restore", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        await restoreTenant(req.params.id);
+        res.json({ ok: true });
+    } catch (error) { next(error); }
+}) as any);
+
+router.post("/trash/users/:id/restore", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        await restoreUser(req.params.id);
+        res.json({ ok: true });
+    } catch (error) { next(error); }
+}) as any);
+
 
 // --- INSTANCES ---
 router.get("/instances", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
@@ -598,4 +688,188 @@ router.get("/audit-logs", (async (req: AuthenticatedRequest, res: Response, next
     }
 }) as any);
 
+// --- BILLING MANAGEMENT ---
+
+// List all billing plans
+router.get("/billing/plans", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const pool = await getPool();
+        const r = await pool.request().query("SELECT * FROM altdesk.BillingPlan ORDER BY PriceCents");
+        res.json(r.recordset);
+    } catch (error) { next(error); }
+}) as any);
+
+// Create a billing plan
+router.post("/billing/plans", validateBody(z.object({
+    code: z.string().min(2),
+    name: z.string().min(2),
+    priceCents: z.number().min(0),
+    cycle: z.enum(["monthly", "quarterly", "yearly"]).optional(),
+    agentsSeatLimit: z.number().min(1).optional(),
+})), (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const { code, name, priceCents, cycle, agentsSeatLimit } = req.body;
+        const pool = await getPool();
+        await pool.request()
+            .input("code", code)
+            .input("name", name)
+            .input("priceCents", priceCents)
+            .input("cycle", cycle || "monthly")
+            .input("agentsSeatLimit", agentsSeatLimit || 3)
+            .query(`
+                INSERT INTO altdesk.BillingPlan (Code, Name, PriceCents, Cycle, AgentsSeatLimit)
+                VALUES (@code, @name, @priceCents, @cycle, @agentsSeatLimit)
+            `);
+
+        const reqInfo = extractRequestInfo(req);
+        await writeAuditLog({
+            userId: reqInfo.userId,
+            tenantId: reqInfo.tenantId,
+            action: "CREATE_BILLING_PLAN",
+            targetTable: "BillingPlan",
+            targetId: code,
+            ipAddress: reqInfo.ipAddress,
+            userAgent: reqInfo.userAgent
+        });
+
+        res.status(201).json({ ok: true });
+    } catch (error) { next(error); }
+}) as any);
+
+// Update a billing plan
+router.put("/billing/plans/:id", validateBody(z.object({
+    name: z.string().min(2).optional(),
+    priceCents: z.number().min(0).optional(),
+    agentsSeatLimit: z.number().min(1).optional(),
+    isActive: z.boolean().optional(),
+})), (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params;
+        const { name, priceCents, agentsSeatLimit, isActive } = req.body;
+        const pool = await getPool();
+
+        const sets: string[] = [];
+        const request = pool.request().input("planId", id);
+
+        if (name !== undefined) { sets.push("Name = @name"); request.input("name", name); }
+        if (priceCents !== undefined) { sets.push("PriceCents = @priceCents"); request.input("priceCents", priceCents); }
+        if (agentsSeatLimit !== undefined) { sets.push("AgentsSeatLimit = @agentsSeatLimit"); request.input("agentsSeatLimit", agentsSeatLimit); }
+        if (isActive !== undefined) { sets.push("IsActive = @isActive"); request.input("isActive", isActive ? 1 : 0); }
+
+        if (sets.length === 0) return res.json({ ok: true });
+
+        await request.query(`UPDATE altdesk.BillingPlan SET ${sets.join(", ")} WHERE PlanId = @planId`);
+
+        const reqInfo2 = extractRequestInfo(req);
+        await writeAuditLog({
+            userId: reqInfo2.userId,
+            tenantId: reqInfo2.tenantId,
+            action: "UPDATE_BILLING_PLAN",
+            targetTable: "BillingPlan",
+            targetId: id,
+            ipAddress: reqInfo2.ipAddress,
+            userAgent: reqInfo2.userAgent
+        });
+
+        res.json({ ok: true });
+    } catch (error) { next(error); }
+}) as any);
+
+// List all subscriptions (across tenants)
+router.get("/billing/subscriptions", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const pool = await getPool();
+        const r = await pool.request().query(`
+            SELECT bs.*, bp.Code AS PlanCode, bp.Name AS PlanName, t.Name AS TenantName
+            FROM altdesk.BillingSubscription bs
+            JOIN altdesk.BillingPlan bp ON bp.PlanId = bs.PlanId
+            JOIN altdesk.Tenant t ON t.TenantId = bs.TenantId
+            ORDER BY bs.CreatedAt DESC
+        `);
+        res.json(r.recordset);
+    } catch (error) { next(error); }
+}) as any);
+
+// List all invoices (across tenants)
+router.get("/billing/invoices", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const pool = await getPool();
+        const r = await pool.request().query(`
+            SELECT bi.*, t.Name AS TenantName
+            FROM altdesk.BillingInvoice bi
+            JOIN altdesk.Tenant t ON t.TenantId = bi.TenantId
+            ORDER BY bi.CreatedAt DESC
+        `);
+        res.json(r.recordset);
+    } catch (error) { next(error); }
+}) as any);
+
+// --- SOFT DELETE USER ---
+router.delete("/users/:id", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const userId = req.params.id;
+        const pool = await getPool();
+
+        const check = await pool.request()
+            .input("id", userId)
+            .query("SELECT Role, TenantId FROM altdesk.[User] WHERE UserId=@id");
+
+        if (check.recordset.length === 0) return res.status(404).json({ error: "Usuário não encontrado." });
+
+        const transaction = new sql.Transaction(pool);
+        await transaction.begin();
+
+        try {
+            await transaction.request().input("id", userId)
+                .query("UPDATE altdesk.Agent SET IsActive=0 WHERE UserId=@id");
+            await transaction.request().input("id", userId)
+                .query("UPDATE altdesk.[User] SET IsActive=0, DeletedAt=GETDATE() WHERE UserId=@id");
+            await transaction.commit();
+
+            const reqInfo = extractRequestInfo(req);
+            await writeAuditLog({
+                userId: reqInfo.userId,
+                tenantId: reqInfo.tenantId,
+                action: "SOFT_DELETE_USER",
+                targetTable: "User",
+                targetId: userId,
+                ipAddress: reqInfo.ipAddress,
+                userAgent: reqInfo.userAgent
+            });
+
+            res.json({ ok: true });
+        } catch (err) {
+            await transaction.rollback();
+            throw err;
+        }
+    } catch (error) { next(error); }
+}) as any);
+
+// --- PERMANENT DELETE USER ---
+router.delete("/users/:id/permanent", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const userId = req.params.id;
+        const pool = await getPool();
+
+        const transaction = new sql.Transaction(pool);
+        await transaction.begin();
+
+        try {
+            await transaction.request().input("id", userId)
+                .query("DELETE FROM altdesk.Agent WHERE UserId=@id");
+            await transaction.request().input("id", userId)
+                .query("DELETE FROM altdesk.[User] WHERE UserId=@id");
+            await transaction.commit();
+
+            res.json({ ok: true });
+        } catch (err) {
+            await transaction.rollback();
+            throw err;
+        }
+    } catch (error) { next(error); }
+}) as any);
+
 export default router;
+
+
+

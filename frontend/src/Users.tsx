@@ -91,6 +91,18 @@ export function Users({ token, onBack, role }: Props) {
         }
     }
 
+    async function handleDelete(userId: string) {
+        if (!confirm("Deseja mover este usuário para a LIXEIRA? Ele será desativado e poderá ser restaurado pelo administrador do sistema.")) return;
+        try {
+            await api.delete(`/api/users/${userId}`);
+            loadUsers();
+        } catch (e: any) {
+            console.error(e);
+            alert("Erro ao mover usuário para a lixeira: " + (e.response?.data?.error || e.message));
+        }
+    }
+
+
     function openEdit(u: User) {
         setEditingUser(u);
         setName(u.AgentName || u.Name || "");
@@ -245,6 +257,14 @@ export function Users({ token, onBack, role }: Props) {
                                                     title={u.IsActive ? "Desativar" : "Ativar"}
                                                 >
                                                     {u.IsActive ? <Pause size={18} /> : <Play size={18} />}
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDelete(u.UserId)}
+                                                    className="btn btn-ghost"
+                                                    style={{ padding: 8, borderRadius: 8, color: "var(--danger)" }}
+                                                    title="Mover para Lixeira"
+                                                >
+                                                    <Trash2 size={18} />
                                                 </button>
                                             </>
                                         )}
