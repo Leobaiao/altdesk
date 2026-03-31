@@ -24,6 +24,8 @@ export function Settings({ token, onBack, role }: Props) {
     const [tokenVal, setTokenVal] = useState("");
     const [instances, setInstances] = useState<any[]>([]);
     const [selectedConnectorId, setSelectedConnectorId] = useState("");
+    const [allUsers, setAllUsers] = useState<any[]>([]);
+    const [assignedToInstance, setAssignedToInstance] = useState<string[]>([]);
 
     // UI states
     const [loading, setLoading] = useState(false);
@@ -50,13 +52,21 @@ export function Settings({ token, onBack, role }: Props) {
                             setSelectedConnectorId(active.ConnectorId);
                             setInstanceId(active.config?.instance || active.config?.phoneNumberId || "");
                             setTokenVal(active.config?.token || active.config?.accessToken || active.config?.apiKey || "");
+                            setAssignedToInstance(active.assignedUsers?.map((u: any) => u.UserId) || []);
                         } else if (data.instances.length > 0) {
                             setSelectedConnectorId(data.instances[0].ConnectorId);
+                            setAssignedToInstance(data.instances[0].assignedUsers?.map((u: any) => u.UserId) || []);
                         }
                     }
                 }
             }).catch(err => {
                 console.error("Erro ao carregar configurações:", err);
+            });
+
+            api.get("/api/users").then(res => {
+                setAllUsers((res.data || []).filter((u: any) => u.IsActive));
+            }).catch(err => {
+                console.error("Erro ao carregar usuários:", err);
             });
         }
 
@@ -80,7 +90,14 @@ export function Settings({ token, onBack, role }: Props) {
             setDefaultProvider(inst.Provider);
             setInstanceId(inst.config?.instance || inst.config?.phoneNumberId || "");
             setTokenVal(inst.config?.token || inst.config?.accessToken || inst.config?.apiKey || "");
+            setAssignedToInstance(inst.assignedUsers?.map((u: any) => u.UserId) || []);
         }
+    }
+
+    function handleToggleUser(userId: string) {
+        setAssignedToInstance(prev => 
+            prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
+        );
     }
 
     const handleSave = async () => {
@@ -109,6 +126,19 @@ export function Settings({ token, onBack, role }: Props) {
                         instanceId,
                         token: tokenVal
                     });
+
+                    // 2b. Assign users
+                    await api.post(`/api/settings/instances/${selectedConnectorId}/assignments`, {
+                        userIds: assignedToInstance
+                    });
+
+                    // Update local instances state to reflect new assignments
+                    setInstances((prev: any[]) => prev.map((inst: any) => 
+                        inst.ConnectorId === selectedConnectorId 
+                            ? { ...inst, assignedUsers: allUsers.filter(u => assignedToInstance.includes(u.UserId)) }
+                            : inst
+                    ));
+
                 } catch (err: any) {
                     const errorMsg = err.response?.data?.error || err.message;
                     throw new Error("Erro na Integração: " + errorMsg);
@@ -321,6 +351,33 @@ export function Settings({ token, onBack, role }: Props) {
                                         className="settings-input"
                                         style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", transition: "all 0.2s" }}
                                     />
+                                </div>
+
+                                <div style={{ marginTop: 10 }}>
+                                    <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12, color: "var(--text-secondary)", fontSize: "0.85rem" }}>
+                                        <User size={14} /> Funcionários com Acesso
+                                    </label>
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 200, overflowY: "auto", padding: 12, background: "var(--bg-primary)", borderRadius: 12, border: "1px solid var(--border)" }}>
+                                        {allUsers.length === 0 ? (
+                                            <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>Nenhum funcionário encontrado.</span>
+                                        ) : (
+                                            allUsers.map(u => (
+                                                <label key={u.UserId} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: "0.85rem" }}>
+                                                    <input 
+                                                        type="checkbox" 
+                                                        checked={assignedToInstance.includes(u.UserId)}
+                                                        onChange={() => handleToggleUser(u.UserId)}
+                                                        style={{ width: 16, height: 16, accentColor: "var(--accent)" }}
+                                                    />
+                                                    <span>{u.AgentName || u.DisplayName || u.Email}</span>
+                                                    {u.Role === 'ADMIN' && <span style={{ fontSize: "0.7rem", padding: "2px 6px", background: "rgba(255,255,255,0.05)", borderRadius: 4, color: "var(--text-secondary)" }}>Admin</span>}
+                                                </label>
+                                            ))
+                                        )}
+                                    </div>
+                                    <p style={{ fontSize: "0.7rem", color: "var(--text-secondary)", marginTop: 8 }}>
+                                        Se nenhum for selecionado, a instância será <strong>Global</strong> (todos acessam).
+                                    </p>
                                 </div>
                             </div>
                         )}

@@ -80,63 +80,75 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    DECLARE @tenant_id   UNIQUEIDENTIFIER = NEWID();
-    DECLARE @admin_id    UNIQUEIDENTIFIER = NEWID();
-    DECLARE @is_demo     BIT = CASE WHEN @preload_model = 'demo' THEN 1 ELSE 0 END;
+    BEGIN TRY
+        BEGIN TRANSACTION;
 
-    -- 1. Criar Tenant
-    INSERT INTO altdesk.Tenant
-    (
-        TenantId, Name, TradeName, CpfCnpj, Email, Phone,
-        ResponsibleName, ResponsibleEmail, ResponsiblePhone,
-        Timezone, Locale, PreloadModel, IsDemo,
-        DefaultProvider, IsActive, CreatedAt
-    )
-    VALUES
-    (
-        @tenant_id, @company_name, @trade_name, @cpf_cnpj, @email, @phone,
-        @admin_name, @admin_email, @admin_phone,
-        ISNULL(@timezone, 'America/Sao_Paulo'), ISNULL(@locale, 'pt-BR'),
-        @preload_model, @is_demo,
-        'GTI', 1, SYSUTCDATETIME()
-    );
+        DECLARE @tenant_id   UNIQUEIDENTIFIER = NEWID();
+        DECLARE @admin_id    UNIQUEIDENTIFIER = NEWID();
+        DECLARE @is_demo     BIT = CASE WHEN @preload_model = 'demo' THEN 1 ELSE 0 END;
+        DECLARE @now         DATETIME2 = SYSUTCDATETIME();
 
-    -- 2. Criar usuário Admin
-    INSERT INTO altdesk.[User]
-    (
-        UserId, TenantId, Email, PasswordHash, Role, Name, DisplayName,
-        IsActive, CreatedAt
-    )
-    VALUES
-    (
-        @admin_id, @tenant_id, @admin_email, @admin_password_hash,
-        'ADMIN', @admin_name, @admin_name,
-        1, SYSUTCDATETIME()
-    );
+        -- 1. Criar Tenant
+        INSERT INTO altdesk.Tenant
+        (
+            TenantId, Name, TradeName, CpfCnpj, Email, Phone,
+            ResponsibleName, ResponsibleEmail, ResponsiblePhone,
+            Timezone, Locale, PreloadModel, IsDemo,
+            DefaultProvider, IsActive, CreatedAt
+        )
+        VALUES
+        (
+            @tenant_id, @company_name, @trade_name, @cpf_cnpj, @email, @phone,
+            @admin_name, @admin_email, @admin_phone,
+            ISNULL(@timezone, 'America/Sao_Paulo'), ISNULL(@locale, 'pt-BR'),
+            @preload_model, @is_demo,
+            'GTI', 1, @now
+        );
 
-    -- 3. Criar Subscription trial (14 dias, 5 seats)
-    INSERT INTO altdesk.Subscription
-    (TenantId, IsActive, AgentsSeatLimit, ExpiresAt, CreatedAt)
-    VALUES
-    (@tenant_id, 1, 5, DATEADD(DAY, 14, SYSUTCDATETIME()), SYSUTCDATETIME());
+        -- 2. Criar usuário Admin
+        INSERT INTO altdesk.[User]
+        (
+            UserId, TenantId, Email, PasswordHash, Role, Name, DisplayName,
+            IsActive, CreatedAt
+        )
+        VALUES
+        (
+            @admin_id, @tenant_id, @admin_email, @admin_password_hash,
+            'ADMIN', @admin_name, @admin_name,
+            1, @now
+        );
 
-    -- 4. Criar filas padrão
-    INSERT INTO altdesk.Queue (TenantId, Name, IsActive, CreatedAt)
-    VALUES
-        (@tenant_id, 'Suporte',    1, SYSUTCDATETIME()),
-        (@tenant_id, 'Financeiro', 1, SYSUTCDATETIME());
+        -- 3. Criar Subscription trial (14 dias, 5 seats)
+        INSERT INTO altdesk.Subscription
+        (TenantId, IsActive, AgentsSeatLimit, ExpiresAt, CreatedAt)
+        VALUES
+        (@tenant_id, 1, 5, DATEADD(DAY, 14, @now), @now);
 
-    -- 5. Aplicar seed conforme modelo
-    IF @preload_model = 'basic'
-        EXEC sp_altdesk_seed_basic @tenant_id, @admin_id;
+        -- 4. Criar filas padrão
+        INSERT INTO altdesk.Queue (TenantId, Name, IsActive, CreatedAt)
+        VALUES
+            (@tenant_id, 'Suporte',    1, @now),
+            (@tenant_id, 'Financeiro', 1, @now);
 
-    IF @preload_model = 'demo'
-        EXEC sp_altdesk_seed_demo @tenant_id, @admin_id;
+        -- 5. Aplicar seed conforme modelo
+        IF @preload_model = 'basic'
+            EXEC sp_altdesk_seed_basic @tenant_id, @admin_id;
 
-    -- 6. Retornar IDs
-    SELECT
-        CAST(@tenant_id AS NVARCHAR(36)) AS TenantId,
-        CAST(@admin_id AS NVARCHAR(36)) AS UserId;
+        IF @preload_model = 'demo'
+            EXEC sp_altdesk_seed_demo @tenant_id, @admin_id;
+
+        COMMIT TRANSACTION;
+
+        -- 6. Retornar IDs
+        SELECT
+            CAST(@tenant_id AS NVARCHAR(36)) AS TenantId,
+            CAST(@admin_id AS NVARCHAR(36)) AS UserId;
+            
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
 END;
 GO
 
@@ -155,22 +167,25 @@ CREATE OR ALTER PROCEDURE sp_altdesk_seed_basic
 AS
 BEGIN
     SET NOCOUNT ON;
+    DECLARE @prefix NVARCHAR(8) = LOWER(LEFT(CAST(@tenant_id AS NVARCHAR(36)), 8));
+    DECLARE @now DATETIME2 = SYSUTCDATETIME();
 
-    -- 1 Agente exemplo (sem login)
+    -- 1 Agente exemplo (com login 123456)
     INSERT INTO altdesk.[User]
     (TenantId, Email, PasswordHash, Role, Name, DisplayName, IsActive, CreatedAt)
     VALUES
-    (@tenant_id, CONCAT('agente.exemplo.', LOWER(LEFT(CAST(@tenant_id AS NVARCHAR(36)),8)), '@demo.local'),
-     CAST('NO_LOGIN' AS VARBINARY(MAX)), 'AGENT', 'Agente Exemplo', 'Agente Exemplo', 1, SYSUTCDATETIME());
+    (@tenant_id, CONCAT('agente.exemplo.', @prefix, '@demo.local'),
+     -- Password '123456' hash
+     CAST('$2b$12$twjUYsHwk21CmfIfkUNkwOnW3JyDvJmcWMZkj62WqRcLjkpOHG.Xe' AS VARBINARY(MAX)), 'AGENT', 'Agente Exemplo', 'Agente Exemplo', 1, @now);
 
     -- 5 Contatos
     INSERT INTO altdesk.Contact (TenantId, Name, Phone, Email, CreatedAt)
     VALUES
-        (@tenant_id, 'Marcos Pereira',  '5511988881001', 'marcos@cliente.com',   SYSUTCDATETIME()),
-        (@tenant_id, 'Fernanda Alves',  '5511988881002', 'fernanda@cliente.com', SYSUTCDATETIME()),
-        (@tenant_id, N'João Batista',   '5511988881003', 'joao@cliente.com',     SYSUTCDATETIME()),
-        (@tenant_id, 'Paula Mendes',    '5511988881004', 'paula@cliente.com',    SYSUTCDATETIME()),
-        (@tenant_id, 'Ricardo Nunes',   '5511988881005', 'ricardo@cliente.com',  SYSUTCDATETIME());
+        (@tenant_id, 'Marcos Pereira',  '5511988881001', CONCAT('marcos.', @prefix, '@cliente.demo'),   @now),
+        (@tenant_id, 'Fernanda Alves',  '5511988881002', CONCAT('fernanda.', @prefix, '@cliente.demo'), @now),
+        (@tenant_id, N'João Batista',   '5511988881003', CONCAT('joao.', @prefix, '@cliente.demo'),     @now),
+        (@tenant_id, 'Paula Mendes',    '5511988881004', CONCAT('paula.', @prefix, '@cliente.demo'),    @now),
+        (@tenant_id, 'Ricardo Nunes',   '5511988881005', CONCAT('ricardo.', @prefix, '@cliente.demo'),  @now);
 END;
 GO
 
@@ -191,44 +206,45 @@ BEGIN
     SET NOCOUNT ON;
 
     DECLARE @prefix NVARCHAR(8) = LOWER(LEFT(CAST(@tenant_id AS NVARCHAR(36)), 8));
+    DECLARE @now DATETIME2 = SYSUTCDATETIME();
 
     -- Filas adicionais
     IF NOT EXISTS (SELECT 1 FROM altdesk.Queue WHERE TenantId = @tenant_id AND Name = N'Implantação')
         INSERT INTO altdesk.Queue (TenantId, Name, IsActive, CreatedAt)
-        VALUES (@tenant_id, N'Implantação', 1, SYSUTCDATETIME());
+        VALUES (@tenant_id, N'Implantação', 1, @now);
 
     IF NOT EXISTS (SELECT 1 FROM altdesk.Queue WHERE TenantId = @tenant_id AND Name = 'Comercial')
         INSERT INTO altdesk.Queue (TenantId, Name, IsActive, CreatedAt)
-        VALUES (@tenant_id, 'Comercial', 1, SYSUTCDATETIME());
+        VALUES (@tenant_id, 'Comercial', 1, @now);
 
     -- 4 Usuários internos demo (sem login)
     INSERT INTO altdesk.[User]
     (TenantId, Email, PasswordHash, Role, Name, DisplayName, Position, IsActive, CreatedAt)
     VALUES
     (@tenant_id, CONCAT('ana.souza.', @prefix, '@demo.local'),
-     CAST('NO_LOGIN' AS VARBINARY(MAX)), 'AGENT', 'Ana Souza', 'Ana Souza', 'Supervisora', 1, SYSUTCDATETIME()),
+     CAST('NO_LOGIN' AS VARBINARY(MAX)), 'AGENT', 'Ana Souza', 'Ana Souza', 'Supervisora', 1, @now),
     (@tenant_id, CONCAT('carlos.lima.', @prefix, '@demo.local'),
-     CAST('NO_LOGIN' AS VARBINARY(MAX)), 'AGENT', 'Carlos Lima', 'Carlos Lima', 'Agente', 1, SYSUTCDATETIME()),
+     CAST('NO_LOGIN' AS VARBINARY(MAX)), 'AGENT', 'Carlos Lima', 'Carlos Lima', 'Agente', 1, @now),
     (@tenant_id, CONCAT('juliana.rocha.', @prefix, '@demo.local'),
-     CAST('NO_LOGIN' AS VARBINARY(MAX)), 'AGENT', 'Juliana Rocha', 'Juliana Rocha', 'Agente', 1, SYSUTCDATETIME()),
+     CAST('NO_LOGIN' AS VARBINARY(MAX)), 'AGENT', 'Juliana Rocha', 'Juliana Rocha', 'Agente', 1, @now),
     (@tenant_id, CONCAT('rafael.torres.', @prefix, '@demo.local'),
-     CAST('NO_LOGIN' AS VARBINARY(MAX)), 'AGENT', 'Rafael Torres', 'Rafael Torres', 'Analista Financeiro', 1, SYSUTCDATETIME());
+     CAST('NO_LOGIN' AS VARBINARY(MAX)), 'AGENT', 'Rafael Torres', 'Rafael Torres', 'Analista Financeiro', 1, @now);
 
     -- 12 Contatos demo
     INSERT INTO altdesk.Contact (TenantId, Name, Phone, Email, CreatedAt)
     VALUES
-        (@tenant_id, 'Marcos Pereira',   '5511988881001', 'marcos@cliente.com',    SYSUTCDATETIME()),
-        (@tenant_id, 'Fernanda Alves',   '5511988881002', 'fernanda@cliente.com',  SYSUTCDATETIME()),
-        (@tenant_id, N'João Batista',    '5511988881003', 'joao@cliente.com',      SYSUTCDATETIME()),
-        (@tenant_id, 'Paula Mendes',     '5511988881004', 'paula@cliente.com',     SYSUTCDATETIME()),
-        (@tenant_id, 'Ricardo Nunes',    '5511988881005', 'ricardo@cliente.com',   SYSUTCDATETIME()),
-        (@tenant_id, 'Luciana Costa',    '5511988881006', 'luciana@cliente.com',   SYSUTCDATETIME()),
-        (@tenant_id, 'Beatriz Lima',     '5511988881007', 'beatriz@cliente.com',   SYSUTCDATETIME()),
-        (@tenant_id, 'Gustavo Azevedo',  '5511988881008', 'gustavo@cliente.com',   SYSUTCDATETIME()),
-        (@tenant_id, 'Simone Prado',     '5511988881009', 'simone@cliente.com',    SYSUTCDATETIME()),
-        (@tenant_id, 'Diego Martins',    '5511988881010', 'diego@cliente.com',     SYSUTCDATETIME()),
-        (@tenant_id, 'Patricia Freitas', '5511988881011', 'patricia@cliente.com',  SYSUTCDATETIME()),
-        (@tenant_id, 'Eduardo Ramos',    '5511988881012', 'eduardo@cliente.com',   SYSUTCDATETIME());
+        (@tenant_id, 'Marcos Pereira',   '5511988881001', CONCAT('marcos.', @prefix, '@cliente.demo'),    @now),
+        (@tenant_id, 'Fernanda Alves',   '5511988881002', CONCAT('fernanda.', @prefix, '@cliente.demo'),  @now),
+        (@tenant_id, N'João Batista',    '5511988881003', CONCAT('joao.', @prefix, '@cliente.demo'),      @now),
+        (@tenant_id, 'Paula Mendes',     '5511988881004', CONCAT('paula.', @prefix, '@cliente.demo'),     @now),
+        (@tenant_id, 'Ricardo Nunes',    '5511988881005', CONCAT('ricardo.', @prefix, '@cliente.demo'),   @now),
+        (@tenant_id, 'Luciana Costa',    '5511988881006', CONCAT('luciana.', @prefix, '@cliente.demo'),   @now),
+        (@tenant_id, 'Beatriz Lima',     '5511988881007', CONCAT('beatriz.', @prefix, '@cliente.demo'),   @now),
+        (@tenant_id, 'Gustavo Azevedo',  '5511988881008', CONCAT('gustavo.', @prefix, '@cliente.demo'),   @now),
+        (@tenant_id, 'Simone Prado',     '5511988881009', CONCAT('simone.', @prefix, '@cliente.demo'),    @now),
+        (@tenant_id, 'Diego Martins',    '5511988881010', CONCAT('diego.', @prefix, '@cliente.demo'),     @now),
+        (@tenant_id, 'Patricia Freitas', '5511988881011', CONCAT('patricia.', @prefix, '@cliente.demo'),  @now),
+        (@tenant_id, 'Eduardo Ramos',    '5511988881012', CONCAT('eduardo.', @prefix, '@cliente.demo'),   @now);
 END;
 GO
 

@@ -3,6 +3,8 @@ import { z } from "zod";
 import { getPool } from "../db.js";
 import { authMw, requireRole } from "../mw.js";
 import { validateBody } from "../middleware/validateMw.js";
+import { listTenantInstances, assignUsersToInstance } from "../services/instanceService.js";
+import { writeAuditLog, extractRequestInfo } from "../services/auditLog.js";
 
 const router = Router();
 router.use(authMw, requireRole("ADMIN", "SUPERADMIN"));
@@ -12,31 +14,29 @@ router.get("/", async (req, res, next) => {
         const user = (req as any).user;
         const pool = await getPool();
 
-        const t = await pool.request()
+        const tenant = await pool.request()
             .input("tenantId", user.tenantId)
             .query("SELECT DefaultProvider FROM altdesk.Tenant WHERE TenantId=@tenantId");
-        const defaultProvider = t.recordset[0]?.DefaultProvider || "GTI";
+        const defaultProvider = tenant.recordset[0]?.DefaultProvider || "GTI";
 
-        const c = await pool.request()
-            .input("tenantId", user.tenantId)
-            .query(`
-        SELECT cc.ConnectorId, cc.Provider, cc.ConfigJson, cc.IsActive, ch.Name as ChannelName
-        FROM altdesk.ChannelConnector cc
-        JOIN altdesk.Channel ch ON ch.ChannelId = cc.ChannelId
-        WHERE ch.TenantId=@tenantId AND cc.DeletedAt IS NULL
-      `);
+        const rawInstances = await listTenantInstances(user.tenantId);
 
-        const instances = c.recordset.map((row: any) => {
+        // Parsear ConfigJson para o frontend
+        const instances = rawInstances.map((inst: any) => {
             let config = {};
-            try { config = JSON.parse(row.ConfigJson); } catch { }
-            return { ...row, config, ConfigJson: undefined };
+            try { config = JSON.parse(inst.ConfigJson || "{}"); } catch { }
+            return { ...inst, config, ConfigJson: undefined };
         });
 
         // Set default config if the current default provider has an active instance
         let config = {};
         const activeDefault = instances.find((i: any) => i.Provider === defaultProvider && i.IsActive);
-        if (activeDefault) config = activeDefault.config;
-        else if (instances.length > 0) config = instances[0].config;
+        
+        if (activeDefault) {
+            config = activeDefault.config;
+        } else if (instances.length > 0) {
+            config = instances[0].config;
+        }
 
         res.json({ defaultProvider, config, instances });
     } catch (error) {
@@ -99,6 +99,49 @@ router.put("/", validateBody(z.object({
                 } catch { }
             }
         }
+
+        res.json({ ok: true });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
+ * Atribui funcionários a uma instância
+ */
+router.post("/instances/:connectorId/assignments", validateBody(z.object({
+    userIds: z.array(z.string().uuid())
+})), async (req, res, next) => {
+    try {
+        const user = (req as any).user;
+        const pool = await getPool();
+        const { connectorId } = req.params;
+        const { userIds } = req.body;
+
+        // Verificar que o connector pertence ao tenant do admin
+        const check = await pool.request()
+            .input("connectorId", connectorId)
+            .input("tenantId", user.tenantId)
+            .query(`
+                SELECT 1 FROM altdesk.ChannelConnector cc
+                JOIN altdesk.Channel ch ON ch.ChannelId = cc.ChannelId
+                WHERE cc.ConnectorId = @connectorId AND ch.TenantId = @tenantId AND cc.DeletedAt IS NULL
+            `);
+        if (check.recordset.length === 0) {
+            return res.status(404).json({ error: "Instância não encontrada." });
+        }
+
+        await assignUsersToInstance(connectorId, userIds, user.tenantId);
+
+        // Auditoria
+        const reqInfo = extractRequestInfo(req);
+        writeAuditLog({
+            ...reqInfo,
+            action: 'ASSIGN_INSTANCE_USERS',
+            targetTable: 'InstanceAssignment',
+            targetId: connectorId,
+            afterValues: { userIds }
+        });
 
         res.json({ ok: true });
     } catch (error) {

@@ -10,6 +10,16 @@ export const authLimiter = rateLimit({
     legacyHeaders: false,
 });
 
+// Limitador para Onboarding (Vendas/Cadastro)
+// Um pouco mais generoso para permitir correções de formulário sem bloqueio agressivo
+export const onboardingLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, 
+    limit: 15, // 15 tentativas permitidas por IP no cadastro
+    message: { error: "Muitas tentativas de cadastro. Tente novamente após alguns minutos." },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
 // Limitador para Webhooks
 // Moderado para suportar picos de mensagens
 export const webhookLimiter = rateLimit({

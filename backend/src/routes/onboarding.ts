@@ -3,7 +3,7 @@ import { z } from "zod";
 import { getPool } from "../db.js";
 import { signToken, hashPassword } from "../auth.js";
 import { validateBody } from "../middleware/validateMw.js";
-import { authLimiter } from "../middleware/rateLimiter.js";
+import { onboardingLimiter } from "../middleware/rateLimiter.js";
 import { writeAuditLog } from "../services/auditLog.js";
 import { logger } from "../lib/logger.js";
 
@@ -25,7 +25,7 @@ const OnboardingSchema = z.object({
 });
 
 // POST /api/onboarding — Rota pública (sem autenticação)
-router.post("/", authLimiter, validateBody(OnboardingSchema), async (req, res, next) => {
+router.post("/", onboardingLimiter, validateBody(OnboardingSchema), async (req, res, next) => {
     const ip = req.ip || req.socket?.remoteAddress;
     const userAgent = req.headers["user-agent"]?.substring(0, 200);
 
@@ -39,7 +39,16 @@ router.post("/", authLimiter, validateBody(OnboardingSchema), async (req, res, n
             .query(`SELECT TOP 1 UserId FROM altdesk.[User] WHERE Email = @email`);
 
         if (existing.recordset.length > 0) {
-            return res.status(409).json({ error: "E-mail já cadastrado. Faça login ou use outro e-mail." });
+            return res.status(409).json({ error: "Este e-mail de administrador já está em uso." });
+        }
+
+        // 1b. Verificar e-mail de empresa único
+        const existingTenant = await pool.request()
+            .input("tenantEmail", body.email)
+            .query(`SELECT TOP 1 TenantId FROM altdesk.Tenant WHERE Email = @tenantEmail`);
+
+        if (existingTenant.recordset.length > 0) {
+            return res.status(409).json({ error: "Já existe uma empresa cadastrada com este e-mail." });
         }
 
         // 2. Hash da senha

@@ -24,17 +24,30 @@ export async function listAllInstances() {
  */
 export async function listTenantInstances(tenantId: string) {
     const pool = await getPool();
-    return (await pool.request()
+    const instances = (await pool.request()
         .input("tid", tenantId)
         .query(`
       SELECT 
         cc.ConnectorId, cc.Provider, cc.ConfigJson, cc.IsActive, cc.DeletedAt,
-        ch.Name as ChannelName, ch.ChannelId
+        ch.Name as ChannelName, ch.ChannelId,
+        (
+          SELECT u.UserId, u.Name, u.DisplayName
+          FROM altdesk.InstanceAssignment ia
+          JOIN altdesk.[User] u ON u.UserId = ia.UserId
+          WHERE ia.ConnectorId = cc.ConnectorId
+          FOR JSON PATH
+        ) AS AssignedUsersJson
       FROM altdesk.ChannelConnector cc
       JOIN altdesk.Channel ch ON ch.ChannelId = cc.ChannelId
       WHERE ch.TenantId = @tid AND cc.DeletedAt IS NULL
       ORDER BY ch.Name
     `)).recordset;
+
+    return instances.map((inst: any) => ({
+        ...inst,
+        assignedUsers: inst.AssignedUsersJson ? JSON.parse(inst.AssignedUsersJson) : [],
+        AssignedUsersJson: undefined
+    }));
 }
 
 /**
@@ -116,6 +129,10 @@ export async function bulkDeleteInstances(connectorIds: string[]) {
         });
         const idParams = connectorIds.map((_: string, index: number) => `@id${index}`).join(",");
 
+        // Limpar atribuições de funcionários antes de desativar
+        await transaction.request()
+            .query(`DELETE FROM altdesk.InstanceAssignment WHERE ConnectorId IN (${idParams})`);
+
         await request.query(`
         UPDATE altdesk.ChannelConnector 
         SET IsActive = 0, DeletedAt = SYSUTCDATETIME()
@@ -128,4 +145,71 @@ export async function bulkDeleteInstances(connectorIds: string[]) {
         await transaction.rollback();
         throw err;
     }
+}
+
+/**
+ * Atribui múltiplos funcionários a uma instância (substitui os atuais)
+ */
+export async function assignUsersToInstance(connectorId: string, userIds: string[], tenantId: string) {
+    const pool = await getPool();
+    const transaction = new sql.Transaction(pool);
+    await transaction.begin();
+
+    try {
+        // 1. Validar que todos os userIds pertencem ao tenant
+        if (userIds.length > 0) {
+            const req = transaction.request().input("tid", tenantId);
+            userIds.forEach((id, i) => req.input(`u${i}`, id));
+            const placeholders = userIds.map((_, i) => `@u${i}`).join(",");
+            const valid = await req.query(
+                `SELECT COUNT(*) as cnt FROM altdesk.[User] WHERE TenantId = @tid AND UserId IN (${placeholders})`
+            );
+            if (valid.recordset[0].cnt !== userIds.length) {
+                throw new Error("Um ou mais usuários não pertencem a esta empresa.");
+            }
+        }
+
+        // 2. Remove atribuições atuais
+        await transaction.request()
+            .input("cid", connectorId)
+            .query(`DELETE FROM altdesk.InstanceAssignment WHERE ConnectorId = @cid`);
+
+        // 3. Insere novas
+        for (const uid of userIds) {
+            await transaction.request()
+                .input("cid", connectorId)
+                .input("uid", uid)
+                .input("tid", tenantId)
+                .query(`INSERT INTO altdesk.InstanceAssignment (TenantId, ConnectorId, UserId) VALUES (@tid, @cid, @uid)`);
+        }
+
+        await transaction.commit();
+        return userIds.length;
+    } catch (err) {
+        await transaction.rollback();
+        throw err;
+    }
+}
+
+/**
+ * Lista quais instâncias estão atribuídas a um usuário ou são globais (vazias)
+ */
+export async function listUserAvailableInstances(userId: string, tenantId: string) {
+    const pool = await getPool();
+    return (await pool.request()
+        .input("uid", userId)
+        .input("tid", tenantId)
+        .query(`
+            SELECT DISTINCT cc.ConnectorId, ch.Name as ChannelName, cc.Provider
+            FROM altdesk.ChannelConnector cc
+            JOIN altdesk.Channel ch ON ch.ChannelId = cc.ChannelId
+            LEFT JOIN altdesk.InstanceAssignment ia ON ia.ConnectorId = cc.ConnectorId
+            WHERE ch.TenantId = @tid 
+              AND cc.IsActive = 1 
+              AND cc.DeletedAt IS NULL
+              AND (
+                ia.UserId = @uid OR 
+                NOT EXISTS (SELECT 1 FROM altdesk.InstanceAssignment ia2 WHERE ia2.ConnectorId = cc.ConnectorId)
+              )
+        `)).recordset;
 }

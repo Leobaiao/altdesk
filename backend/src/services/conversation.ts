@@ -2,6 +2,7 @@ import sql from "mssql";
 import { getPool } from "../db.js";
 import { NormalizedInbound } from "../adapters/types.js";
 import { recordConversationHistory } from "./conversationHistory.js";
+import { listUserAvailableInstances } from "./instanceService.js";
 
 /**
  * Resolve ou cria Conversation para um thread externo.
@@ -228,27 +229,44 @@ export async function findOrCreateConversation(tenantId: string, phone: string, 
   }
 
   // 2. Se não achou, precisamos de um conector para criar o vínculo
-  const tenant = await pool.request()
-    .input("tenantId", tenantId)
-    .query("SELECT DefaultProvider FROM altdesk.Tenant WHERE TenantId=@tenantId");
-  const defaultProvider = (tenant.recordset[0]?.DefaultProvider || 'GTI').toUpperCase();
+  let connectorId: string;
+  let channelId: string;
 
-  const conn = await pool.request()
-    .input("tenantId", tenantId)
-    .input("provider", defaultProvider)
-    .query(`
-      SELECT TOP 1 cc.ConnectorId, ch.ChannelId
-      FROM altdesk.ChannelConnector cc
-      JOIN altdesk.Channel ch ON ch.ChannelId = cc.ChannelId
-      WHERE ch.TenantId = @tenantId AND cc.IsActive = 1
-      ORDER BY CASE WHEN cc.Provider = @provider THEN 0 ELSE 1 END, cc.ConnectorId
-    `);
+  if (assignedUserId) {
+    // Busca instâncias baseadas nas permissões do usuário
+    const available = await listUserAvailableInstances(assignedUserId, tenantId);
+    if (available.length === 0) {
+      throw new Error(`Sua instância do Altdesk ainda não possui um canal ativo acessível para você. Por favor, entre em contato com o suporte ou administrador para concluir a configuração do seu ambiente.`);
+    }
+    connectorId = available[0].ConnectorId;
 
-  if (conn.recordset.length === 0) {
-    throw new Error(`Sua instância do Altdesk ainda não possui um canal ativo. Por favor, entre em contato com o suporte ou administrador para concluir a configuração do seu ambiente.`);
+    const rCh = await pool.request()
+      .input("cid", connectorId)
+      .query(`SELECT ChannelId FROM altdesk.ChannelConnector WHERE ConnectorId = @cid`);
+    channelId = rCh.recordset[0].ChannelId;
+  } else {
+    // Fallback: sem usuário específico, usar provedor padrão do tenant
+    const tenant = await pool.request()
+      .input("tenantId", tenantId)
+      .query("SELECT DefaultProvider FROM altdesk.Tenant WHERE TenantId=@tenantId");
+    const defaultProvider = (tenant.recordset[0]?.DefaultProvider || 'GTI').toUpperCase();
+
+    const conn = await pool.request()
+      .input("tenantId", tenantId)
+      .input("provider", defaultProvider)
+      .query(`
+        SELECT TOP 1 cc.ConnectorId, ch.ChannelId
+        FROM altdesk.ChannelConnector cc
+        JOIN altdesk.Channel ch ON ch.ChannelId = cc.ChannelId
+        WHERE ch.TenantId = @tenantId AND cc.IsActive = 1 AND cc.DeletedAt IS NULL
+        ORDER BY CASE WHEN cc.Provider = @provider THEN 0 ELSE 1 END, cc.ConnectorId
+      `);
+    if (conn.recordset.length === 0) {
+      throw new Error(`Sua instância do Altdesk ainda não possui um canal ativo. Por favor, entre em contato com o suporte ou administrador para concluir a configuração do seu ambiente.`);
+    }
+    connectorId = conn.recordset[0].ConnectorId;
+    channelId = conn.recordset[0].ChannelId;
   }
-  const connectorId = conn.recordset[0].ConnectorId;
-  const channelId = conn.recordset[0].ChannelId;
 
   const title = name || `WhatsApp • ${phone}`;
 

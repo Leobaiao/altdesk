@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { api } from "./lib/api";
 import {
   Building2,
@@ -11,7 +11,8 @@ import {
   Check,
   Loader2,
   LogIn,
-  RotateCcw,
+  Sun,
+  Moon,
 } from "lucide-react";
 
 type PreloadModel = "empty" | "basic" | "demo";
@@ -159,7 +160,7 @@ function Step2({ data, onChange }: { data: OnboardingData; onChange: (d: Partial
           O Altdesk pode criar um ambiente inicial para facilitar sua avaliação.
           Você escolhe o nível de dados que deseja receber.
         </p>
-        <p style={{ marginTop: 12, fontSize: 13, opacity: 0.7 }}>
+        <p className="onboarding-support-text">
           Cada opção cria uma base inicial diferente. Depois você poderá editar,
           excluir ou reiniciar o ambiente.
         </p>
@@ -208,7 +209,7 @@ function Step3({ data }: { data: OnboardingData }) {
           Confira os dados e o modelo selecionado. Ao continuar, o Altdesk irá
           criar sua empresa, seu usuário administrador e os dados iniciais.
         </p>
-        <p style={{ marginTop: 12, fontSize: 13, opacity: 0.7 }}>
+        <p className="onboarding-support-text">
           Você poderá editar essas informações depois dentro da plataforma.
         </p>
       </div>
@@ -282,58 +283,73 @@ function Step4({ preloadModel, onEnter }: { preloadModel: PreloadModel; onEnter:
 // ─── Main Onboarding ───────────────────────────────
 export function Onboarding({ onLogin }: { onLogin: (token: string, role: string) => void }) {
   const [step, setStep] = useState(1);
+  const [isLightTheme, setIsLightTheme] = useState(() => {
+    return localStorage.getItem('onboarding-theme') === 'light';
+  });
   const [data, setData] = useState<OnboardingData>(initial);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (isLightTheme) {
+      document.body.classList.add('light-theme');
+      localStorage.setItem('onboarding-theme', 'light');
+    } else {
+      document.body.classList.remove('light-theme');
+      localStorage.setItem('onboarding-theme', 'dark');
+    }
+  }, [isLightTheme]);
 
   function updateData(partial: Partial<OnboardingData>) {
     setData(prev => ({ ...prev, ...partial }));
   }
 
   function validateStep1(): string | null {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    
     if (!data.companyName.trim()) return "Nome da empresa é obrigatório.";
     if (!data.email.trim()) return "E-mail da empresa é obrigatório.";
+    if (!emailRegex.test(data.email)) return "Formato de e-mail da empresa é inválido.";
+    
     if (!data.adminName.trim()) return "Nome do administrador é obrigatório.";
     if (!data.adminEmail.trim()) return "E-mail do administrador é obrigatório.";
+    if (!emailRegex.test(data.adminEmail)) return "Formato de e-mail do administrador é inválido.";
+    
     if (data.password.length < 6) return "Senha deve ter no mínimo 6 caracteres.";
     if (data.password !== data.confirmPassword) return "As senhas não coincidem.";
     return null;
   }
 
+  const setGlobalError = (msg: string) => {
+    setError(msg);
+    if (msg) window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   function handleNext() {
-    setError("");
+    setGlobalError("");
     if (step === 1) {
       const err = validateStep1();
-      if (err) { setError(err); return; }
+      if (err) { setGlobalError(err); return; }
     }
     setStep(s => Math.min(s + 1, 4));
   }
 
   function handleBack() {
-    setError("");
+    setGlobalError("");
     setStep(s => Math.max(s - 1, 1));
   }
 
   async function handleCreate() {
-    setError("");
+    setGlobalError("");
     setLoading(true);
     try {
-      const res = await api.post("/api/onboarding", {
-        companyName: data.companyName,
-        tradeName: data.tradeName,
-        cpfCnpj: data.cpfCnpj,
-        email: data.email,
-        phone: data.phone,
-        adminName: data.adminName,
-        adminEmail: data.adminEmail,
-        adminPhone: data.adminPhone,
-        password: data.password,
-        preloadModel: data.preloadModel,
-      });
+      const { confirmPassword, ...payload } = data;
+      const res = await api.post("/api/onboarding", payload);
       localStorage.setItem("token", res.data.token);
       setStep(4);
     } catch (err: any) {
-      setError(err.response?.data?.error || err.message || "Erro ao criar ambiente.");
+      const msg = err.response?.data?.error || err.message || "Erro ao criar ambiente.";
+      setGlobalError(msg);
     } finally {
       setLoading(false);
     }
@@ -351,6 +367,16 @@ export function Onboarding({ onLogin }: { onLogin: (token: string, role: string)
   return (
     <div className="onboarding-container">
       <div className="onboarding-card">
+        {/* Theme Toggle Button */}
+        <button 
+          className="theme-toggle-ob" 
+          onClick={() => setIsLightTheme(!isLightTheme)}
+          title={isLightTheme ? "Mudar para Dark Mode" : "Mudar para Light Mode"}
+          type="button"
+        >
+          {isLightTheme ? <Moon size={20} /> : <Sun size={20} />}
+        </button>
+
         {/* Progress Bar */}
         <div className="onboarding-progress">
           {stepLabels.map((label, i) => (
@@ -384,21 +410,30 @@ export function Onboarding({ onLogin }: { onLogin: (token: string, role: string)
               </button>
             )}
             <div style={{ flex: 1 }} />
-            {step === 1 && (
-              <button className="btn btn-primary" onClick={handleNext} style={{ gap: 8 }} type="button">
-                Continuar <ArrowRight size={16} />
-              </button>
-            )}
-            {step === 2 && (
-              <button className="btn btn-primary" onClick={handleNext} style={{ gap: 8 }} type="button">
-                Revisar Dados <ArrowRight size={16} />
-              </button>
-            )}
-            {step === 3 && (
-              <button className="btn btn-primary" onClick={handleCreate} disabled={loading} style={{ gap: 8 }} type="button">
-                {loading ? <><Loader2 size={16} className="spin" /> Criando...</> : <>Criar Ambiente <Sparkles size={16} /></>}
-              </button>
-            )}
+            {(() => {
+              const stepButtons: Record<number, { label: any; icon: any; action: () => void }> = {
+                1: { label: "Continuar", icon: <ArrowRight size={16} />, action: handleNext },
+                2: { label: "Revisar Dados", icon: <ArrowRight size={16} />, action: handleNext },
+                3: { 
+                    label: loading ? "Criando..." : "Criar Ambiente", 
+                    icon: loading ? <Loader2 size={16} className="spin" /> : <Sparkles size={16} />, 
+                    action: handleCreate 
+                },
+              };
+              const btn = stepButtons[step];
+              if (!btn) return null;
+              return (
+                <button 
+                  className="btn btn-primary" 
+                  onClick={btn.action} 
+                  disabled={loading && step === 3} 
+                  style={{ gap: 8 }} 
+                  type="button"
+                >
+                  {btn.label} {btn.icon}
+                </button>
+              );
+            })()}
           </div>
         )}
 

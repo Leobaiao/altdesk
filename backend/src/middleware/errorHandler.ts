@@ -16,8 +16,11 @@ export function errorHandler(err: any, req: Request, res: Response, next: NextFu
             issues: err.errors
         }, "Validation error");
 
+        // Format a more helpful error message for the client
+        const firstMessage = err.errors[0]?.message || "Validation error";
+
         return res.status(400).json({
-            error: "Validation error",
+            error: firstMessage,
             details: err.errors
         });
     }
@@ -48,8 +51,18 @@ export function errorHandler(err: any, req: Request, res: Response, next: NextFu
     }, `Unhandled error: ${err.message}`);
 
     const isDev = process.env.NODE_ENV !== "production";
+    
+    // Sanitize message for the customer
+    let clientMessage = "Erro interno do servidor.";
+    
+    // In dev, only show message if it's NOT a raw SQL error or something similar
+    // For now, let's follow the recommendation: don't expose raw 500 error messages.
+    if (isDev && !err.message?.includes("INSERT") && !err.message?.includes("SELECT") && !err.message?.includes("UPDATE")) {
+        clientMessage = err.message || clientMessage;
+    }
+
     return res.status(500).json({
-        error: isDev ? (err.message || "Internal Server Error") : "Internal Server Error",
+        error: clientMessage,
         ...(isDev && { requestId: (req as any).requestId })
     });
 }

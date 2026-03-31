@@ -32,8 +32,27 @@ export async function checkConversationAccess(user: UserContext, conversationId:
     if (convTenantId !== user.tenantId) return { allowed: false, tenantId: null };
 
     // AGENT access check
-    const allowed = ownerId === null || ownerId === user.userId;
-    return { allowed, tenantId: convTenantId };
+    if (ownerId === user.userId) return { allowed: true, tenantId: convTenantId };
+
+    if (ownerId === null) {
+        // Se não tiver dono, checa se o usuário tem acesso à instância (se houver restrição)
+        const access = await pool.request()
+            .input("cid", conversationId)
+            .input("uid", user.userId)
+            .query(`
+                SELECT TOP 1 cc.ConnectorId
+                FROM altdesk.ExternalThreadMap etm
+                JOIN altdesk.ChannelConnector cc ON cc.ConnectorId = etm.ConnectorId
+                WHERE etm.ConversationId = @cid 
+                  AND (
+                    NOT EXISTS (SELECT 1 FROM altdesk.InstanceAssignment ia WHERE ia.ConnectorId = cc.ConnectorId)
+                    OR EXISTS (SELECT 1 FROM altdesk.InstanceAssignment ia WHERE ia.ConnectorId = cc.ConnectorId AND ia.UserId = @uid)
+                  )
+            `);
+        return { allowed: access.recordset.length > 0, tenantId: convTenantId };
+    }
+
+    return { allowed: false, tenantId: convTenantId };
 }
 
 /**
@@ -47,7 +66,17 @@ export async function listConversations(user: UserContext, limit: number = 50, o
     let messageFilter = "WHERE Direction = 'OUT' AND TenantId = @tenantId";
 
     if (user.role === 'AGENT') {
-        filterClause += " AND (c.AssignedUserId = @userId OR c.AssignedUserId IS NULL)";
+        filterClause += ` AND (
+            c.AssignedUserId = @userId 
+            OR (
+                c.AssignedUserId IS NULL 
+                AND (
+                    etm.ConnectorId IS NULL
+                    OR NOT EXISTS (SELECT 1 FROM altdesk.InstanceAssignment ia WHERE ia.ConnectorId = etm.ConnectorId)
+                    OR EXISTS (SELECT 1 FROM altdesk.InstanceAssignment ia WHERE ia.ConnectorId = etm.ConnectorId AND ia.UserId = @userId)
+                )
+            )
+        )`;
     } else if (user.role === 'SUPERADMIN') {
         // SUPERADMIN vê todas as conversas de todos os tenants
         filterClause = "WHERE 1=1";

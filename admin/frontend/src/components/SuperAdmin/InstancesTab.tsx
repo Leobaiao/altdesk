@@ -29,8 +29,28 @@ export function InstancesTab() {
                 api.get("/api/admin/instances"),
                 api.get("/api/admin/tenants")
             ]);
-            setInstancesList(Array.isArray(rInstances.data) ? rInstances.data : []);
+            const rawInstances = Array.isArray(rInstances.data) ? rInstances.data : [];
             setTenants(Array.isArray(rTenants.data) ? rTenants.data : []);
+
+            // Auto-sync status para instâncias GTI ativas
+            const withStatus = await Promise.all(rawInstances.map(async (inst: any) => {
+                if (inst.Provider === "GTI" && inst.IsActive) {
+                    try {
+                        const statusRes = await api.get(`/api/admin/instances/${inst.ConnectorId}/status`);
+                        const state = statusRes.data?.status || "unknown";
+                        // Atualizar o ConfigJson local com o status retornado
+                        let cfg = {};
+                        try { cfg = JSON.parse(inst.ConfigJson || "{}"); } catch {}
+                        (cfg as any).connectionStatus = state;
+                        return { ...inst, ConfigJson: JSON.stringify(cfg) };
+                    } catch {
+                        return inst; // Falhou o check, manter original
+                    }
+                }
+                return inst;
+            }));
+
+            setInstancesList(withStatus);
         } catch (err) {
             console.error(err);
         } finally {
