@@ -179,13 +179,13 @@ BEGIN
      CAST('$2b$12$twjUYsHwk21CmfIfkUNkwOnW3JyDvJmcWMZkj62WqRcLjkpOHG.Xe' AS VARBINARY(MAX)), 'AGENT', 'Agente Exemplo', 'Agente Exemplo', 1, @now);
 
     -- 5 Contatos
-    INSERT INTO altdesk.Contact (TenantId, Name, Phone, Email, CreatedAt)
+    INSERT INTO altdesk.Contact (TenantId, Name, Phone, Email, Tags, CreatedAt)
     VALUES
-        (@tenant_id, 'Marcos Pereira',  '5511988881001', CONCAT('marcos.', @prefix, '@cliente.demo'),   @now),
-        (@tenant_id, 'Fernanda Alves',  '5511988881002', CONCAT('fernanda.', @prefix, '@cliente.demo'), @now),
-        (@tenant_id, N'João Batista',   '5511988881003', CONCAT('joao.', @prefix, '@cliente.demo'),     @now),
-        (@tenant_id, 'Paula Mendes',    '5511988881004', CONCAT('paula.', @prefix, '@cliente.demo'),    @now),
-        (@tenant_id, 'Ricardo Nunes',   '5511988881005', CONCAT('ricardo.', @prefix, '@cliente.demo'),  @now);
+        (@tenant_id, 'Marcos Pereira',  '5511988881001', CONCAT('marcos.', @prefix, '@cliente.demo'),   '["Demonstração"]', @now),
+        (@tenant_id, 'Fernanda Alves',  '5511988881002', CONCAT('fernanda.', @prefix, '@cliente.demo'), '["Demonstração"]', @now),
+        (@tenant_id, N'João Batista',   '5511988881003', CONCAT('joao.', @prefix, '@cliente.demo'),     '["Demonstração"]', @now),
+        (@tenant_id, 'Paula Mendes',    '5511988881004', CONCAT('paula.', @prefix, '@cliente.demo'),    '["Demonstração"]', @now),
+        (@tenant_id, 'Ricardo Nunes',   '5511988881005', CONCAT('ricardo.', @prefix, '@cliente.demo'),  '["Demonstração"]', @now);
 END;
 GO
 
@@ -231,20 +231,20 @@ BEGIN
      CAST('NO_LOGIN' AS VARBINARY(MAX)), 'AGENT', 'Rafael Torres', 'Rafael Torres', 'Analista Financeiro', 1, @now);
 
     -- 12 Contatos demo
-    INSERT INTO altdesk.Contact (TenantId, Name, Phone, Email, CreatedAt)
+    INSERT INTO altdesk.Contact (TenantId, Name, Phone, Email, Tags, CreatedAt)
     VALUES
-        (@tenant_id, 'Marcos Pereira',   '5511988881001', CONCAT('marcos.', @prefix, '@cliente.demo'),    @now),
-        (@tenant_id, 'Fernanda Alves',   '5511988881002', CONCAT('fernanda.', @prefix, '@cliente.demo'),  @now),
-        (@tenant_id, N'João Batista',    '5511988881003', CONCAT('joao.', @prefix, '@cliente.demo'),      @now),
-        (@tenant_id, 'Paula Mendes',     '5511988881004', CONCAT('paula.', @prefix, '@cliente.demo'),     @now),
-        (@tenant_id, 'Ricardo Nunes',    '5511988881005', CONCAT('ricardo.', @prefix, '@cliente.demo'),   @now),
-        (@tenant_id, 'Luciana Costa',    '5511988881006', CONCAT('luciana.', @prefix, '@cliente.demo'),   @now),
-        (@tenant_id, 'Beatriz Lima',     '5511988881007', CONCAT('beatriz.', @prefix, '@cliente.demo'),   @now),
-        (@tenant_id, 'Gustavo Azevedo',  '5511988881008', CONCAT('gustavo.', @prefix, '@cliente.demo'),   @now),
-        (@tenant_id, 'Simone Prado',     '5511988881009', CONCAT('simone.', @prefix, '@cliente.demo'),    @now),
-        (@tenant_id, 'Diego Martins',    '5511988881010', CONCAT('diego.', @prefix, '@cliente.demo'),     @now),
-        (@tenant_id, 'Patricia Freitas', '5511988881011', CONCAT('patricia.', @prefix, '@cliente.demo'),  @now),
-        (@tenant_id, 'Eduardo Ramos',    '5511988881012', CONCAT('eduardo.', @prefix, '@cliente.demo'),   @now);
+        (@tenant_id, 'Marcos Pereira',   '5511988881001', CONCAT('marcos.', @prefix, '@cliente.demo'),    '["Demonstração"]', @now),
+        (@tenant_id, 'Fernanda Alves',   '5511988881002', CONCAT('fernanda.', @prefix, '@cliente.demo'),  '["Demonstração"]', @now),
+        (@tenant_id, N'João Batista',    '5511988881003', CONCAT('joao.', @prefix, '@cliente.demo'),      '["Demonstração"]', @now),
+        (@tenant_id, 'Paula Mendes',     '5511988881004', CONCAT('paula.', @prefix, '@cliente.demo'),     '["Demonstração"]', @now),
+        (@tenant_id, 'Ricardo Nunes',    '5511988881005', CONCAT('ricardo.', @prefix, '@cliente.demo'),   '["Demonstração"]', @now),
+        (@tenant_id, 'Luciana Costa',    '5511988881006', CONCAT('luciana.', @prefix, '@cliente.demo'),   '["Demonstração"]', @now),
+        (@tenant_id, 'Beatriz Lima',     '5511988881007', CONCAT('beatriz.', @prefix, '@cliente.demo'),   '["Demonstração"]', @now),
+        (@tenant_id, 'Gustavo Azevedo',  '5511988881008', CONCAT('gustavo.', @prefix, '@cliente.demo'),   '["Demonstração"]', @now),
+        (@tenant_id, 'Simone Prado',     '5511988881009', CONCAT('simone.', @prefix, '@cliente.demo'),    '["Demonstração"]', @now),
+        (@tenant_id, 'Diego Martins',    '5511988881010', CONCAT('diego.', @prefix, '@cliente.demo'),     '["Demonstração"]', @now),
+        (@tenant_id, 'Patricia Freitas', '5511988881011', CONCAT('patricia.', @prefix, '@cliente.demo'),  '["Demonstração"]', @now),
+        (@tenant_id, 'Eduardo Ramos',    '5511988881012', CONCAT('eduardo.', @prefix, '@cliente.demo'),   '["Demonstração"]', @now);
 END;
 GO
 

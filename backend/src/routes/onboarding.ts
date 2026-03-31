@@ -6,6 +6,7 @@ import { validateBody } from "../middleware/validateMw.js";
 import { onboardingLimiter } from "../middleware/rateLimiter.js";
 import { writeAuditLog } from "../services/auditLog.js";
 import { logger } from "../lib/logger.js";
+import { preloadDemoData } from "../services/demoDataService.js";
 
 const router = Router();
 
@@ -80,6 +81,13 @@ router.post("/", onboardingLimiter, validateBody(OnboardingSchema), async (req, 
 
         // 4. Gerar JWT
         const token = signToken({ userId, tenantId, role: "ADMIN" });
+
+        // 4b. Preload Data (if not empty)
+        if (body.preloadModel !== "empty") {
+            // We run it async but no await if we want speed, but for onboarding consistency 
+            // maybe await is safer to ensure they see data on first login.
+            await preloadDemoData(tenantId, body.preloadModel);
+        }
 
         logger.info(
             { tenantId, userId, preloadModel: body.preloadModel, ip },

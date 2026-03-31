@@ -114,25 +114,55 @@ router.delete("/tenants/:id", (async (req: AuthenticatedRequest, res: Response, 
         const tenantId = req.params.id;
         const pool = await getPool();
         
-        // Soft Delete: Move to Trash
-        await pool.request()
-            .input("id", tenantId)
-            .query("UPDATE altdesk.Tenant SET DeletedAt = GETDATE(), IsActive = 0 WHERE TenantId = @id");
-        
-        await pool.request()
-            .input("id", tenantId)
-            .query("UPDATE altdesk.Subscription SET IsActive = 0 WHERE TenantId = @id");
+        const transaction = new sql.Transaction(pool);
+        await transaction.begin();
 
-        // Audit Log
-        const reqInfo = extractRequestInfo(req);
-        writeAuditLog({
-            ...reqInfo,
-            action: 'SOFT_DELETE_TENANT',
-            targetTable: 'Tenant',
-            targetId: tenantId
-        });
+        try {
+            // Soft Delete: Move to Trash and deactivate
+            await transaction.request()
+                .input("id", tenantId)
+                .query("UPDATE altdesk.Tenant SET DeletedAt = GETDATE(), IsActive = 0 WHERE TenantId = @id");
+            
+            await transaction.request()
+                .input("id", tenantId)
+                .query("UPDATE altdesk.Subscription SET IsActive = 0 WHERE TenantId = @id");
 
-        res.json({ ok: true });
+            // Cascade to Users
+            await transaction.request()
+                .input("id", tenantId)
+                .query("UPDATE altdesk.[User] SET DeletedAt = GETDATE(), IsActive = 0 WHERE TenantId = @id AND DeletedAt IS NULL");
+
+            // Cascade to Agents
+            await transaction.request()
+                .input("id", tenantId)
+                .query("UPDATE altdesk.Agent SET IsActive = 0 WHERE TenantId = @id");
+
+            // Cascade to Connectors (Channels)
+            await transaction.request()
+                .input("id", tenantId)
+                .query(`
+                    UPDATE cc SET IsActive = 0, DeletedAt = GETDATE()
+                    FROM altdesk.ChannelConnector cc
+                    JOIN altdesk.Channel ch ON ch.ChannelId = cc.ChannelId
+                    WHERE ch.TenantId = @id AND cc.DeletedAt IS NULL
+                `);
+
+            await transaction.commit();
+
+            // Audit Log
+            const reqInfo = extractRequestInfo(req);
+            await writeAuditLog({
+                ...reqInfo,
+                action: 'SOFT_DELETE_TENANT_CASCADE',
+                targetTable: 'Tenant',
+                targetId: tenantId
+            });
+
+            res.json({ ok: true });
+        } catch (err) {
+            await transaction.rollback();
+            throw err;
+        }
     } catch (error) {
         next(error);
     }
@@ -147,16 +177,35 @@ router.delete("/tenants/:id/permanent", (async (req: AuthenticatedRequest, res: 
         await transaction.begin();
 
         try {
-            // Delete in order of dependencies (approximation)
-            const tables = [
-                "Message", "Ticket", "Conversation", "Contact", "Tag", 
-                "Agent", "Queue", "Connector", "KnowledgeItem", "CannedResponse",
-                "BillingSubscription", "BillingInvoice", "[User]"
+            // Delete in order of dependencies (bottom-up)
+            
+            // 1. Level 3 dependencies (depend on conversations/tickets)
+            await transaction.request().input("tid", tenantId).query("DELETE FROM altdesk.TicketEvent WHERE TicketId IN (SELECT TicketId FROM altdesk.Ticket WHERE TenantId = @tid)");
+            await transaction.request().input("tid", tenantId).query("DELETE FROM altdesk.Ticket WHERE TenantId = @tid");
+            await transaction.request().input("tid", tenantId).query("DELETE FROM altdesk.Message WHERE TenantId = @tid");
+            await transaction.request().input("tid", tenantId).query("DELETE FROM altdesk.ConversationHistory WHERE TenantId = @tid");
+            await transaction.request().input("tid", tenantId).query("DELETE FROM altdesk.ConversationTag WHERE ConversationId IN (SELECT ConversationId FROM altdesk.Conversation WHERE TenantId = @tid)");
+            await transaction.request().input("tid", tenantId).query("DELETE FROM altdesk.ExternalThreadMap WHERE TenantId = @tid");
+            
+            // 2. Level 2 dependencies (conversations, connectors, bills)
+            await transaction.request().input("tid", tenantId).query("DELETE FROM altdesk.Conversation WHERE TenantId = @tid");
+            await transaction.request().input("tid", tenantId).query("DELETE FROM altdesk.ChannelConnector WHERE ChannelId IN (SELECT ChannelId FROM altdesk.Channel WHERE TenantId = @tid)");
+            await transaction.request().input("tid", tenantId).query("DELETE FROM altdesk.BillingInvoice WHERE TenantId = @tid");
+            
+            // 3. Level 1 dependencies (channels, queues, contacts, agents, sub-entities)
+            const level1Tables = [
+                "Channel", "Queue", "Contact", "KnowledgeArticle", 
+                "CannedResponse", "Tag", "Template", "Agent", 
+                "BillingSubscription", "BillingCustomer", "AuditLog"
             ];
-
-            for (const table of tables) {
+            for (const table of level1Tables) {
                 await transaction.request().input("tid", tenantId).query(`DELETE FROM altdesk.${table} WHERE TenantId = @tid`);
             }
+
+            // 4. Core dependencies (users, roles, subscription)
+            await transaction.request().input("tid", tenantId).query("DELETE FROM altdesk.[User] WHERE TenantId = @tid");
+            await transaction.request().input("tid", tenantId).query("DELETE FROM altdesk.Role WHERE TenantId = @tid");
+            await transaction.request().input("tid", tenantId).query("DELETE FROM altdesk.Subscription WHERE TenantId = @tid");
 
             // Finally the tenant
             await transaction.request().input("tid", tenantId).query("DELETE FROM altdesk.Tenant WHERE TenantId = @tid");
@@ -355,6 +404,37 @@ router.post("/instances/:connectorId/connect", (async (req: AuthenticatedRequest
     }
 }) as any);
 
+router.delete("/instances/:connectorId/disconnect", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const { connectorId } = req.params;
+        const connector = await loadConnector(connectorId);
+
+        if (connector.Provider !== "GTI") {
+            return res.status(400).json({ error: "Desconexão suportada apenas para provedor GTI." });
+        }
+
+        const cfg = JSON.parse(connector.ConfigJson);
+        const baseUrl = cfg.baseUrl ?? "https://api.gtiapi.workers.dev";
+        const token = cfg.token || cfg.apiKey;
+
+        const response = await fetch(`${baseUrl}/instance/disconnect`, {
+            method: "POST",
+            headers: { 
+                "token": token,
+                "apikey": token 
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`GTI logout falhou: ${response.status} - ${await response.text()}`);
+        }
+
+        res.json({ ok: true });
+    } catch (error) {
+        next(error);
+    }
+}) as any);
+
 router.get("/instances/:connectorId/status", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const { connectorId } = req.params;
@@ -367,28 +447,31 @@ router.get("/instances/:connectorId/status", (async (req: AuthenticatedRequest, 
         const cfg = JSON.parse(connector.ConfigJson);
         const baseUrl = cfg.baseUrl ?? "https://api.gtiapi.workers.dev";
         const token = cfg.token || cfg.apiKey;
-        const instance = cfg.instance;
 
-        // Try standard GTI/Evolution status endpoint
-        let response = await fetch(`${baseUrl}/instance/connectionState/${instance}`, {
+        // Bater no /instance/status usando apenas o TOKEN
+        let response = await fetch(`${baseUrl}/instance/status`, {
             method: "GET",
-            headers: { "apikey": token, "token": token }
+            headers: { 
+                "token": token,
+                "apikey": token 
+            }
         });
-
-        if (!response.ok) {
-            response = await fetch(`${baseUrl}/instance/status`, {
-                method: "GET",
-                headers: { "apikey": token, "token": token }
-            });
-        }
 
         if (!response.ok) {
             throw new Error(`GTI status falhou: ${response.status} - ${await response.text()}`);
         }
 
         const data = await response.json();
-        // Evolution uses data.instance.state (open, close, connecting)
-        const state = data.instance?.state || data.state || (data.connected ? "open" : "close");
+        
+        // Mapeamento baseado no teste do usuário: status.connected (true/false)
+        // e instance.status ("connected", "close", etc)
+        const isConnected = data.status?.connected === true || data.loggedIn === true;
+        const state = isConnected ? "open" : (data.instance?.status || "close");
+        
+        // Atualiza campos extras se disponíveis (como o número do telefone)
+        if (data.instance?.owner && cfg.phoneNumberId !== data.instance.owner) {
+            cfg.phoneNumberId = data.instance.owner;
+        }
 
         if (state && cfg.connectionStatus !== state) {
             cfg.connectionStatus = state;

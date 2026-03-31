@@ -9,7 +9,9 @@ import {
     Shield,
     FileText,
     CreditCard,
-    Trash2
+    Trash2,
+    Sun,
+    Moon
 } from "lucide-react";
 
 import { TenantsTab } from "./components/SuperAdmin/TenantsTab";
@@ -24,8 +26,14 @@ type Tab = "tenants" | "users" | "instances" | "audit" | "billing" | "trash";
 
 export function SuperAdmin({ token, onBack }: { token: string; onBack: () => void }) {
     const [tab, setTab] = useState<Tab>("tenants");
-    const [metrics, setMetrics] = useState<{ tenants: number; users: number; instances: number } | null>(null);
+    const [metrics, setMetrics] = useState<{ tenants: number; users: number; instances: number; trashCount: number } | null>(null);
     const [showMetrics, setShowMetrics] = useState(window.innerWidth > 768);
+    const [theme, setTheme] = useState(() => localStorage.getItem("altdesk_admin_theme") || "dark");
+
+    useEffect(() => {
+        document.documentElement.setAttribute("data-theme", theme);
+        localStorage.setItem("altdesk_admin_theme", theme);
+    }, [theme]);
 
     useEffect(() => {
         loadMetrics();
@@ -33,15 +41,18 @@ export function SuperAdmin({ token, onBack }: { token: string; onBack: () => voi
 
     const loadMetrics = async () => {
         try {
-            const [rT, rU, rI] = await Promise.all([
+            const [rT, rU, rI, rTrashT, rTrashU] = await Promise.all([
                 api.get("/api/admin/tenants"),
                 api.get("/api/admin/users"),
-                api.get("/api/admin/instances")
+                api.get("/api/admin/instances"),
+                api.get("/api/admin/trash/tenants"),
+                api.get("/api/admin/trash/users")
             ]);
             setMetrics({
                 tenants: Array.isArray(rT.data) ? rT.data.filter((t: any) => t.IsActive).length : 0,
                 users: Array.isArray(rU.data) ? rU.data.filter((u: any) => u.IsActive).length : 0,
                 instances: Array.isArray(rI.data) ? rI.data.filter((i: any) => i.IsActive).length : 0,
+                trashCount: (Array.isArray(rTrashT.data) ? rTrashT.data.length : 0) + (Array.isArray(rTrashU.data) ? rTrashU.data.length : 0)
             });
         } catch (err) {
             console.error("Erro ao carregar métricas:", err);
@@ -76,7 +87,7 @@ export function SuperAdmin({ token, onBack }: { token: string; onBack: () => voi
                     ← Voltar
                 </button>
 
-                <div style={{ flex: 1 }}>
+                <div style={{ flex: 1, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                         <div style={{ padding: "8px", background: "rgba(0,168,132,0.15)", borderRadius: 10 }}>
                             <Shield size={22} color="var(--accent)" />
@@ -86,6 +97,15 @@ export function SuperAdmin({ token, onBack }: { token: string; onBack: () => voi
                             <p style={{ margin: 0, color: "var(--text-secondary)", fontSize: "0.82rem" }}>Gestão global de empresas, usuários e instâncias WhatsApp</p>
                         </div>
                     </div>
+                    
+                    <button 
+                        onClick={() => setTheme(t => t === "dark" ? "light" : "dark")} 
+                        className="btn btn-ghost"
+                        style={{ padding: 10, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center" }}
+                        title="Alternar Tema"
+                    >
+                        {theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
+                    </button>
                 </div>
             </div>
 
@@ -158,6 +178,11 @@ export function SuperAdmin({ token, onBack }: { token: string; onBack: () => voi
                     >
                         {t.icon}
                         {t.label}
+                        {t.id === "trash" && metrics && metrics.trashCount > 0 && (
+                            <div style={{ marginLeft: 4, background: "rgba(255, 0, 0, 0.1)", color: "var(--danger)", padding: "2px 6px", borderRadius: 10, fontSize: "0.75rem", fontWeight: 800 }}>
+                                {metrics.trashCount}
+                            </div>
+                        )}
                     </button>
                 ))}
             </div>

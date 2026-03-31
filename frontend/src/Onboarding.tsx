@@ -13,6 +13,8 @@ import {
   LogIn,
   Sun,
   Moon,
+  BookOpen,
+  Ticket,
 } from "lucide-react";
 
 type PreloadModel = "empty" | "basic" | "demo";
@@ -136,16 +138,17 @@ function Step2({ data, onChange }: { data: OnboardingData; onChange: (d: Partial
     {
       model: "basic",
       icon: <Boxes size={28} />,
-      title: "Dados Básicos",
-      desc: "Estrutura mínima com filas e contatos.",
-      details: "1 agente, 2 filas, 5 contatos para entender o fluxo.",
+      title: "Ambiente Básico",
+      desc: "Estrutura mínima com fluxos essenciais.",
+      details: "1 agente, 2 filas, 5 contatos e 3 artigos de ajuda.",
     },
     {
       model: "demo",
       icon: <Sparkles size={28} />,
       title: "Demonstração Completa",
-      desc: "Cenário realista para avaliação.",
-      details: "4 agentes, 4 filas, 12 contatos com dados simulados.",
+      desc: "Cenário realista com base de dados populada.",
+      details: "4 agentes, 4 filas, 12 contatos, 10 tickets e 8 artigos de ajuda.",
+      isDemo: true
     },
   ];
 
@@ -161,8 +164,7 @@ function Step2({ data, onChange }: { data: OnboardingData; onChange: (d: Partial
           Você escolhe o nível de dados que deseja receber.
         </p>
         <p className="onboarding-support-text">
-          Cada opção cria uma base inicial diferente. Depois você poderá editar,
-          excluir ou reiniciar o ambiente.
+          Cada opção aplica uma carga inicial de dados. Você poderá limpar ou editar tudo depois.
         </p>
       </div>
       <div className="onboarding-right">
@@ -175,9 +177,18 @@ function Step2({ data, onChange }: { data: OnboardingData; onChange: (d: Partial
             >
               <div className="preload-card-icon">{c.icon}</div>
               <div className="preload-card-body">
-                <h4>{c.title}</h4>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <h4>{c.title}</h4>
+                  {(c as any).isDemo && (
+                    <span style={{ fontSize: "0.65rem", background: "var(--accent)", color: "#fff", padding: "2px 6px", borderRadius: 4, fontWeight: "bold" }}>DEMONSTRAÇÃO</span>
+                  )}
+                </div>
                 <p>{c.desc}</p>
-                <span className="preload-card-detail">{c.details}</span>
+                <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                   <span className="preload-card-detail" style={{ display: "flex", alignItems: "center", gap: 4 }}><User size={10} /> {c.details.split(',')[0]}</span>
+                   <span className="preload-card-detail" style={{ display: "flex", alignItems: "center", gap: 4 }}><BookOpen size={10} /> Base de Conhecimento</span>
+                   <span className="preload-card-detail" style={{ display: "flex", alignItems: "center", gap: 4 }}><Ticket size={10} /> Tickets</span>
+                </div>
               </div>
               {data.preloadModel === c.model && (
                 <div className="preload-card-check"><Check size={20} /></div>

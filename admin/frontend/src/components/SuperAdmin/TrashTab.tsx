@@ -7,6 +7,13 @@ export function TrashTab() {
     const [users, setUsers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeSubTab, setActiveSubTab] = useState<"tenants" | "users">("tenants");
+    const [confirmDelete, setConfirmDelete] = useState<{
+        type: "tenants" | "users", 
+        id: string, 
+        name: string,
+        extraInfo?: React.ReactNode
+    } | null>(null);
+    const [deleteInput, setDeleteInput] = useState("");
 
     async function loadTrash() {
         setLoading(true);
@@ -39,9 +46,10 @@ export function TrashTab() {
     }
 
     async function handlePermanentDelete(type: "tenants" | "users", id: string) {
-        if (!confirm("⚠️ ATENÇÃO: Esta ação é PERMANENTE e não pode ser desfeita. Excluir definitivamente?")) return;
         try {
             await api.delete(`/api/admin/${type}/${id}/permanent`);
+            setConfirmDelete(null);
+            setDeleteInput("");
             loadTrash();
         } catch (e: any) {
             alert(e.response?.data?.error || "Erro ao excluir permanentemente");
@@ -53,8 +61,15 @@ export function TrashTab() {
             <div className="flex items-center justify-between mb-6">
                 <div>
                     <h2 className="text-2xl font-bold">Lixeira</h2>
-                    <p className="text-sm text-gray-500">Recupere ou apague definitivamente itens excluídos</p>
+                    <p className="text-sm text-gray-500">Recupere ou apague definitivamente itens excluídos.</p>
                 </div>
+            </div>
+
+            <div style={{ padding: "12px 16px", background: "rgba(255, 152, 0, 0.1)", borderLeft: "4px solid #ff9800", borderRadius: "0 8px 8px 0", marginBottom: 20, display: "flex", alignItems: "center", gap: 10 }}>
+                <Trash2 size={20} color="#ff9800" />
+                <span style={{ fontSize: "0.9rem", color: "#e68a00", fontWeight: 500 }}>
+                    <strong>Limpeza Automática:</strong> Itens na lixeira são apagados definitivamente após 30 dias.
+                </span>
             </div>
 
             <div style={{ display: "flex", gap: 10, marginBottom: 20, borderBottom: "1px solid var(--border)", paddingBottom: 10 }}>
@@ -110,7 +125,17 @@ export function TrashTab() {
                                             <td style={{ padding: "15px 20px", textAlign: "right" }}>
                                                 <div style={{ display: "flex", gap: 5, justifyContent: "flex-end" }}>
                                                     <button onClick={() => handleRestore("tenants", t.TenantId)} className="btn btn-ghost text-primary" title="Restaurar"><RotateCcw size={18} /></button>
-                                                    <button onClick={() => handlePermanentDelete("tenants", t.TenantId)} className="btn btn-ghost text-danger" title="Excluir Definitivamente"><Trash2 size={18} /></button>
+                                                    <button onClick={() => setConfirmDelete({ 
+                                                        type: "tenants", 
+                                                        id: t.TenantId, 
+                                                        name: t.Name,
+                                                        extraInfo: (
+                                                            <div style={{ marginTop: 10, background: "rgba(0,0,0,0.03)", padding: 12, borderRadius: 8, fontSize: "0.85rem", border: "1px solid var(--border)" }}>
+                                                                <div><strong>ID da Empresa:</strong> {t.TenantId}</div>
+                                                                <div><strong>Enviado para a lixeira em:</strong> {new Date(t.DeletedAt).toLocaleString()}</div>
+                                                            </div>
+                                                        )
+                                                    })} className="btn btn-ghost text-danger" title="Excluir Definitivamente"><Trash2 size={18} /></button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -131,7 +156,18 @@ export function TrashTab() {
                                             <td style={{ padding: "15px 20px", textAlign: "right" }}>
                                                 <div style={{ display: "flex", gap: 5, justifyContent: "flex-end" }}>
                                                     <button onClick={() => handleRestore("users", u.UserId)} className="btn btn-ghost text-primary" title="Restaurar"><RotateCcw size={18} /></button>
-                                                    <button onClick={() => handlePermanentDelete("users", u.UserId)} className="btn btn-ghost text-danger" title="Excluir Definitivamente"><Trash2 size={18} /></button>
+                                                    <button onClick={() => setConfirmDelete({ 
+                                                        type: "users", 
+                                                        id: u.UserId, 
+                                                        name: u.AgentName || 'Usuário',
+                                                        extraInfo: (
+                                                            <div style={{ marginTop: 10, background: "rgba(0,0,0,0.03)", padding: 12, borderRadius: 8, fontSize: "0.85rem", border: "1px solid var(--border)" }}>
+                                                                <div><strong>Email:</strong> {u.Email}</div>
+                                                                <div><strong>Empresa:</strong> {u.TenantName}</div>
+                                                                <div><strong>Enviado para a lixeira em:</strong> {new Date(u.DeletedAt).toLocaleString()}</div>
+                                                            </div>
+                                                        )
+                                                    })} className="btn btn-ghost text-danger" title="Excluir Definitivamente"><Trash2 size={18} /></button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -140,6 +176,52 @@ export function TrashTab() {
                             )}
                         </tbody>
                     </table>
+                </div>
+            )}
+
+            {/* Modal de Confirmação de Exclusão Definitiva */}
+            {confirmDelete && (
+                <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <div className="card" style={{ background: "var(--bg-primary)", padding: 24, borderRadius: 15, width: "100%", maxWidth: 400, border: "1px solid var(--border)", boxShadow: "0 10px 30px rgba(0,0,0,0.2)" }}>
+                        <h3 style={{ marginTop: 0, color: "var(--danger)", display: "flex", alignItems: "center", gap: 10 }}>
+                            <Trash2 size={24} /> Exclusão Definitiva
+                        </h3>
+                        <p style={{ fontSize: "0.95rem", color: "var(--text-secondary)", lineHeight: 1.5 }}>
+                            Atenção: Você está prestes a excluir permanentemente <strong>{confirmDelete.name}</strong> e todos os dados associados a ele no banco de dados. 
+                            <strong> Esta ação não pode ser desfeita.</strong>
+                        </p>
+                        
+                        {confirmDelete.extraInfo}
+
+                        <p style={{ fontSize: "0.9rem", color: "var(--text-primary)", marginTop: 20, marginBottom: 15 }}>
+                            Para confirmar, digite <strong>EXCLUIR</strong> abaixo:
+                        </p>
+                        <input 
+                            type="text" 
+                            className="input" 
+                            style={{ width: "100%", marginBottom: 24, padding: "10px 14px" }}
+                            value={deleteInput}
+                            onChange={(e) => setDeleteInput(e.target.value)}
+                            placeholder="EXCLUIR"
+                            autoFocus
+                        />
+                        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+                            <button 
+                                className="btn btn-ghost" 
+                                onClick={() => { setConfirmDelete(null); setDeleteInput(""); }}
+                            >
+                                Cancelar
+                            </button>
+                            <button 
+                                className="btn btn-danger" 
+                                onClick={() => handlePermanentDelete(confirmDelete.type, confirmDelete.id)}
+                                disabled={deleteInput !== "EXCLUIR"}
+                                style={{ opacity: deleteInput !== "EXCLUIR" ? 0.5 : 1 }}
+                            >
+                                Excluir Permanentemente
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

@@ -92,6 +92,17 @@ export function InstancesTab() {
         }
     };
 
+    const handleDisconnect = async (connectorId: string) => {
+        if (!confirm("Tem certeza que deseja desconectar esta instância do WhatsApp?")) return;
+        try {
+            await api.delete(`/api/admin/instances/${connectorId}/disconnect`);
+            handleCheckStatus(connectorId);
+        } catch (err: any) {
+            console.error(err);
+            alert("Erro ao desconectar: " + (err.response?.data?.error || err.message));
+        }
+    };
+
     const handleBulkDelete = async () => {
         if (!confirm(`Excluir ${selectedInstanceIds.size} instâncias permanentemente?`)) return;
         try {
@@ -191,8 +202,15 @@ export function InstancesTab() {
                                         <input type="checkbox" checked={isSelected} onChange={() => toggleSelectOne(i.ConnectorId)} style={{ accentColor: "var(--accent)", width: 15, height: 15, cursor: "pointer" }} />
                                     </td>
                                     <td style={{ padding: "14px 20px" }}>
-                                        <div style={{ fontWeight: 600 }}>{i.ChannelName}</div>
-                                        <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", marginTop: 2 }}>{i.ConnectorId.slice(0, 12)}…</div>
+                                        <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
+                                            {i.ChannelName}
+                                            {config.phoneNumberId && (
+                                                <span style={{ fontSize: "0.75rem", background: "var(--bg-primary)", padding: "2px 6px", borderRadius: 6, border: "1px solid var(--border)", color: "var(--text-secondary)" }}>
+                                                    📞 {String(config.phoneNumberId).replace("@s.whatsapp.net", "")}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", marginTop: 4 }}>ID: {i.ConnectorId.slice(0, 12)}…</div>
                                     </td>
                                     <td style={{ padding: "14px 20px" }}>
                                         <span style={{ background: ps.bg, color: ps.color, padding: "3px 10px", borderRadius: 8, fontSize: "0.73rem", fontWeight: 700, letterSpacing: "0.5px" }}>{i.Provider}</span>
@@ -248,9 +266,15 @@ export function InstancesTab() {
                                                 <button onClick={() => handleCheckStatus(i.ConnectorId)} className="btn btn-ghost" style={{ padding: "7px 14px", borderRadius: 8, fontSize: "0.78rem", display: "inline-flex", alignItems: "center", gap: 5, height: "auto", marginRight: 8, color: "var(--text-secondary)", border: "1px solid var(--border)" }} title="Sincronizar Status com a GTI">
                                                     🔄 Sync
                                                 </button>
-                                                <button onClick={() => { setConnectConnectorId(i.ConnectorId); setShowConnectModal(true); }} className="btn btn-ghost" style={{ padding: "7px 14px", borderRadius: 8, fontSize: "0.78rem", display: "inline-flex", alignItems: "center", gap: 5, height: "auto", marginRight: 8, color: "#00a884", border: "1px solid rgba(0,168,132,0.3)" }}>
-                                                    🔗 Conectar
-                                                </button>
+                                                {String(config.connectionStatus).toLowerCase() === "open" || String(config.connectionStatus).toLowerCase() === "connected" ? (
+                                                    <button onClick={() => handleDisconnect(i.ConnectorId)} className="btn btn-ghost" style={{ padding: "7px 14px", borderRadius: 8, fontSize: "0.78rem", display: "inline-flex", alignItems: "center", gap: 5, height: "auto", marginRight: 8, color: "var(--danger)", border: "1px solid rgba(234,67,53,0.3)" }}>
+                                                        🔌 Desconectar
+                                                    </button>
+                                                ) : (
+                                                    <button onClick={() => { setConnectConnectorId(i.ConnectorId); setShowConnectModal(true); }} className="btn btn-ghost" style={{ padding: "7px 14px", borderRadius: 8, fontSize: "0.78rem", display: "inline-flex", alignItems: "center", gap: 5, height: "auto", marginRight: 8, color: "var(--accent)", border: "1px solid rgba(0,168,132,0.3)" }}>
+                                                        🔗 Conectar
+                                                    </button>
+                                                )}
                                             </>
                                         )}
                                         <button onClick={() => { setWebhookConnectorId(i.ConnectorId); setShowWebhookModal(true); }} className="btn btn-ghost" style={{ padding: "7px 14px", borderRadius: 8, fontSize: "0.78rem", display: "inline-flex", alignItems: "center", gap: 5, height: "auto" }}>
