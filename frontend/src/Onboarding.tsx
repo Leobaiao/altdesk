@@ -140,14 +140,14 @@ function Step2({ data, onChange }: { data: OnboardingData; onChange: (d: Partial
       icon: <Boxes size={28} />,
       title: "Ambiente Básico",
       desc: "Estrutura mínima com fluxos essenciais.",
-      details: "1 agente, 2 filas, 5 contatos e 3 artigos de ajuda.",
+      details: "1 agente, 2 filas, 5 contatos, 3 artigos e 2 respostas rápidas.",
     },
     {
       model: "demo",
       icon: <Sparkles size={28} />,
       title: "Demonstração Completa",
       desc: "Cenário realista com base de dados populada.",
-      details: "4 agentes, 4 filas, 12 contatos, 10 tickets e 8 artigos de ajuda.",
+      details: "4 agentes, 4 filas, 12 contatos, 10 tickets, 8 artigos e 4 respostas rápidas.",
       isDemo: true
     },
   ];
