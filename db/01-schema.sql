@@ -214,3 +214,14 @@ CREATE TABLE altdesk.ExternalThreadMap (
 GO
 CREATE INDEX IX_ETM_User ON altdesk.ExternalThreadMap(TenantId, ConnectorId, ExternalUserId);
 GO
+
+-- Employee/Agent to instance assignments
+CREATE TABLE altdesk.InstanceAssignment (
+    TenantId UNIQUEIDENTIFIER NOT NULL,
+    ConnectorId NVARCHAR(100) NOT NULL,
+    UserId UNIQUEIDENTIFIER NOT NULL,
+    AssignedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+    PRIMARY KEY (ConnectorId, UserId),
+    CONSTRAINT FK_IA_User FOREIGN KEY (UserId) REFERENCES altdesk.[User](UserId)
+);
+GO

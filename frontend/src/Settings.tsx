@@ -20,8 +20,6 @@ export function Settings({ token, onBack, role }: Props) {
 
     // Config states
     const [defaultProvider, setDefaultProvider] = useState("GTI");
-    const [instanceId, setInstanceId] = useState("");
-    const [tokenVal, setTokenVal] = useState("");
     const [instances, setInstances] = useState<any[]>([]);
     const [selectedConnectorId, setSelectedConnectorId] = useState("");
     const [allUsers, setAllUsers] = useState<any[]>([]);
@@ -50,8 +48,6 @@ export function Settings({ token, onBack, role }: Props) {
                         const active = data.instances.find((i: any) => i.Provider === data.defaultProvider);
                         if (active) {
                             setSelectedConnectorId(active.ConnectorId);
-                            setInstanceId(active.config?.instance || active.config?.phoneNumberId || "");
-                            setTokenVal(active.config?.token || active.config?.accessToken || active.config?.apiKey || "");
                             setAssignedToInstance(active.assignedUsers?.map((u: any) => u.UserId) || []);
                         } else if (data.instances.length > 0) {
                             setSelectedConnectorId(data.instances[0].ConnectorId);
@@ -88,8 +84,6 @@ export function Settings({ token, onBack, role }: Props) {
         const inst = instances.find(i => i.ConnectorId === cId);
         if (inst) {
             setDefaultProvider(inst.Provider);
-            setInstanceId(inst.config?.instance || inst.config?.phoneNumberId || "");
-            setTokenVal(inst.config?.token || inst.config?.accessToken || inst.config?.apiKey || "");
             setAssignedToInstance(inst.assignedUsers?.map((u: any) => u.UserId) || []);
         }
     }
@@ -120,11 +114,10 @@ export function Settings({ token, onBack, role }: Props) {
             // 2. Settings update (Only if Admin and has instances)
             if (isAdmin && selectedConnectorId) {
                 try {
+                    // Update default provider
                     await api.put("/api/settings", {
                         defaultProvider,
-                        connectorId: selectedConnectorId,
-                        instanceId,
-                        token: tokenVal
+                        connectorId: selectedConnectorId
                     });
 
                     // 2b. Assign users
@@ -306,7 +299,7 @@ export function Settings({ token, onBack, role }: Props) {
                             <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
                                 <div>
                                     <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, color: "var(--text-secondary)", fontSize: "0.85rem" }}>
-                                        <MonitorSmartphone size={14} /> Instância Padrão
+                                        <MonitorSmartphone size={14} /> Selecione a Instância (Canal)
                                     </label>
                                     <select
                                         value={selectedConnectorId}
@@ -320,38 +313,9 @@ export function Settings({ token, onBack, role }: Props) {
                                             </option>
                                         ))}
                                     </select>
-                                    <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 8 }}>
-                                        Provider Mapeado: <strong style={{ color: "var(--accent)" }}>{defaultProvider}</strong>
-                                    </div>
                                 </div>
 
-                                <div>
-                                    <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, color: "var(--text-secondary)", fontSize: "0.85rem" }}>
-                                        <PhoneCall size={14} /> Instance ID / Phone ID
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={instanceId}
-                                        onChange={e => setInstanceId(e.target.value)}
-                                        placeholder="Ex: instance_12345"
-                                        className="settings-input"
-                                        style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", transition: "all 0.2s" }}
-                                    />
-                                </div>
 
-                                <div>
-                                    <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, color: "var(--text-secondary)", fontSize: "0.85rem" }}>
-                                        <KeySquare size={14} /> Token / Access Token
-                                    </label>
-                                    <input
-                                        type="password"
-                                        value={tokenVal}
-                                        onChange={e => setTokenVal(e.target.value)}
-                                        placeholder="Ex: abc-123-xyz"
-                                        className="settings-input"
-                                        style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", transition: "all 0.2s" }}
-                                    />
-                                </div>
 
                                 <div style={{ marginTop: 10 }}>
                                     <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12, color: "var(--text-secondary)", fontSize: "0.85rem" }}>

@@ -6,8 +6,8 @@ import { createTicketForConversation } from "./ticketService.js";
 import { createContact } from "./contact.js";
 import { logger } from "../lib/logger.js";
 
-export async function preloadDemoData(tenantId: string, model: "basic" | "demo") {
-    logger.info({ tenantId, model }, "Starting demo data preload");
+export async function preloadDemoData(tenantId: string, model: "basic" | "demo", adminId?: string) {
+    logger.info({ tenantId, model, adminId }, "Starting demo data preload");
 
     try {
         // 1. Knowledge Base Articles
@@ -53,20 +53,36 @@ export async function preloadDemoData(tenantId: string, model: "basic" | "demo")
             await createArticle(tenantId, art);
         }
 
-        // 1.5 Create a Demo Channel to allow conversation routing
         const pool = await getPool();
+        const demoConnectorId = "demo_whatsapp_conn_" + tenantId.substring(0, 8);
         const chResult = await pool.request()
             .input("tenantId", tenantId)
+            .input("connectorId", demoConnectorId)
             .query(`
                 DECLARE @chId UNIQUEIDENTIFIER = NEWID();
                 INSERT INTO altdesk.Channel (ChannelId, TenantId, Type, Name)
                 VALUES (@chId, @tenantId, 'WHATSAPP', 'WhatsApp (Demonstração)');
                 
                 INSERT INTO altdesk.ChannelConnector (ConnectorId, ChannelId, Provider, ConfigJson)
-                VALUES ('demo_whatsapp_conn_' + CAST(NEWID() AS NVARCHAR(36)), @chId, 'GTI', '{}');
+                VALUES (@connectorId, @chId, 'GTI', '{}');
                 
                 SELECT @chId AS ChannelId;
             `);
+
+        // 1.7 Assign Admin to the new instance
+        if (adminId) {
+            logger.info({ tenantId, demoConnectorId, adminId }, "Assigning admin to demo instance");
+            await pool.request()
+                .input("tenantId", tenantId)
+                .input("connectorId", demoConnectorId)
+                .input("userId", adminId)
+                .query(`
+                    INSERT INTO altdesk.InstanceAssignment (TenantId, ConnectorId, UserId)
+                    VALUES (@tenantId, @connectorId, @userId)
+                `);
+        } else {
+            logger.warn({ tenantId }, "No adminId provided for demo assignment");
+        }
 
         // 2. Sample Contacts, Conversations and Tickets
         const demoContacts = [

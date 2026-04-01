@@ -86,7 +86,7 @@ router.post("/", onboardingLimiter, validateBody(OnboardingSchema), async (req, 
         if (body.preloadModel !== "empty") {
             // We run it async but no await if we want speed, but for onboarding consistency 
             // maybe await is safer to ensure they see data on first login.
-            await preloadDemoData(tenantId, body.preloadModel);
+            await preloadDemoData(tenantId, body.preloadModel, userId);
         }
 
         logger.info(
