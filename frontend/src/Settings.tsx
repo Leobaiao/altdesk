@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { api } from "./lib/api";
-import { User, Briefcase, Image as ImageIcon, Lock, MonitorSmartphone, KeySquare, Blocks, ShieldCheck, PhoneCall } from "lucide-react";
+import { PageHeader } from "./components/PageHeader";
+import { User, Briefcase, Image as ImageIcon, Lock, MonitorSmartphone, KeySquare, Blocks, ShieldCheck, PhoneCall, Settings as SettingsIcon } from "lucide-react";
 
 interface Props {
     token: string;
@@ -9,11 +10,15 @@ interface Props {
 }
 
 export function Settings({ token, onBack, role }: Props) {
-    // Perfil states
     const [name, setName] = useState("");
     const [password, setPassword] = useState("");
     const [avatar, setAvatar] = useState("");
     const [position, setPosition] = useState("");
+
+    const isSafeUrl = (url: string) => {
+        if (!url) return false;
+        return url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:image/");
+    };
 
     // Theme
     const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "dark");
@@ -148,11 +153,24 @@ export function Settings({ token, onBack, role }: Props) {
     };
 
     return (
-        <div className="settings-page">
-            <div style={{ display: "flex", alignItems: "center", marginBottom: 32 }}>
-                <button onClick={onBack} style={{ background: "none", border: "none", color: "var(--text-secondary)", fontSize: "1.2rem", cursor: "pointer", marginRight: 15 }}>←</button>
-                <h2 style={{ fontSize: "1.8rem", fontWeight: 700 }}>Configurações</h2>
-            </div>
+        <div className="settings-page" style={{ height: "100%", overflowY: "auto" }}>
+            <PageHeader
+                title="Configurações da Empresa"
+                subtitle="Ajuste dados básicos da sua conta e preferências globais."
+                icon={SettingsIcon}
+                onBack={onBack}
+                helpText={
+                    <div>
+                        <p>Configure as preferências do seu perfil e o comportamento global da plataforma para sua empresa.</p>
+                        <ul style={{ marginTop: 12, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 8 }}>
+                            <li><strong>Perfil:</strong> Atualize seu nome, e-mail e foto de identificação.</li>
+                            <li><strong>Aparência:</strong> Alterne entre os temas Dark (mais confortável à noite) e Light.</li>
+                            <li><strong>Instâncias:</strong> Verifique o status de conexão da sua integração com o WhatsApp.</li>
+                            <li><strong>Preferências:</strong> Ajuste o fuso horário e notificações para garantir que nada passe despercebido.</li>
+                        </ul>
+                    </div>
+                }
+            />
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 24 }}>
                 {/* Perfil + Aparência */}
@@ -217,7 +235,7 @@ export function Settings({ token, onBack, role }: Props) {
                                 justifyContent: "center",
                                 flexShrink: 0
                             }}>
-                                {avatar ? (
+                                {avatar && isSafeUrl(avatar) ? (
                                     <img src={avatar} alt="Avatar Preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => (e.currentTarget.src = "")} />
                                 ) : (
                                     <User size={40} color="var(--text-secondary)" opacity={0.5} />

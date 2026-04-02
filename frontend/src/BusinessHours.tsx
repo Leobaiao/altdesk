@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { ArrowLeft, Clock, Save } from "lucide-react";
+import { PageHeader } from "./components/PageHeader";
 import { api } from "./lib/api";
 
 const DAY_NAMES = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
@@ -67,19 +68,12 @@ export function BusinessHours({ onBack }: Props) {
 
     return (
         <div className="settings-page" style={{ height: "100%", overflowY: "auto" }}>
-            <div style={{ display: "flex", alignItems: "center", marginBottom: 30 }}>
-                <button onClick={onBack} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", marginRight: 15 }}>
-                    <ArrowLeft size={24} />
-                </button>
-                <div>
-                    <h2 style={{ margin: 0, fontSize: "1.5rem", fontWeight: 700, display: "flex", alignItems: "center", gap: 10 }}>
-                        <Clock size={24} color="#00a884" /> Horário de Atendimento
-                    </h2>
-                    <p style={{ margin: "5px 0 0 0", fontSize: "0.9rem", color: "var(--text-secondary)" }}>
-                        Configure o expediente e a mensagem automática fora do horário.
-                    </p>
-                </div>
-            </div>
+            <PageHeader
+                title="Horário de Atendimento"
+                subtitle="Configure o expediente e a mensagem automática fora do horário."
+                icon={Clock}
+                onBack={onBack}
+            />
 
             {/* Weekly Schedule */}
             <div style={{ background: "var(--bg-secondary)", borderRadius: 12, border: "1px solid var(--border)", padding: 25, marginBottom: 25 }}>

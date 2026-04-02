@@ -13,7 +13,7 @@ async function run() {
             email: companyEmail,
             adminName: "Admin Test",
             adminEmail: testEmail,
-            password: "password123",
+            password: process.env.TEST_PASSWORD || "Password@123",
             preloadModel: "demo"
         };
         

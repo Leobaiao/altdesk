@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { api } from "./lib/api";
 import { ArrowLeft, CreditCard, FileText, CheckCircle, AlertTriangle, XCircle, Clock, X, Loader2 } from "lucide-react";
+import { PageHeader } from "./components/PageHeader";
 
 interface Plan {
   PlanId: string;
@@ -136,10 +137,22 @@ export function Billing({ onBack }: { onBack: () => void }) {
   if (loading) {
     return (
       <div className="settings-page">
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-          <button onClick={onBack} className="btn" style={{ background: "none", padding: 6 }}><ArrowLeft size={20} /></button>
-          <h2 style={{ margin: 0 }}>Faturamento</h2>
-        </div>
+        <PageHeader 
+            title="Faturamento" 
+            icon={CreditCard} 
+            onBack={onBack} 
+            helpText={
+                <div>
+                    <p>Gerencie o plano da sua empresa, visualize faturas e configure métodos de pagamento.</p>
+                    <ul style={{ marginTop: 12, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 8 }}>
+                        <li><strong>Plano Atual:</strong> Veja os recursos disponíveis no seu nível de assinatura.</li>
+                        <li><strong>Histórico:</strong> Acesse faturas anteriores e comprovantes de pagamento.</li>
+                        <li><strong>Cartões:</strong> Adicione ou remova cartões de crédito para renovação automática.</li>
+                        <li><strong>Upgrade:</strong> Mude seu plano para aumentar limites de usuários e instâncias.</li>
+                    </ul>
+                </div>
+            }
+        />
         <p style={{ color: "var(--text-secondary)" }}>Carregando...</p>
       </div>
     );
@@ -148,10 +161,22 @@ export function Billing({ onBack }: { onBack: () => void }) {
   return (
     <div className="settings-page">
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
-        <button onClick={onBack} className="btn" style={{ background: "none", padding: 6 }}><ArrowLeft size={20} /></button>
-        <h2 style={{ margin: 0 }}>Faturamento</h2>
-      </div>
+      <PageHeader 
+        title="Faturamento" 
+        icon={CreditCard} 
+        onBack={onBack} 
+        helpText={
+            <div>
+                <p>Gerencie o plano da sua empresa, visualize faturas e configure métodos de pagamento.</p>
+                <ul style={{ marginTop: 12, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 8 }}>
+                    <li><strong>Plano Atual:</strong> Veja os recursos disponíveis no seu nível de assinatura.</li>
+                    <li><strong>Histórico:</strong> Acesse faturas anteriores e comprovantes de pagamento.</li>
+                    <li><strong>Cartões:</strong> Adicione ou remova cartões de crédito para renovação automática.</li>
+                    <li><strong>Upgrade:</strong> Mude seu plano para aumentar limites de usuários e instâncias.</li>
+                </ul>
+            </div>
+        }
+      />
 
       {/* Current Subscription Card */}
       <div style={{

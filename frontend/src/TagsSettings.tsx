@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Plus, Trash2, Tag as TagIcon, ArrowLeft } from "lucide-react";
+import { Plus, Trash2, Tag as TagIcon } from "lucide-react";
+import { PageHeader } from "./components/PageHeader";
 import { api } from "./lib/api";
 import type { Tag } from "../../shared/types";
 
@@ -55,13 +56,12 @@ export function TagsSettings({ onBack }: Props) {
     };
 
     return (
-        <div className="tags-settings-page" style={{ padding: 20 }}>
-            <div style={{ display: "flex", alignItems: "center", marginBottom: 30 }}>
-                <button onClick={onBack} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", marginRight: 15 }}>
-                    <ArrowLeft size={24} />
-                </button>
-                <h2 style={{ fontSize: "1.5rem", fontWeight: 700, margin: 0 }}>Gerenciar Tags</h2>
-            </div>
+        <div className="settings-page" style={{ height: "100%", overflowY: "auto" }}>
+            <PageHeader
+                title="Gerenciar Tags"
+                icon={TagIcon}
+                onBack={onBack}
+            />
 
             <div style={{ background: "var(--bg-secondary)", padding: 25, borderRadius: 12, border: "1px solid var(--border)", marginBottom: 30 }}>
                 <h3 style={{ marginTop: 0, marginBottom: 20, fontSize: "1.1rem", borderBottom: "1px solid var(--border)", paddingBottom: 10 }}>Criar Nova Tag</h3>

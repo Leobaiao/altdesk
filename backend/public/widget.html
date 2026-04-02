@@ -351,10 +351,17 @@
                         const item = document.createElement("div");
                         item.className = "article-item";
                         item.onclick = () => openArticle(a);
-                        item.innerHTML = `
-                            <div class="article-title">${a.Title}</div>
-                            <div class="article-preview">${a.Content}</div>
-                        `;
+                        
+                        const titleDiv = document.createElement("div");
+                        titleDiv.className = "article-title";
+                        titleDiv.innerText = a.Title;
+
+                        const previewDiv = document.createElement("div");
+                        previewDiv.className = "article-preview";
+                        previewDiv.innerText = a.Content;
+
+                        item.appendChild(titleDiv);
+                        item.appendChild(previewDiv);
                         resultsDiv.appendChild(item);
                     });
                 } catch (e) {

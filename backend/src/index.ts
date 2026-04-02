@@ -41,6 +41,7 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
   : ["http://localhost:5173", "http://localhost:3000"];
 
 const app = express();
+app.disable("x-powered-by"); // Minimized info exposure
 app.set("trust proxy", 1); // Behind Nginx reverse proxy
 app.use(apiLimiter);
 app.use(cors({ origin: allowedOrigins }));

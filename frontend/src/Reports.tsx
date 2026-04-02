@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { api } from "./lib/api";
 import { Download, BarChart2, Users, ShieldAlert, RefreshCw } from "lucide-react";
+import { PageHeader } from "./components/PageHeader";
 
 type ReportType = "conversations" | "agents" | "sla";
 
@@ -97,16 +98,24 @@ export function Reports({ onBack }: { onBack: () => void }) {
     const columns = data.length ? Object.keys(data[0]) : [];
 
     return (
-        <div className="settings-page" style={{ paddingTop: 24 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 28 }}>
-                <button onClick={onBack} className="btn btn-ghost" style={{ borderRadius: 10, border: "1px solid var(--border)", padding: "8px 16px" }}>
-                    ← Voltar
-                </button>
-                <div>
-                    <h1 style={{ fontSize: "1.5rem", fontWeight: 800, margin: 0 }}>📊 Relatórios</h1>
-                    <p style={{ margin: 0, fontSize: "0.82rem", color: "var(--text-secondary)" }}>Exporte dados e analise a performance do atendimento</p>
-                </div>
-            </div>
+        <div className="settings-page" style={{ height: "100%", overflowY: "auto" }}>
+            <PageHeader
+                title="Relatórios"
+                subtitle="Exporte dados e analise a performance do atendimento"
+                icon={BarChart2}
+                onBack={onBack}
+                helpText={
+                    <div>
+                        <p>Transforme dados em decisões estratégicas através de relatórios detalhados de performance.</p>
+                        <ul style={{ marginTop: 12, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 8 }}>
+                            <li><strong>Métricas de Equipe:</strong> Avalie a produtividade individual de cada atendente.</li>
+                            <li><strong>Volume de Mensagens:</strong> Acompanhe os picos de demanda diários e mensais.</li>
+                            <li><strong>Satisfação:</strong> Monitore o feedback dos clientes (em breve).</li>
+                            <li><strong>Exportação:</strong> Gere arquivos CSV/PDF para apresentações externas.</li>
+                        </ul>
+                    </div>
+                }
+            />
 
             {/* Report selector */}
             <div style={{ display: "flex", flexWrap: "wrap", gap: 4, background: "var(--bg-secondary)", padding: 4, borderRadius: 12, border: "1px solid var(--border)", width: "fit-content", maxWidth: "100%", marginBottom: 28 }}>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Plus, Search, Trash2, Edit3, ArrowLeft, Eye, EyeOff, BookOpen } from "lucide-react";
+import DOMPurify from "dompurify";
 import { api } from "./lib/api";
 import type { KnowledgeArticle } from "../../shared/types";
 import RichTextEditor from "./components/RichTextEditor";
@@ -163,7 +164,7 @@ export function KnowledgeBase({ onBack }: Props) {
                     <div 
                         className="tiptap"
                         style={{ color: "var(--text-primary)", lineHeight: "1.7", fontSize: "1.05rem" }}
-                        dangerouslySetInnerHTML={{ __html: viewingArticle.Content }}
+                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(viewingArticle.Content) }}
                     />
                 </div>
             </div>
@@ -238,7 +239,7 @@ export function KnowledgeBase({ onBack }: Props) {
                                 WebkitBoxOrient: "vertical", 
                                 overflow: "hidden" 
                             }}
-                            dangerouslySetInnerHTML={{ __html: article.Content }}
+                            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.Content) }}
                         />
                         <div style={{ marginTop: "auto", fontSize: "0.75rem", color: "#8696a0" }}>
                             Última atualização: {new Date(article.UpdatedAt || "").toLocaleDateString()}

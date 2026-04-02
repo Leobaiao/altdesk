@@ -116,7 +116,7 @@ router.post("/instances/:connectorId/assignments", validateBody(z.object({
         const user = (req as any).user;
         const pool = await getPool();
         const { connectorId } = req.params;
-        const { userIds } = req.body;
+        let { userIds } = req.body;
 
         // Verificar que o connector pertence ao tenant do admin
         const check = await pool.request()
@@ -130,7 +130,7 @@ router.post("/instances/:connectorId/assignments", validateBody(z.object({
         if (check.recordset.length === 0) {
             return res.status(404).json({ error: "Instância não encontrada." });
         }
-
+        // Validated by Zod middleware at line 112 as z.array(z.string().uuid())
         await assignUsersToInstance(connectorId, userIds, user.tenantId);
 
         // Auditoria

@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
 import {
     MessageSquareText, Timer, CheckCircle, BarChart3, ArrowLeft,
-    Clock, TrendingUp, Star, ShieldCheck
+    Clock, TrendingUp, Star, ShieldCheck, LayoutDashboard
 } from "lucide-react";
+import { PageHeader } from "./components/PageHeader";
 import { api } from "./lib/api";
 
 type Stats = {
@@ -93,15 +94,23 @@ export function Dashboard({ token, onBack }: { token: string; onBack: () => void
     return (
         <div className="settings-page" style={{ color: "var(--text-primary)", height: "100%", overflowY: "auto", flex: 1 }}>
             {/* Header */}
-            <div style={{ display: "flex", alignItems: "center", marginBottom: 30 }}>
-                <button onClick={onBack} title="Voltar" className="btn icon-btn" style={{ marginRight: 15, background: "transparent", border: "none" }}>
-                    <ArrowLeft size={24} color="var(--text-secondary)" />
-                </button>
-                <div>
-                    <h1 style={{ margin: 0, fontSize: "1.8rem" }}>Painel de Controle</h1>
-                    <p style={{ opacity: 0.7, margin: "5px 0 0 0", fontSize: "0.95rem" }}>Visão geral da operação em tempo real</p>
-                </div>
-            </div>
+            <PageHeader
+                title="Painel de Controle"
+                subtitle="Visão geral da operação em tempo real"
+                icon={LayoutDashboard}
+                onBack={onBack}
+                helpText={
+                    <div>
+                        <p>O Painel de Controle oferece uma visão panorâmica e em tempo real de toda a sua operação de atendimento.</p>
+                        <ul style={{ marginTop: 12, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 8 }}>
+                            <li><strong>Métricas:</strong> Acompanhe o volume de mensagens, chamados abertos e o tempo médio de resposta.</li>
+                            <li><strong>Volume Horário:</strong> Visualize os picos de atendimento para melhor planejar a escala da sua equipe.</li>
+                            <li><strong>Canais Ativos:</strong> Monitore quais canais estão gerando mais demanda no momento.</li>
+                            <li><strong>Decisões:</strong> Use estes dados para identificar gargalos e otimizar o fluxo de trabalho.</li>
+                        </ul>
+                    </div>
+                }
+            />
 
             {/* Primary Metric Cards */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, marginBottom: 30 }}>

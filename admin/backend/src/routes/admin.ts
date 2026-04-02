@@ -39,6 +39,18 @@ import {
 const router = Router();
 router.use(authMw as any, requireRole("SUPERADMIN") as any);
 
+// --- HELPERS ---
+function isValidGtiUrl(url: string): boolean {
+    try {
+        const parsed = new URL(url);
+        // Only allow trusted GTI worker domain
+        const allowedDomains = ["api.gtiapi.workers.dev"];
+        return allowedDomains.includes(parsed.hostname) && parsed.protocol === "https:";
+    } catch {
+        return false;
+    }
+}
+
 // --- TENANTS ---
 router.get("/tenants", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
@@ -380,6 +392,9 @@ router.post("/instances/:connectorId/connect", (async (req: AuthenticatedRequest
 
         const cfg = JSON.parse(connector.ConfigJson);
         const baseUrl = cfg.baseUrl ?? "https://api.gtiapi.workers.dev";
+        if (!isValidGtiUrl(baseUrl)) {
+            return res.status(400).json({ error: "URL do provedor não autorizada." });
+        }
         const token = cfg.token || cfg.apiKey;
 
         const url = `${baseUrl}/instance/connect`;
@@ -415,6 +430,9 @@ router.delete("/instances/:connectorId/disconnect", (async (req: AuthenticatedRe
 
         const cfg = JSON.parse(connector.ConfigJson);
         const baseUrl = cfg.baseUrl ?? "https://api.gtiapi.workers.dev";
+        if (!isValidGtiUrl(baseUrl)) {
+            return res.status(400).json({ error: "URL do provedor não autorizada." });
+        }
         const token = cfg.token || cfg.apiKey;
 
         const response = await fetch(`${baseUrl}/instance/disconnect`, {
@@ -446,6 +464,9 @@ router.get("/instances/:connectorId/status", (async (req: AuthenticatedRequest, 
 
         const cfg = JSON.parse(connector.ConfigJson);
         const baseUrl = cfg.baseUrl ?? "https://api.gtiapi.workers.dev";
+        if (!isValidGtiUrl(baseUrl)) {
+            return res.status(400).json({ error: "URL do provedor não autorizada." });
+        }
         const token = cfg.token || cfg.apiKey;
 
         // Bater no /instance/status usando apenas o TOKEN
@@ -529,7 +550,7 @@ router.post("/instances/:connectorId/set-webhook", validateBody(z.object({
 })), (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const { connectorId } = req.params;
-        const { webhookBaseUrl, enabled, events, excludeMessages, addUrlEvents, addUrlTypesMessages } = req.body;
+        let { webhookBaseUrl, enabled, events, excludeMessages, addUrlEvents, addUrlTypesMessages } = req.body;
         const connector = await loadConnector(connectorId);
 
         const provider = String(connector.Provider).toLowerCase();
@@ -540,8 +561,8 @@ router.post("/instances/:connectorId/set-webhook", validateBody(z.object({
             return res.status(400).json({ error: `Provider "${connector.Provider}" não suporta configuração automática de webhook.` });
         }
 
-        const baseUrl = webhookBaseUrl || process.env.WEBHOOK_BASE_URL || "";
-        const fullWebhookUrl = `${baseUrl.replace(/\/$/, "")}/api/whatsapp/${provider}/${connectorId}/`;
+        webhookBaseUrl = typeof webhookBaseUrl === 'string' ? webhookBaseUrl.replace(/\/$/, '') : "";
+        const fullWebhookUrl = `${webhookBaseUrl}/api/webhooks/whatsapp/${connector.Provider}/${connectorId}`;
 
         await adapter.setWebhook(connector, {
             url: fullWebhookUrl,
@@ -568,7 +589,8 @@ router.post("/instances/:connectorId/set-webhook", validateBody(z.object({
     }
 }) as any);
 
-router.post("/instances/bulk-delete", validateBody(z.object({ connectorIds: z.array(z.string()) })), (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+const ConnectorIdSchema = z.string().regex(/^[a-fA-F0-9-]+$/);
+router.post("/instances/bulk-delete", validateBody(z.object({ connectorIds: z.array(ConnectorIdSchema) })), (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const { connectorIds } = req.body;
         const count = await bulkDeleteInstances(connectorIds);
@@ -697,10 +719,12 @@ router.put("/users/:id/status", validateBody(z.object({ isActive: z.boolean() })
 router.get("/instances/gti-info", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const token = req.query.token as string;
-        const baseUrl = (req.query.baseUrl as string) || "https://api.gtiapi.workers.dev";
-
-        if (!token) return res.status(400).json({ error: "Token is required" });
-
+        const rawBaseUrl = (req.query.baseUrl as string) || "https://api.gtiapi.workers.dev";
+        const ALLOWED_GTI_URLS: Record<string, string> = {
+            "https://api.gtiapi.workers.dev": "https://api.gtiapi.workers.dev"
+        };
+        const baseUrl = ALLOWED_GTI_URLS[rawBaseUrl] || "https://api.gtiapi.workers.dev";
+        
         const url = `${baseUrl}/instance/status`;
         const response = await fetch(url, {
             method: "GET",

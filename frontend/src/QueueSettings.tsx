@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
-import { ArrowLeft, Plus, Users, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Users, Trash2, Search } from "lucide-react";
+import { PageHeader } from "./components/PageHeader";
 
 import type { Queue } from "../../shared/types";
 
@@ -66,22 +67,13 @@ export function QueueSettings({ onBack }: { onBack: () => void }) {
     const isAdmin = role === "ADMIN" || role === "SUPERADMIN";
 
     return (
-        <div style={{ padding: 30, color: "var(--text-primary)", overflowY: "auto", flex: 1 }}>
-
-            {/* Header */}
-            <div style={{ display: "flex", alignItems: "center", marginBottom: 30 }}>
-                <button onClick={onBack} title="Voltar" className="btn icon-btn" style={{ marginRight: 15, background: "transparent", border: "none" }}>
-                    <ArrowLeft size={24} color="var(--text-secondary)" />
-                </button>
-                <div>
-                    <h1 style={{ margin: 0, fontSize: "1.8rem", display: "flex", alignItems: "center", gap: 10 }}>
-                        <Users size={28} color="#00a884" /> Gestão de Filas
-                    </h1>
-                    <p style={{ opacity: 0.7, margin: "5px 0 0 0", fontSize: "0.95rem" }}>
-                        {isAdmin ? "Crie departamentos para organizar o atendimento." : "Visualize os departamentos ativos para o atendimento."}
-                    </p>
-                </div>
-            </div>
+        <div className="settings-page" style={{ height: "100%", overflowY: "auto" }}>
+            <PageHeader
+                title="Gestão de Filas"
+                subtitle={isAdmin ? "Crie departamentos para organizar o atendimento." : "Visualize os departamentos ativos para o atendimento."}
+                icon={Search}
+                onBack={onBack}
+            />
 
             <div style={{ display: "flex", gap: 20, flexWrap: "wrap", alignItems: "flex-start" }}>
                 {/* Formulário Criar Nova Fila (Apenas Admin) */}

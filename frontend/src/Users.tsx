@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 import { api } from "./lib/api";
+import { PageHeader } from "./components/PageHeader";
 import type { User } from "../../shared/types";
 
 interface Props {
@@ -128,33 +129,30 @@ export function Users({ token, onBack, role }: Props) {
 
     return (
         <div className="settings-page" style={{ height: "100%", overflowY: "auto" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 32, flexWrap: "wrap", gap: 15 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-                    <button
-                        onClick={onBack}
-                        className="btn btn-ghost"
-                        style={{ padding: 8, borderRadius: "50%" }}
-                        title="Voltar"
-                    >
-                        <ArrowLeft size={24} />
-                    </button>
+            <PageHeader
+                title="Minha Equipe"
+                subtitle={isAdmin ? "Gerencie os membros da sua empresa e suas permissões." : "Conheça seus colegas de equipe."}
+                icon={UsersIcon}
+                onBack={onBack}
+                helpText={
                     <div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                            <UsersIcon size={24} className="text-accent" />
-                            <h1 style={{ margin: 0, fontSize: "1.5rem", fontWeight: 700 }}>Minha Equipe</h1>
-                        </div>
-                        <p style={{ margin: "4px 0 0 0", color: "var(--text-secondary)", fontSize: "0.9rem" }}>
-                            {isAdmin ? "Gerencie os membros da sua empresa e suas permissões." : "Conheça seus colegas de equipe."}
-                        </p>
+                        <p>Gerencie quem tem acesso à plataforma e quais níveis de permissão cada membro possui.</p>
+                        <ul style={{ marginTop: 12, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 8 }}>
+                            <li><strong>Administradores:</strong> Têm acesso total às configurações, faturamento e gestão de usuários.</li>
+                            <li><strong>Operadores:</strong> Focados no atendimento ao cliente e gestão de tickets.</li>
+                            <li><strong>Status:</strong> Ative ou desative membros conforme a necessidade da sua equipe.</li>
+                            <li><strong>Segurança:</strong> Apenas administradores podem convidar novos membros para a empresa.</li>
+                        </ul>
                     </div>
-                </div>
-
-                {isAdmin && (
-                    <button className="btn btn-primary" onClick={openCreate} style={{ borderRadius: 12, padding: "10px 20px" }}>
-                        + Novo Membro
-                    </button>
-                )}
-            </div>
+                }
+                actionNode={
+                    isAdmin ? (
+                        <button className="btn btn-primary" onClick={openCreate} style={{ borderRadius: 12, padding: "10px 20px" }}>
+                            + Novo Membro
+                        </button>
+                    ) : undefined
+                }
+            />
 
             {msg && (
                 <div style={{

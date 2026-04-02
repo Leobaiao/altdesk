@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Search, Plus, MessageSquare, Edit2, Trash2, ArrowLeft, User, Phone, Mail } from "lucide-react";
+import { Search, Plus, MessageSquare, Edit2, Trash2, ArrowLeft, User, Phone, Mail, Contact as ContactsIcon } from "lucide-react";
+import { PageHeader } from "./components/PageHeader";
 
 type Contact = {
     ContactId: string;
@@ -78,27 +79,28 @@ export function Contacts({ onBack, onStartChat }: { onBack: () => void, onStartC
     };
 
     return (
-        <div className="main-area" style={{ flex: 1, display: "flex", flexDirection: "column", background: "var(--bg-primary)", height: "100%" }}>
-            <div className="chat-header">
-                <div className="info" style={{ display: "flex", alignItems: "center", gap: 15 }}>
-                    {view === "LIST" ? (
-                        <>
-                            <button onClick={onBack} className="icon-btn" title="Voltar"><ArrowLeft size={20} /></button>
-                            <h2>Contatos</h2>
-                        </>
-                    ) : (
-                        <>
-                            <button onClick={() => setView("LIST")} className="icon-btn" title="Voltar"><ArrowLeft size={20} /></button>
-                            <h2>{editing.ContactId ? "Editar Contato" : "Novo Contato"}</h2>
-                        </>
-                    )}
-                </div>
-                {view === "LIST" && (
-                    <button className="btn btn-primary" onClick={() => { setEditing({}); setView("EDIT"); }} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <Plus size={16} /> Novo Contato
+        <div className="settings-page" style={{ flex: 1, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
+            <PageHeader
+                title={view === "LIST" ? "Contatos" : editing.ContactId ? "Editar Contato" : "Novo Contato"}
+                icon={ContactsIcon}
+                onBack={view === "LIST" ? onBack : () => setView("LIST")}
+                helpText={
+                    <div>
+                        <p>Esta tela permite o gerenciamento centralizado de seus contatos e clientes.</p>
+                        <ul style={{ marginTop: 12, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 8 }}>
+                            <li><strong>Gestão:</strong> Crie, edite e organize informações de contato.</li>
+                            <li><strong>Início Rápido:</strong> Use o botão "Chat" para abrir uma conversa imediatamente.</li>
+                            <li><strong>Busca:</strong> Localize qualquer cliente pelo nome ou número de telefone.</li>
+                            <li><strong>Notas:</strong> Salve observações importantes para consultas futuras no atendimento.</li>
+                        </ul>
+                    </div>
+                }
+                actionNode={view === "LIST" ? (
+                    <button className="btn btn-primary" onClick={() => { setEditing({}); setView("EDIT"); }} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 20px", borderRadius: 12 }}>
+                        <Plus size={18} /> Novo Contato
                     </button>
-                )}
-            </div>
+                ) : undefined}
+            />
 
             <div style={{ flex: 1, overflowY: "auto", padding: 20 }}>
                 {view === "LIST" && (

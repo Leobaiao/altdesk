@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { Plus, Search, Trash2, Edit3, ArrowLeft, Eye, EyeOff, BookOpen } from "lucide-react";
+import { Plus, Search, Trash2, Edit3, ArrowLeft, Eye, EyeOff, BookOpen, Book } from "lucide-react";
+import DOMPurify from "dompurify";
+import { PageHeader } from "./components/PageHeader";
 import { api } from "./lib/api";
 import type { KnowledgeArticle } from "../../shared/types";
 import RichTextEditor from "./components/RichTextEditor";
@@ -163,7 +165,7 @@ export function KnowledgeBase({ onBack }: Props) {
                     <div 
                         className="tiptap"
                         style={{ color: "var(--text-primary)", lineHeight: "1.7", fontSize: "1.05rem" }}
-                        dangerouslySetInnerHTML={{ __html: viewingArticle.Content }}
+                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(viewingArticle.Content) }}
                     />
                 </div>
             </div>
@@ -171,18 +173,28 @@ export function KnowledgeBase({ onBack }: Props) {
     }
 
     return (
-        <div className="kb-page" style={{ padding: 20 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 30, flexWrap: "wrap", gap: 15 }}>
-                <div style={{ display: "flex", alignItems: "center" }}>
-                    <button onClick={onBack} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", marginRight: 15 }}>
-                        <ArrowLeft size={24} />
+        <div className="settings-page" style={{ height: "100%", overflowY: "auto" }}>
+            <PageHeader
+                title="Base de Conhecimento"
+                icon={Book}
+                onBack={onBack}
+                helpText={
+                    <div>
+                        <p>A Base de Conhecimento é onde você armazena artigos, FAQs e guias para seu time e clientes.</p>
+                        <ul style={{ marginTop: 12, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 8 }}>
+                            <li><strong>Artigos:</strong> Crie guias passo a passo para resolver dúvidas comuns rapidamente.</li>
+                            <li><strong>Categorias:</strong> Organize seu conteúdo por temas para facilitar a navegação.</li>
+                            <li><strong>Respostas:</strong> Durante um atendimento, você pode consultar esses artigos para enviar links ou explicações prontas.</li>
+                            <li><strong>Privado/Público:</strong> Controle quais conteúdos são visíveis apenas para sua equipe interna.</li>
+                        </ul>
+                    </div>
+                }
+                actionNode={
+                    <button onClick={() => setEditingArticle({ Title: "", Content: "", Category: "", IsPublic: true })} className="btn btn-primary" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <Plus size={18} /> Novo Artigo
                     </button>
-                    <h2 style={{ fontSize: "1.5rem", fontWeight: 700, margin: 0 }}>Base de Conhecimento</h2>
-                </div>
-                <button onClick={() => setEditingArticle({ Title: "", Content: "", Category: "", IsPublic: true })} className="btn btn-primary" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <Plus size={18} /> Novo Artigo
-                </button>
-            </div>
+                }
+            />
 
             <div style={{ position: "relative", marginBottom: 25 }}>
                 <Search size={18} style={{ position: "absolute", left: 15, top: "50%", transform: "translateY(-50%)", color: "#8696a0" }} />
@@ -238,7 +250,7 @@ export function KnowledgeBase({ onBack }: Props) {
                                 WebkitBoxOrient: "vertical", 
                                 overflow: "hidden" 
                             }}
-                            dangerouslySetInnerHTML={{ __html: article.Content }}
+                            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.Content) }}
                         />
                         <div style={{ marginTop: "auto", fontSize: "0.75rem", color: "#8696a0" }}>
                             Última atualização: {new Date(article.UpdatedAt || "").toLocaleDateString()}

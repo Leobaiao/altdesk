@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Plus, Trash2, ArrowLeft, MessageSquare, Zap } from "lucide-react";
+import { Plus, Trash2, ArrowLeft, MessageSquare, Zap, BookOpen } from "lucide-react";
+import { PageHeader } from "./components/PageHeader";
 
 import type { CannedResponse } from "../../shared/types";
 
@@ -57,27 +58,27 @@ export function CannedResponses({ onBack }: { onBack: () => void }) {
     };
 
     return (
-        <div className="main-area" style={{ flex: 1, display: "flex", flexDirection: "column", background: "var(--bg-primary)", height: "100%" }}>
-            <div className="chat-header">
-                <div className="info" style={{ display: "flex", alignItems: "center", gap: 15 }}>
-                    {view === "LIST" ? (
-                        <>
-                            <button onClick={onBack} className="icon-btn" title="Voltar"><ArrowLeft size={20} /></button>
-                            <h2>Respostas Rápidas</h2>
-                        </>
-                    ) : (
-                        <>
-                            <button onClick={() => setView("LIST")} className="icon-btn" title="Voltar"><ArrowLeft size={20} /></button>
-                            <h2>Nova Resposta Rápida</h2>
-                        </>
-                    )}
-                </div>
-                {view === "LIST" && (
-                    <button className="btn btn-primary" onClick={() => setView("NEW")} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <Plus size={16} /> Nova Resposta Rápida
+        <div className="settings-page" style={{ flex: 1, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
+            <PageHeader
+                title={view === "LIST" ? "Respostas Rápidas" : "Nova Resposta Rápida"}
+                icon={BookOpen}
+                onBack={view === "LIST" ? onBack : () => setView("LIST")}
+                helpText={
+                    <div>
+                        <p>Respostas rápidas são modelos de texto pré-configurados para agilizar o atendimento.</p>
+                        <ul style={{ marginTop: 12, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 8 }}>
+                            <li><strong>Uso no Chat:</strong> No campo de digitação do chat, digite <strong>"/"</strong> seguido pelo atalho (ex: /oi) para carregar o texto.</li>
+                            <li><strong>Sincronização:</strong> Todos os atendentes da sua empresa podem utilizar as mesmas respostas padrão.</li>
+                            <li><strong>Produtividade:</strong> Evite redigitar frases comuns e mantenha um tom de voz consistente.</li>
+                        </ul>
+                    </div>
+                }
+                actionNode={view === "LIST" ? (
+                    <button className="btn btn-primary" onClick={() => setView("NEW")} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 20px", borderRadius: 12 }}>
+                        <Plus size={18} /> Nova
                     </button>
-                )}
-            </div>
+                ) : undefined}
+            />
 
             <div style={{ flex: 1, overflowY: "auto", padding: 20 }}>
                 {view === "LIST" && (

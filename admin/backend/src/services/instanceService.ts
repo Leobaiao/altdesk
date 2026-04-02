@@ -105,16 +105,21 @@ export async function updateInstanceTenant(connectorId: string, tenantId: string
 export async function bulkDeleteInstances(connectorIds: string[]) {
     if (!connectorIds.length) return 0;
 
+    // Critical: Validate that all IDs are valid UUIDs to prevent any SQLi attempt
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const validIds = connectorIds.filter(id => uuidRegex.test(id));
+    if (validIds.length === 0) return 0;
+
     const pool = await getPool();
     const transaction = new sql.Transaction(pool);
     await transaction.begin();
 
     try {
         const request = transaction.request();
-        connectorIds.forEach((id: string, index: number) => {
+        validIds.forEach((id, index) => {
             request.input(`id${index}`, id);
         });
-        const idParams = connectorIds.map((_: string, index: number) => `@id${index}`).join(",");
+        const idParams = validIds.map((_, index) => `@id${index}`).join(",");
 
         await request.query(`
         UPDATE altdesk.ChannelConnector 
@@ -123,7 +128,7 @@ export async function bulkDeleteInstances(connectorIds: string[]) {
     `);
 
         await transaction.commit();
-        return connectorIds.length;
+        return validIds.length;
     } catch (err) {
         await transaction.rollback();
         throw err;

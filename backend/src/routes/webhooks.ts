@@ -51,7 +51,7 @@ router.post("/whatsapp/:provider/:connectorId/*", async (req, res, next) => {
         );
 
         // Auto-update connector baseUrl from GTI webhook payload
-        if (req.body?.BaseUrl && connector.ConfigJson) {
+        if (req.body?.BaseUrl && typeof req.body.BaseUrl === 'string' && connector.ConfigJson) {
             try {
                 const cfg = JSON.parse(connector.ConfigJson);
                 const incomingBase = req.body.BaseUrl.replace(/\/$/, '');

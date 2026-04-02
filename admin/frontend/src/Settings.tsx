@@ -9,11 +9,15 @@ interface Props {
 }
 
 export function Settings({ token, onBack, role }: Props) {
-    // Perfil states
     const [name, setName] = useState("");
     const [password, setPassword] = useState("");
     const [avatar, setAvatar] = useState("");
     const [position, setPosition] = useState("");
+
+    const isSafeUrl = (url: string) => {
+        if (!url) return false;
+        return url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:image/");
+    };
 
     // Theme
     const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "dark");
@@ -194,7 +198,7 @@ export function Settings({ token, onBack, role }: Props) {
                                 justifyContent: "center",
                                 flexShrink: 0
                             }}>
-                                {avatar ? (
+                                {avatar && isSafeUrl(avatar) ? (
                                     <img src={avatar} alt="Avatar Preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => (e.currentTarget.src = "")} />
                                 ) : (
                                     <User size={40} color="var(--text-secondary)" opacity={0.5} />

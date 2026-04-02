@@ -4,6 +4,7 @@ import { SuperAdmin } from "./SuperAdmin";
 import { api } from "./lib/api";
 import { parseJwt } from "./lib/auth";
 import "./index.css"; // Ensure styles are imported
+import LogoHorizontal from "./assets/logo/logo-horizontal.png";
 
 // ─── Login ────────────────────────────────────────
 function LoginScreen({ onLogin }: { onLogin: (token: string, role: string) => void }) {
@@ -31,9 +32,11 @@ function LoginScreen({ onLogin }: { onLogin: (token: string, role: string) => vo
   return (
     <div className="login-container">
       <form className="login-card" onSubmit={handleSubmit}>
-        <h1>👑 AltDesk Admin</h1>
-        <p>Painel de Gestão Corporativa e Licenças</p>
-        
+        <div style={{ textAlign: "center", marginBottom: 25 }}>
+          <img src={LogoHorizontal} alt="AltDesk Admin" style={{ maxWidth: "70px", height: "auto" }} />
+          <div style={{ fontSize: "12px", color: "var(--text-secondary)", marginTop: 8, fontWeight: 500, letterSpacing: 1 }}>PAINEL CORPORATIVO</div>
+        </div>
+
         {error && <div className="error">{error}</div>}
 
         <div className="field">
@@ -113,8 +116,8 @@ function AppContent() {
       {/* Ocupa a tela inteira sem o Sidebar do chat */}
       <div className="chat-area admin-chat-area" style={{ flex: 1, padding: '20px', overflowY: 'auto' }}>
         <Routes>
-            <Route path="/" element={<SuperAdmin token={token} onBack={handleLogout} />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="/" element={<SuperAdmin token={token} onBack={handleLogout} />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>
     </div>

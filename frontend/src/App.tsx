@@ -26,6 +26,8 @@ import { usePushNotifications } from "./hooks/usePushNotifications";
 import { ForgotPassword } from "./ForgotPassword";
 import { ResetPassword } from "./ResetPassword";
 import { Onboarding } from "./Onboarding";
+import LogoHorizontal from "./assets/logo/logo-horizontal.png";
+import logo from "./assets/logo/logo.png";
 
 import {
   LayoutDashboard,
@@ -105,7 +107,9 @@ function LoginScreen({ onLogin }: { onLogin: (token: string, role: string) => vo
   return (
     <div className="login-container">
       <form className="login-card" onSubmit={handleSubmit}>
-        <h1>🟢 AltDesk</h1>
+        <div style={{ textAlign: "center", marginBottom: 20 }}>
+          <img src={LogoHorizontal} alt="AltDesk Logo" style={{ maxWidth: "200px", height: "auto" }} />
+        </div>
         <p>Faça login para acessar o painel de atendimento</p>
 
         {error && <div className="error">{error}</div>}
@@ -221,6 +225,9 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
     <div className={`app-layout ${isChat ? "is-chat" : "not-chat"} ${isMobileDetailOpen ? "mobile-detail-open" : ""}`}>
       {/* Sidebar Principal (Menu de Ícones) */}
       <div className="sidebar-main">
+        <div className="brand" onClick={() => navigate("/chat")} style={{ cursor: "pointer", marginBottom: 30, display: "flex", justifyContent: "center" }}>
+          <img src={logo} alt="Brand" style={{ width: 44, height: 44, borderRadius: 12 }} />
+        </div>
         <div className="profile-selection" style={{ marginBottom: 30, textAlign: "center" }} onClick={() => navigate("/settings")}>
           {profile?.Avatar ? (
             <img src={profile.Avatar} alt="Profile" className="sidebar-avatar" />

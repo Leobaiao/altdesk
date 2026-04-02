@@ -6,8 +6,10 @@ import {
     Filter,
     Search,
     ArrowLeft,
-    RefreshCw
+    RefreshCw,
+    Ticket
 } from "lucide-react";
+import { PageHeader } from "./PageHeader";
 import { api } from "../lib/api";
 
 export interface TicketData {
@@ -135,72 +137,76 @@ export function TicketList({ onSelect, selectedId, onBack }: TicketListProps) {
     }, [tickets, statusFilter, channelFilter, search]);
 
     return (
-        <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
-            {/* Header */}
-            <div className="settings-page" style={{ borderBottom: "1px solid var(--border)" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
-                    <button onClick={onBack} className="btn btn-ghost" style={{ padding: 8, borderRadius: "50%" }} title="Voltar">
-                        <ArrowLeft size={22} />
-                    </button>
-                    <div style={{ flex: 1 }}>
-                        <h1 style={{ margin: 0, fontSize: "1.4rem", fontWeight: 700 }}>Chamados</h1>
-                        <p style={{ margin: "2px 0 0", color: "var(--text-secondary)", fontSize: "0.85rem" }}>
-                            {filtered.length} ticket{filtered.length !== 1 ? "s" : ""} encontrado{filtered.length !== 1 ? "s" : ""}
-                        </p>
+        <div className="settings-page" style={{ height: "100%", overflowY: "auto", display: "flex", flexDirection: "column" }}>
+            <PageHeader
+                title="Chamados"
+                subtitle={`${filtered.length} ticket${filtered.length !== 1 ? "s" : ""} encontrado${filtered.length !== 1 ? "s" : ""}`}
+                icon={Ticket}
+                onBack={onBack}
+                helpText={
+                    <div>
+                        <p>Aqui você gerencia todos os atendimentos ativos e históricos da sua empresa.</p>
+                        <ul style={{ marginTop: 12, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 8 }}>
+                            <li><strong>Filtragem:</strong> Use os filtros por status (Aberto, Em Atendimento, Resolvido) ou por canal para organizar sua fila.</li>
+                            <li><strong>Busca:</strong> Localize chamados por nome do contato, CPF, telefone ou ID da conversa.</li>
+                            <li><strong>Visualização:</strong> Clique em um card para ver o histórico completo da conversa e responder ao cliente.</li>
+                        </ul>
                     </div>
+                }
+                actionNode={
                     <button onClick={() => loadTickets()} className="btn btn-ghost" style={{ padding: 8, borderRadius: 10 }} title="Atualizar">
                         <RefreshCw size={18} className={loading ? "spin" : ""} />
                     </button>
-                </div>
+                }
+            />
 
-                {/* Search */}
-                <div style={{ position: "relative", marginBottom: 12 }}>
-                    <Search size={16} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--text-secondary)" }} />
-                    <input
-                        value={search}
-                        onChange={e => setSearch(e.target.value)}
-                        placeholder="Buscar por CPF, nome ou telefone..."
-                        style={{
-                            width: "100%", padding: "10px 14px 10px 36px", borderRadius: 10,
-                            background: "var(--bg-primary)", border: "1px solid var(--border)",
-                            color: "var(--text-primary)", fontSize: "0.9rem"
-                        }}
-                    />
-                </div>
+            {/* Search */}
+            <div style={{ position: "relative", marginBottom: 12 }}>
+                <Search size={16} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--text-secondary)" }} />
+                <input
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    placeholder="Buscar por CPF, nome ou telefone..."
+                    style={{
+                        width: "100%", padding: "10px 14px 10px 36px", borderRadius: 10,
+                        background: "var(--bg-primary)", border: "1px solid var(--border)",
+                        color: "var(--text-primary)", fontSize: "0.9rem"
+                    }}
+                />
+            </div>
 
-                {/* Filters */}
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <select
-                        value={statusFilter}
-                        onChange={e => setStatusFilter(e.target.value)}
-                        style={{
-                            padding: "6px 12px", borderRadius: 8, background: "var(--bg-primary)",
-                            border: "1px solid var(--border)", color: "var(--text-primary)", fontSize: "0.8rem", cursor: "pointer"
-                        }}
-                    >
-                        <option value="ALL">Todos Status</option>
-                        <option value="OPEN">Aberto</option>
-                        <option value="RESOLVED">Fechado</option>
-                        <option value="PENDING">Pendente</option>
-                    </select>
-                    <select
-                        value={channelFilter}
-                        onChange={e => setChannelFilter(e.target.value)}
-                        style={{
-                            padding: "6px 12px", borderRadius: 8, background: "var(--bg-primary)",
-                            border: "1px solid var(--border)", color: "var(--text-primary)", fontSize: "0.8rem", cursor: "pointer"
-                        }}
-                    >
-                        <option value="ALL">Todos Canais</option>
-                        <option value="WhatsApp">WhatsApp</option>
-                        <option value="Plataforma">Plataforma</option>
-                        <option value="Chatbot">Chatbot</option>
-                    </select>
-                </div>
+            {/* Filters */}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
+                <select
+                    value={statusFilter}
+                    onChange={e => setStatusFilter(e.target.value)}
+                    style={{
+                        padding: "6px 12px", borderRadius: 8, background: "var(--bg-primary)",
+                        border: "1px solid var(--border)", color: "var(--text-primary)", fontSize: "0.8rem", cursor: "pointer"
+                    }}
+                >
+                    <option value="ALL">Todos Status</option>
+                    <option value="OPEN">Aberto</option>
+                    <option value="RESOLVED">Fechado</option>
+                    <option value="PENDING">Pendente</option>
+                </select>
+                <select
+                    value={channelFilter}
+                    onChange={e => setChannelFilter(e.target.value)}
+                    style={{
+                        padding: "6px 12px", borderRadius: 8, background: "var(--bg-primary)",
+                        border: "1px solid var(--border)", color: "var(--text-primary)", fontSize: "0.8rem", cursor: "pointer"
+                    }}
+                >
+                    <option value="ALL">Todos Canais</option>
+                    <option value="WhatsApp">WhatsApp</option>
+                    <option value="Plataforma">Plataforma</option>
+                    <option value="Chatbot">Chatbot</option>
+                </select>
             </div>
 
             {/* Ticket rows */}
-            <div style={{ flex: 1, overflowY: "auto", padding: "8px 0" }}>
+            <div style={{ flex: 1, overflowY: "auto" }}>
                 {loading && (
                     <div style={{ padding: 40, textAlign: "center" }}>
                         <div className="spinner" style={{ margin: "0 auto" }}></div>

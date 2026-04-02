@@ -118,29 +118,39 @@ export async function updateInstanceTenant(connectorId: string, tenantId: string
 export async function bulkDeleteInstances(connectorIds: string[]) {
     if (!connectorIds.length) return 0;
 
+    // Critical: Validate that all IDs are valid UUIDs to prevent any SQLi attempt
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const validIds = connectorIds.filter(id => uuidRegex.test(id));
+    if (validIds.length === 0) return 0;
+
     const pool = await getPool();
     const transaction = new sql.Transaction(pool);
     await transaction.begin();
 
     try {
         const request = transaction.request();
-        connectorIds.forEach((id: string, index: number) => {
+        validIds.forEach((id, index) => {
             request.input(`id${index}`, id);
         });
-        const idParams = connectorIds.map((_: string, index: number) => `@id${index}`).join(",");
+        const idParams = validIds.map((_, index) => `@id${index}`).join(",");
 
-        // Limpar atribuições de funcionários antes de desativar
+        // Safe: using parameterized IN clause
         await transaction.request()
+            .input("ids", validIds.join(",")) // Alternative if DB supports it, but @idN is safer for mssql
             .query(`DELETE FROM altdesk.InstanceAssignment WHERE ConnectorId IN (${idParams})`);
 
-        await request.query(`
+        const bulkRequest = transaction.request();
+        validIds.forEach((id, index) => {
+            bulkRequest.input(`id${index}`, id);
+        });
+        await bulkRequest.query(`
         UPDATE altdesk.ChannelConnector 
         SET IsActive = 0, DeletedAt = SYSUTCDATETIME()
         WHERE ConnectorId IN (${idParams})
     `);
 
         await transaction.commit();
-        return connectorIds.length;
+        return validIds.length;
     } catch (err) {
         await transaction.rollback();
         throw err;
@@ -156,16 +166,23 @@ export async function assignUsersToInstance(connectorId: string, userIds: string
     await transaction.begin();
 
     try {
-        // 1. Validar que todos os userIds pertencem ao tenant
-        if (userIds.length > 0) {
-            const req = transaction.request().input("tid", tenantId);
-            userIds.forEach((id, i) => req.input(`u${i}`, id));
-            const placeholders = userIds.map((_, i) => `@u${i}`).join(",");
-            const valid = await req.query(
-                `SELECT COUNT(*) as cnt FROM altdesk.[User] WHERE TenantId = @tid AND UserId IN (${placeholders})`
-            );
-            if (valid.recordset[0].cnt !== userIds.length) {
-                throw new Error("Um ou mais usuários não pertencem a esta empresa.");
+        // 1. Validar que todos os userIds e connectorId são UUIDs válidos
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!uuidRegex.test(connectorId)) throw new Error("Invalid ConnectorId");
+        
+        const validUserIds = userIds.filter(id => uuidRegex.test(id));
+
+        if (validUserIds.length > 0) {
+            const request = transaction.request();
+            validUserIds.forEach((uid, index) => request.input(`uid${index}`, uid));
+            const uidParams = validUserIds.map((_, index) => `@uid${index}`).join(",");
+
+            const validCount = await request
+                .input("tenantId", tenantId)
+                .query(`SELECT COUNT(*) as count FROM altdesk.[User] WHERE TenantId = @tenantId AND UserId IN (${uidParams})`);
+            
+            if (validCount.recordset[0].count !== validUserIds.length) {
+                throw new Error("Alguns IDs de usuário são inválidos ou pertencem a outro tenant.");
             }
         }
 

@@ -16,6 +16,8 @@ import {
   BookOpen,
   Ticket,
 } from "lucide-react";
+import LogoHorizontal from "./assets/logo/logo-horizontal.png";
+
 
 type PreloadModel = "empty" | "basic" | "demo";
 
@@ -147,8 +149,7 @@ function Step2({ data, onChange }: { data: OnboardingData; onChange: (d: Partial
       icon: <Sparkles size={28} />,
       title: "Demonstração Completa",
       desc: "Cenário realista com base de dados populada.",
-      details: "4 agentes, 4 filas, 12 contatos, 10 tickets, 8 artigos e 4 respostas rápidas.",
-      isDemo: true
+      details: "4 agentes, 4 filas, 12 contatos, 10 tickets, 8 artigos, mensagens e 4 respostas rápidas.",
     },
   ];
 
@@ -378,6 +379,10 @@ export function Onboarding({ onLogin }: { onLogin: (token: string, role: string)
   return (
     <div className="onboarding-container">
       <div className="onboarding-card">
+        <div style={{ textAlign: "center", marginBottom: 30 }}>
+          <img src={LogoHorizontal} alt="AltDesk" style={{ height: "40px", width: "auto" }} />
+        </div>
+
         {/* Theme Toggle Button */}
         <button 
           className="theme-toggle-ob" 

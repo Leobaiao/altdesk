@@ -10,8 +10,9 @@ router.use(authMw);
 router.get("/", async (req, res, next) => {
     try {
         const user = (req as any).user;
-        const { search } = req.query;
-        const items = await listContacts(user.tenantId, search as string);
+        const querySchema = z.object({ search: z.string().default("") });
+        const { search } = querySchema.parse(req.query);
+        const items = await listContacts(user.tenantId, search);
         res.json(items);
     } catch (error) {
         next(error);

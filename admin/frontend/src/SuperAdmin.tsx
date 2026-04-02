@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { HelpCircle, X } from "lucide-react";
 import {
     Users as UsersIcon,
     Smartphone,
@@ -29,6 +30,7 @@ export function SuperAdmin({ token, onBack }: { token: string; onBack: () => voi
     const [metrics, setMetrics] = useState<{ tenants: number; users: number; instances: number; trashCount: number } | null>(null);
     const [showMetrics, setShowMetrics] = useState(window.innerWidth > 768);
     const [theme, setTheme] = useState(() => localStorage.getItem("altdesk_admin_theme") || "dark");
+    const [showHelp, setShowHelp] = useState(false);
 
     useEffect(() => {
         document.documentElement.setAttribute("data-theme", theme);
@@ -94,18 +96,58 @@ export function SuperAdmin({ token, onBack }: { token: string; onBack: () => voi
                         </div>
                         <div>
                             <h1 style={{ fontSize: "1.5rem", fontWeight: 800, margin: 0, letterSpacing: "-0.5px" }}>Admin Console</h1>
-                            <p style={{ margin: 0, color: "var(--text-secondary)", fontSize: "0.82rem" }}>Gestão global de empresas, usuários e instâncias WhatsApp</p>
+                            <p style={{ margin: 0, color: "var(--text-secondary)", fontSize: "0.82rem" }}>Gestão global de empresas, usuários e instâncias</p>
                         </div>
                     </div>
                     
-                    <button 
-                        onClick={() => setTheme(t => t === "dark" ? "light" : "dark")} 
-                        className="btn btn-ghost"
-                        style={{ padding: 10, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center" }}
-                        title="Alternar Tema"
-                    >
-                        {theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
-                    </button>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <button
+                            onClick={() => setShowHelp(true)}
+                            style={{ 
+                                background: "rgba(0,168,132,0.1)", 
+                                border: "1px solid rgba(0,168,132,0.2)", 
+                                padding: "8px 12px", 
+                                cursor: "pointer", 
+                                display: "flex", 
+                                alignItems: "center", 
+                                gap: 8,
+                                borderRadius: 10,
+                                opacity: 0.8, 
+                                transition: "all 0.2s" 
+                            }}
+                            onMouseEnter={e => {
+                                e.currentTarget.style.opacity = "1";
+                                e.currentTarget.style.background = "rgba(0,168,132,0.15)";
+                            }}
+                            onMouseLeave={e => {
+                                e.currentTarget.style.opacity = "0.8";
+                                e.currentTarget.style.background = "rgba(0,168,132,0.1)";
+                            }}
+                            title="O que esta pagina faz?"
+                        >
+                            <img 
+                                src="/help.png" 
+                                alt="?" 
+                                style={{ width: 18, height: 18 }} 
+                                onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                    const svg = e.currentTarget.parentElement?.querySelector('svg');
+                                    if (svg) (svg as any).style.display = 'block';
+                                }}
+                            />
+                            <HelpCircle size={18} color="var(--accent)" style={{ display: 'none' }} />
+                            <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "var(--accent)" }}>AJUDA</span>
+                        </button>
+
+                        <button 
+                            onClick={() => setTheme(t => t === "dark" ? "light" : "dark")} 
+                            className="btn btn-ghost"
+                            style={{ padding: 10, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center" }}
+                            title="Alternar Tema"
+                        >
+                            {theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -188,14 +230,61 @@ export function SuperAdmin({ token, onBack }: { token: string; onBack: () => voi
             </div>
 
             {/* Tab Content */}
-            <div style={{ animation: "fadeIn 0.2s ease-out" }}>
-                {tab === "tenants" && <TenantsTab onShowModalChange={() => { }} />}
-                {tab === "users" && <UsersTab />}
-                {tab === "instances" && <InstancesTab />}
-                {tab === "audit" && <AuditTab />}
-                {tab === "billing" && <BillingTab />}
-                {tab === "trash" && <TrashTab />}
-            </div>
+            {/* Help Overlay */}
+            {showHelp && (
+                <div style={{
+                    position: "fixed", top: 0, left: 0, width: "100%", height: "100%",
+                    background: "rgba(0,0,0,0.4)", backdropFilter: "blur(12px)",
+                    zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center",
+                    padding: 20
+                }} onClick={() => setShowHelp(false)}>
+                    <div style={{
+                        background: "var(--bg-secondary)", 
+                        borderRadius: 24, 
+                        border: "1px solid var(--border)",
+                        maxWidth: 600, 
+                        width: "100%", 
+                        padding: 40, 
+                        position: "relative",
+                        animation: "fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)", 
+                        boxShadow: "0 30px 60px rgba(0,0,0,0.5)",
+                        overflow: "hidden"
+                    }} onClick={e => e.stopPropagation()}>
+                        {/* Decorative element */}
+                        <div style={{ position: "absolute", top: -50, right: -50, width: 150, height: 150, background: "radial-gradient(circle, var(--accent) 0%, transparent 70%)", opacity: 0.1 }} />
+
+                        <button onClick={() => setShowHelp(false)} style={{ position: "absolute", top: 20, right: 20, background: "rgba(255,255,255,0.05)", border: "none", color: "var(--text-secondary)", cursor: "pointer", width: 36, height: 36, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            <X size={20} />
+                        </button>
+                        
+                        <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 25 }}>
+                            <div style={{ padding: 12, background: "rgba(0,168,132,0.15)", borderRadius: 16, color: "var(--accent)" }}>
+                                <HelpCircle size={28} />
+                            </div>
+                            <div>
+                                <h2 style={{ margin: 0, fontSize: "1.5rem", fontWeight: 800 }}>Admin Console</h2>
+                                <p style={{ margin: 0, color: "var(--text-secondary)", fontSize: "0.9rem" }}>Painel de Gestão Global</p>
+                            </div>
+                        </div>
+
+                        <div style={{ color: "var(--text-primary)", fontSize: "1.05rem", lineHeight: 1.7, fontWeight: 400 }}>
+                            <p>O <strong>Admin Console</strong> é a central de comando global do AltDesk, onde você gerencia toda a infraestrutura da plataforma.</p>
+                            <ul style={{ marginTop: 16, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 12 }}>
+                                <li><strong>Empresas:</strong> Gerencie os tenants (empresas) clientes, controle planos, validade e acesso.</li>
+                                <li><strong>Usuários:</strong> Controle total sobre as contas de operadores e administradores de cada empresa.</li>
+                                <li><strong>Instâncias:</strong> Monitore a conexão das instâncias do WhatsApp e status de comunicação.</li>
+                                <li><strong>Auditoria:</strong> Acompanhe logs detalhados de todas as ações críticas realizadas no sistema.</li>
+                                <li><strong>Faturamento:</strong> Visualize o status de pagamentos e integração com gateways (Asaas).</li>
+                                <li><strong>Lixeira:</strong> Recupere ou exclua permanentemente empresas e usuários removidos.</li>
+                            </ul>
+                        </div>
+                        
+                        <button onClick={() => setShowHelp(false)} className="btn btn-primary" style={{ marginTop: 35, width: "100%", height: 50, borderRadius: 15, fontSize: "1rem", fontWeight: 700 }}>
+                            Entendi perfeitamente
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
