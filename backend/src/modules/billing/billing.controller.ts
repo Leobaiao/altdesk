@@ -7,7 +7,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { validateBody } from "../../middleware/validateMw.js";
-import { authMw } from "../../mw.js";
+import { authMw, requireRole } from "../../mw.js";
 import * as billingService from "./billing.service.js";
 import { processWebhookEvent } from "./providers/asaas/asaas.webhook.js";
 import { logger } from "../../lib/logger.js";
@@ -63,30 +63,24 @@ router.get("/invoices", authMw, (async (req: any, res: any, next: any) => {
 }) as any);
 
 // Criar cliente de billing (Admin only)
-router.post("/customer", authMw, validateBody(z.object({
+router.post("/customer", authMw, requireRole("ADMIN"), validateBody(z.object({
     name: z.string(),
     email: z.string().email().optional(),
     mobilePhone: z.string().optional(),
     cpfCnpj: z.string().optional(),
 })), (async (req: any, res: any, next: any) => {
     try {
-        if (req.user.role !== "ADMIN" && req.user.role !== "SUPERADMIN") {
-            return res.status(403).json({ error: "Sem permissão" });
-        }
         const customer = await billingService.ensureBillingCustomer(req.user.tenantId, req.body);
         res.json(customer);
     } catch (err) { next(err); }
 }) as any);
 
 // Criar assinatura (Admin only)
-router.post("/subscribe", authMw, validateBody(z.object({
+router.post("/subscribe", authMw, requireRole("ADMIN"), validateBody(z.object({
     planCode: z.string(),
     billingType: z.enum(["BOLETO", "PIX", "CREDIT_CARD", "UNDEFINED"]).optional(),
 })), (async (req: any, res: any, next: any) => {
     try {
-        if (req.user.role !== "ADMIN" && req.user.role !== "SUPERADMIN") {
-            return res.status(403).json({ error: "Sem permissão" });
-        }
         const sub = await billingService.createBillingSubscription(
             req.user.tenantId,
             req.body.planCode,
@@ -97,11 +91,8 @@ router.post("/subscribe", authMw, validateBody(z.object({
 }) as any);
 
 // Cancelar assinatura (Admin only)
-router.delete("/subscription", authMw, (async (req: any, res: any, next: any) => {
+router.delete("/subscription", authMw, requireRole("ADMIN"), (async (req: any, res: any, next: any) => {
     try {
-        if (req.user.role !== "ADMIN" && req.user.role !== "SUPERADMIN") {
-            return res.status(403).json({ error: "Sem permissão" });
-        }
         await billingService.cancelBillingSubscription(req.user.tenantId);
         res.json({ ok: true, message: "Assinatura cancelada." });
     } catch (err) { next(err); }

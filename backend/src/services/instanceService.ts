@@ -192,7 +192,7 @@ export async function assignUsersToInstance(connectorId: string, userIds: string
             .query(`DELETE FROM altdesk.InstanceAssignment WHERE ConnectorId = @cid`);
 
         // 3. Insere novas
-        for (const uid of userIds) {
+        for (const uid of validUserIds) {
             await transaction.request()
                 .input("cid", connectorId)
                 .input("uid", uid)

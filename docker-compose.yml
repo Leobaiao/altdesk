@@ -6,12 +6,18 @@ services:
     user: root
     environment:
       - ACCEPT_EULA=Y
-      - MSSQL_SA_PASSWORD=Intamr17@
+      - MSSQL_SA_PASSWORD=${MSSQL_SA_PASSWORD:?Defina MSSQL_SA_PASSWORD no .env}
     ports:
       - "14333:1433"
     volumes:
       - mssql_data:/var/opt/mssql
       - ./backend/db:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -C -Q "SELECT 1" -b -o /dev/null || exit 1
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
     restart: always
 
   # Migração do Banco (executa e encerra)
@@ -19,16 +25,15 @@ services:
     image: mcr.microsoft.com/mssql-tools:latest
     container_name: altdesk_migrate
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     volumes:
       - ./backend/db:/scripts
     environment:
-      - SA_PASSWORD=Intamr17@
+      - SA_PASSWORD=${MSSQL_SA_PASSWORD:?Defina MSSQL_SA_PASSWORD no .env}
     entrypoint: >
       /bin/bash -c "
-        echo 'Aguardando SQL Server iniciar...';
-        sleep 20;
-        echo 'Executando migration 03 (roles/cpf/audit)...';
+        echo 'SQL Server healthy, executando migrations...';
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/03-migration-roles-cpf-audit.sql;
         echo 'Executando migration 04 (fix displayname)...';
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/04-fix-user-displayname.sql;
@@ -42,6 +47,8 @@ services:
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/08-trash-system.sql;
         echo 'Executando migration 09 (onboarding)...';
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/09-onboarding.sql;
+        echo 'Executando migration 11 (cpf sessions)...';
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/11-cpf-sessions.sql;
         echo 'Todas as migrations concluidas!';
       "
 
@@ -52,16 +59,17 @@ services:
       dockerfile: backend/Dockerfile
     container_name: altdesk_api
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     env_file:
       - ./backend/.env
     environment:
       PORT: 3002
-      DB_USER: sa
-      DB_PASS: "Intamr17@"
-      DB_NAME: AltDeskDev
+      DB_USER: ${DB_USER:-sa}
+      DB_PASS: ${MSSQL_SA_PASSWORD:?Defina MSSQL_SA_PASSWORD no .env}
+      DB_NAME: ${DB_NAME:-AltDeskDev}
       DB_HOST: db
-      JWT_SECRET: "Intamr17@"
+      JWT_SECRET: ${JWT_SECRET:?Defina JWT_SECRET no .env}
     ports:
       - "3002:3002"
     restart: always
@@ -78,6 +86,9 @@ services:
       - backend
     ports:
       - "80:80"
+      # - "443:443"  # Uncomment for production HTTPS
+    # volumes:
+    #   - ./ssl:/etc/nginx/ssl:ro  # Mount SSL certs for HTTPS
     restart: always
 
   # Admin Backend (Gestão de Empresas)
@@ -87,14 +98,15 @@ services:
       dockerfile: admin/backend/Dockerfile
     container_name: altdesk_admin_api
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     environment:
       PORT: 3002
-      DB_USER: sa
-      DB_PASS: "Intamr17@"
-      DB_NAME: AltDeskDev
+      DB_USER: ${DB_USER:-sa}
+      DB_PASS: ${MSSQL_SA_PASSWORD:?Defina MSSQL_SA_PASSWORD no .env}
+      DB_NAME: ${DB_NAME:-AltDeskDev}
       DB_HOST: db
-      JWT_SECRET: "Intamr17@"
+      JWT_SECRET: ${JWT_SECRET:?Defina JWT_SECRET no .env}
     ports:
       - "3003:3002"
     restart: always
@@ -111,6 +123,9 @@ services:
       - admin-backend
     ports:
       - "8080:80"
+      # - "8443:443"  # Uncomment for production HTTPS
+    # volumes:
+    #   - ./ssl:/etc/nginx/ssl:ro  # Mount SSL certs for HTTPS
     restart: always
 
 volumes:

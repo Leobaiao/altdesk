@@ -228,8 +228,17 @@ export function SuperAdmin({ token, onBack }: { token: string; onBack: () => voi
                     </button>
                 ))}
             </div>
-
+            
             {/* Tab Content */}
+            <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+                {tab === "tenants" && <TenantsTab onShowModalChange={setShowMetrics} />}
+                {tab === "users" && <UsersTab />}
+                {tab === "instances" && <InstancesTab />}
+                {tab === "audit" && <AuditTab />}
+                {tab === "billing" && <BillingTab />}
+                {tab === "trash" && <TrashTab />}
+            </div>
+
             {/* Help Overlay */}
             {showHelp && (
                 <div style={{

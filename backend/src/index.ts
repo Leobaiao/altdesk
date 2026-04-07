@@ -5,6 +5,7 @@ import http from "http";
 import { Server } from "socket.io";
 import { verifyToken } from "./auth.js";
 
+import { getPool } from "./db.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { apiLimiter } from "./middleware/rateLimiter.js";
 import { requestLogger } from "./middleware/requestLogger.js";
@@ -102,8 +103,25 @@ io.on("connection", (socket) => {
     );
   });
 
-  socket.on("conversation:join", (conversationId: string) => {
-    socket.join(conversationId);
+  socket.on("conversation:join", async (conversationId: string) => {
+    // ENFORCE: user can only join conversations that belong to their tenant
+    try {
+      const pool = await getPool();
+      const check = await pool.request()
+        .input("conversationId", conversationId)
+        .input("tenantId", user.tenantId)
+        .query("SELECT 1 FROM altdesk.Conversation WHERE ConversationId = @conversationId AND TenantId = @tenantId");
+      if (check.recordset.length > 0) {
+        socket.join(conversationId);
+      } else {
+        logger.warn(
+          { userId: user.userId, conversationId, tenantId: user.tenantId },
+          "[Socket] Unauthorized conversation join attempt"
+        );
+      }
+    } catch (err) {
+      logger.error({ err, conversationId }, "[Socket] Error verifying conversation access");
+    }
   });
 
   socket.on("conversation:leave", (conversationId: string) => socket.leave(conversationId));
@@ -159,22 +177,7 @@ app.use("/api/public", publicRouter);
 // Billing (inclui webhook público + rotas autenticadas)
 app.use("/api/billing", billingRouter);
 
-// Internal Demo Hook
-app.post("/api/demo/conversations/:id/messages", async (req, res, next) => {
-  try {
-    const conversationId = req.params.id;
-    const { text } = req.body;
-    io.to(conversationId).emit("message:new", {
-      conversationId,
-      senderExternalId: "demo",
-      text,
-      direction: "INTERNAL"
-    });
-    res.json({ ok: true });
-  } catch (err) {
-    next(err);
-  }
-});
+// Demo route removed — use the authenticated route at POST /api/conversations/demo/:id/messages instead
 
 // Global Error Handler (deve ser o último middleware)
 app.use(errorHandler);

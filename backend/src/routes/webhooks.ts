@@ -154,7 +154,7 @@ router.post("/whatsapp/:provider/:connectorId/*", async (req, res, next) => {
                 .query(`SELECT TOP 1 ContactId, Name FROM altdesk.Contact WHERE TenantId = @tenantId AND (Phone = @phone OR Phone LIKE '%' + @phone + '%')`);
             
             const hasContact = contactCheck.recordset.length > 0;
-            const hasPendingSession = getPendingCpfSession(inbound.externalUserId);
+            const hasPendingSession = await getPendingCpfSession(inbound.externalUserId);
 
             if (hasPendingSession || !hasContact) {
                 try {
@@ -301,6 +301,16 @@ router.post("/external/webchat/message", async (req, res, next) => {
         if (!connectorId) return res.status(400).json({ error: "Missing connectorId" });
 
         const connector = await loadConnector(connectorId);
+
+        // Verify API key if the connector has a WebhookSecret configured
+        if (connector.WebhookSecret) {
+            const apiKey = req.header("x-webchat-key");
+            if (!apiKey || apiKey !== connector.WebhookSecret) {
+                logger.warn({ connectorId }, "[Webhook] Webchat request with invalid or missing API key");
+                return res.status(401).json({ error: "Invalid or missing webchat API key" });
+            }
+        }
+
         const adapters = req.app.get("adapters");
         const adapter = adapters.webchat;
 

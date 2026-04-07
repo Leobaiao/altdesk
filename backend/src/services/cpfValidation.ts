@@ -1,17 +1,14 @@
 import { getPool } from "../db.js";
+import { logger } from "../lib/logger.js";
 
-/**
- * Estado de sessão para validação de CPF.
- * Armazena temporariamente conversas que estão aguardando CPF.
- * Em produção, pode ser substituído por Redis ou banco de dados.
- */
-const pendingCpfSessions = new Map<string, { tenantId: string; externalUserId: string; step: "AWAITING_CPF" | "AWAITING_NAME" | "AWAITING_EMAIL"; partialData: Record<string, any> }>();
+/** Session expiration in minutes — sessions older than this are ignored */
+const SESSION_TTL_MINUTES = 30;
 
 /**
  * Valida o formato do CPF (aceita com ou sem pontuação).
  */
 export function isValidCpfFormat(cpf: string): boolean {
-    const cleaned = cpf.replace(/[\.\-]/g, "");
+    const cleaned = cpf.replace(/[.\-]/g, "");
     if (cleaned.length !== 11 || /^(\d)\1+$/.test(cleaned)) return false;
 
     // Validação dos dígitos verificadores
@@ -35,7 +32,7 @@ export function isValidCpfFormat(cpf: string): boolean {
  */
 export async function findContactByCpf(tenantId: string, cpf: string) {
     const pool = await getPool();
-    const cleaned = cpf.replace(/[\.\-]/g, "");
+    const cleaned = cpf.replace(/[.\-]/g, "");
     const r = await pool.request()
         .input("tenantId", tenantId)
         .input("cpf", cleaned)
@@ -52,7 +49,7 @@ export async function findContactByCpf(tenantId: string, cpf: string) {
  */
 export async function findUserByCpf(tenantId: string, cpf: string) {
     const pool = await getPool();
-    const cleaned = cpf.replace(/[\.\-]/g, "");
+    const cleaned = cpf.replace(/[.\-]/g, "");
     const r = await pool.request()
         .input("tenantId", tenantId)
         .input("cpf", cleaned)
@@ -73,7 +70,7 @@ export async function createContactWithCpf(tenantId: string, data: { name: strin
         .input("tenantId", tenantId)
         .input("name", data.name)
         .input("phone", data.phone)
-        .input("cpf", data.cpf.replace(/[\.\-]/g, ""))
+        .input("cpf", data.cpf.replace(/[.\-]/g, ""))
         .input("email", data.email ?? null)
         .query(`
       INSERT INTO altdesk.Contact (TenantId, Name, Phone, CPF, Email)
@@ -83,41 +80,94 @@ export async function createContactWithCpf(tenantId: string, data: { name: strin
     return r.recordset[0].ContactId;
 }
 
-/**
- * Verifica se a sessão está pendente de CPF para um determinado externalUserId.
- */
-export function getPendingCpfSession(externalUserId: string) {
-    return pendingCpfSessions.get(externalUserId) ?? null;
+// ─── Session Management (Database-backed) ──────────────────────
+
+type CpfStep = "AWAITING_CPF" | "AWAITING_NAME" | "AWAITING_EMAIL";
+
+interface CpfSession {
+    tenantId: string;
+    externalUserId: string;
+    step: CpfStep;
+    partialData: Record<string, any>;
 }
 
 /**
- * Inicia uma sessão de validação de CPF.
+ * Verifica se a sessão está pendente de CPF para um determinado externalUserId.
+ * Ignora sessões expiradas (mais de SESSION_TTL_MINUTES minutos).
  */
-export function startCpfSession(externalUserId: string, tenantId: string) {
-    pendingCpfSessions.set(externalUserId, {
-        tenantId,
-        externalUserId,
-        step: "AWAITING_CPF",
-        partialData: {}
-    });
+export async function getPendingCpfSession(externalUserId: string): Promise<CpfSession | null> {
+    const pool = await getPool();
+    const r = await pool.request()
+        .input("externalUserId", externalUserId)
+        .input("ttlMinutes", SESSION_TTL_MINUTES)
+        .query(`
+            SELECT ExternalUserId, TenantId, Step, PartialDataJson
+            FROM altdesk.CpfSession
+            WHERE ExternalUserId = @externalUserId
+              AND DATEDIFF(MINUTE, UpdatedAt, SYSUTCDATETIME()) < @ttlMinutes
+        `);
+
+    if (r.recordset.length === 0) return null;
+
+    const row = r.recordset[0];
+    return {
+        tenantId: row.TenantId,
+        externalUserId: row.ExternalUserId,
+        step: row.Step as CpfStep,
+        partialData: row.PartialDataJson ? JSON.parse(row.PartialDataJson) : {},
+    };
+}
+
+/**
+ * Inicia uma sessão de validação de CPF (UPSERT).
+ */
+export async function startCpfSession(externalUserId: string, tenantId: string): Promise<void> {
+    const pool = await getPool();
+    await pool.request()
+        .input("externalUserId", externalUserId)
+        .input("tenantId", tenantId)
+        .input("step", "AWAITING_CPF")
+        .query(`
+            MERGE altdesk.CpfSession AS target
+            USING (SELECT @externalUserId AS ExternalUserId) AS source
+            ON target.ExternalUserId = source.ExternalUserId
+            WHEN MATCHED THEN
+                UPDATE SET TenantId = @tenantId, Step = @step, PartialDataJson = NULL, UpdatedAt = SYSUTCDATETIME()
+            WHEN NOT MATCHED THEN
+                INSERT (ExternalUserId, TenantId, Step, PartialDataJson)
+                VALUES (@externalUserId, @tenantId, @step, NULL);
+        `);
 }
 
 /**
  * Atualiza a sessão de CPF com dados parciais.
  */
-export function updateCpfSession(externalUserId: string, step: "AWAITING_CPF" | "AWAITING_NAME" | "AWAITING_EMAIL", data: Record<string, any>) {
-    const session = pendingCpfSessions.get(externalUserId);
-    if (session) {
-        session.step = step;
-        session.partialData = { ...session.partialData, ...data };
-    }
+export async function updateCpfSession(externalUserId: string, step: CpfStep, data: Record<string, any>): Promise<void> {
+    const pool = await getPool();
+
+    // Merge existing partial data with new data
+    const existing = await getPendingCpfSession(externalUserId);
+    const merged = { ...(existing?.partialData || {}), ...data };
+
+    await pool.request()
+        .input("externalUserId", externalUserId)
+        .input("step", step)
+        .input("partialDataJson", JSON.stringify(merged))
+        .query(`
+            UPDATE altdesk.CpfSession
+            SET Step = @step, PartialDataJson = @partialDataJson, UpdatedAt = SYSUTCDATETIME()
+            WHERE ExternalUserId = @externalUserId
+        `);
 }
 
 /**
  * Remove a sessão de CPF após conclusão.
  */
-export function clearCpfSession(externalUserId: string) {
-    pendingCpfSessions.delete(externalUserId);
+export async function clearCpfSession(externalUserId: string): Promise<void> {
+    const pool = await getPool();
+    await pool.request()
+        .input("externalUserId", externalUserId)
+        .query(`DELETE FROM altdesk.CpfSession WHERE ExternalUserId = @externalUserId`);
 }
 
 /**
@@ -130,10 +180,10 @@ export async function processCpfValidationFlow(
     phone: string,
     messageText: string
 ): Promise<{ response: string; completed: boolean; contactId?: string }> {
-    const session = getPendingCpfSession(externalUserId);
+    const session = await getPendingCpfSession(externalUserId);
 
     if (!session) {
-        startCpfSession(externalUserId, tenantId);
+        await startCpfSession(externalUserId, tenantId);
         return {
             response: "Olá, você está no helpdesk da nossa empresa. Por favor, digite seu CPF...\n(Se não souber, digite NÃO SEI).",
             completed: false
@@ -144,7 +194,7 @@ export async function processCpfValidationFlow(
         const cpfText = messageText.trim().toUpperCase();
         
         if (cpfText === "NÃO SEI" || cpfText === "NAO SEI") {
-            updateCpfSession(externalUserId, "AWAITING_NAME", { phone });
+            await updateCpfSession(externalUserId, "AWAITING_NAME", { phone });
             return {
                 response: "Sem problemas. Vamos criar um cadastro manual.\n📝 Por favor, informe seu *nome completo*:",
                 completed: false
@@ -162,7 +212,7 @@ export async function processCpfValidationFlow(
         // Verificar se já existe
         const existingContact = await findContactByCpf(tenantId, cpf);
         if (existingContact) {
-            clearCpfSession(externalUserId);
+            await clearCpfSession(externalUserId);
             return {
                 response: `✅ Identificamos seu cadastro, *${existingContact.Name}*!`,
                 completed: true,
@@ -173,7 +223,7 @@ export async function processCpfValidationFlow(
         // Verificar se é um usuário interno
         const existingUser = await findUserByCpf(tenantId, cpf);
         if (existingUser) {
-            clearCpfSession(externalUserId);
+            await clearCpfSession(externalUserId);
             return {
                 response: `✅ Olá! Você foi identificado como usuário do sistema (${existingUser.Email}). Como posso ajudá-lo?`,
                 completed: true
@@ -181,7 +231,7 @@ export async function processCpfValidationFlow(
         }
 
         // CPF não encontrado, pedir nome
-        updateCpfSession(externalUserId, "AWAITING_NAME", { cpf, phone });
+        await updateCpfSession(externalUserId, "AWAITING_NAME", { cpf, phone });
         return {
             response: "CPF não encontrado no sistema. Vamos criar seu cadastro.\n📝 Por favor, informe seu *nome completo*:",
             completed: false
@@ -197,7 +247,7 @@ export async function processCpfValidationFlow(
             };
         }
 
-        updateCpfSession(externalUserId, "AWAITING_EMAIL", { name });
+        await updateCpfSession(externalUserId, "AWAITING_EMAIL", { name });
         return {
             response: "📧 Por favor, informe seu *e-mail* (ou digite \"pular\" se não tiver):",
             completed: false
@@ -215,7 +265,7 @@ export async function processCpfValidationFlow(
             email
         });
 
-        clearCpfSession(externalUserId);
+        await clearCpfSession(externalUserId);
         return {
             response: `✅ Cadastro realizado com sucesso, *${session.partialData.name}*!`,
             completed: true,
@@ -224,7 +274,7 @@ export async function processCpfValidationFlow(
     }
 
     // Fallback – não deveria chegar aqui
-    clearCpfSession(externalUserId);
+    await clearCpfSession(externalUserId);
     return {
         response: "Ocorreu um erro no processo. Por favor, envie uma nova mensagem para recomeçar.",
         completed: true

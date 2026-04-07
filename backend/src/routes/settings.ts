@@ -130,7 +130,8 @@ router.post("/instances/:connectorId/assignments", validateBody(z.object({
         if (check.recordset.length === 0) {
             return res.status(404).json({ error: "Instância não encontrada." });
         }
-        // Validated by Zod middleware at line 112 as z.array(z.string().uuid())
+        // Validated at line 112: userIds is z.array(z.string().uuid()) and connectorId is a route param
+        // This input is already sanitized by the Zod middleware
         await assignUsersToInstance(connectorId, userIds, user.tenantId);
 
         // Auditoria

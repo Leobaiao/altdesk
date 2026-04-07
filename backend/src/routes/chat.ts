@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { getPool } from "../db.js";
-import { authMw } from "../mw.js";
+import { authMw, requireRole } from "../mw.js";
 import { validateBody } from "../middleware/validateMw.js";
 import { resolveConversationForInbound, saveInboundMessage, saveOutboundMessage, findOrCreateConversation, deleteConversation } from "../services/conversation.js";
 import { assignConversation } from "../services/queue.js";
@@ -100,14 +100,11 @@ router.post("/:id/reply", validateBody(z.object({ text: z.string().min(1) })), (
         const { text } = req.body;
         const user = req.user;
 
-        console.log(`[REPLY DEBUG] Starting reply to ${conversationId}`);
-
         const { allowed, tenantId } = await checkConversationAccess(user, conversationId);
         if (!allowed) {
             return res.status(403).json({ error: "Você não tem permissão para responder nesta conversa." });
         }
         
-        console.log(`[REPLY DEBUG] Access verified. Getting metadata...`);
         const metadata = await getReplyMetadata(conversationId, tenantId);
         if (!metadata) {
             return res.status(404).json({ error: "Conversa não encontrada ou sem canal externo" });
@@ -120,21 +117,18 @@ router.post("/:id/reply", validateBody(z.object({ text: z.string().min(1) })), (
             return res.status(400).json({ error: `Provider "${metadata.connector.Provider}" não suportado` });
         }
 
-        console.log(`[REPLY DEBUG] Adapters loaded, starting adapter.sendText...`);
         let externalMessageId: string | undefined;
         try {
             externalMessageId = await adapter.sendText(metadata.connector, metadata.externalUserId, text);
-            console.log(`[REPLY DEBUG] adapter.sendText finished successfully. ID: ${externalMessageId}`);
         } catch (adapterErr: any) {
-            console.error(`[REPLY DEBUG] adapter.sendText threw an error:`, adapterErr);
+            const { logger } = await import("../lib/logger.js");
+            logger.error({ err: adapterErr, conversationId, provider: metadata.provider }, "[Reply] Adapter sendText failed");
             return res.status(502).json({ 
                 error: `Erro ao enviar mensagem: falha na comunicação com o provedor (${metadata.provider}). Verifique as configurações de conexão ou a disponibilidade do serviço externo.` 
             });
         }
 
-        console.log(`[REPLY DEBUG] Starting saveOutboundMessage...`);
         const messageId = await saveOutboundMessage(user.tenantId || "", conversationId, text, externalMessageId);
-        console.log(`[REPLY DEBUG] saveOutboundMessage finished successfully. Local ID: ${messageId}`);
 
         const io = req.app.get("io");
         if (io) {
@@ -153,12 +147,9 @@ router.post("/:id/reply", validateBody(z.object({ text: z.string().min(1) })), (
                 timestamp: new Date().toISOString()
             });
         }
-        
-        console.log(`[REPLY DEBUG] Response OK via socket. Sending HTTP response.`);
 
         res.json({ ok: true, conversationId });
     } catch (error) {
-        console.error(`[REPLY DEBUG] Outer catch hit:`, error);
         next(error);
     }
 }) as any);
@@ -319,13 +310,8 @@ router.post("/:id/assign", validateBody(z.object({
     }
 }) as any);
 
-router.post("/:id/reassign-connector", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+router.post("/:id/reassign-connector", requireRole("ADMIN"), (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-        // Admin requirement handled internally or we could map requireRole middleware
-        if (req.user.role !== 'ADMIN' && req.user.role !== 'SUPERADMIN') {
-            return res.status(403).json({ error: "Forbidden" });
-        }
-
         const user = req.user;
         const conversationId = req.params.id;
 
