@@ -98,7 +98,13 @@ function LoginScreen({ onLogin }: { onLogin: (token: string, role: string) => vo
       localStorage.setItem("token", data.token);
       onLogin(data.token, data.role);
     } catch (err: any) {
-      setError(err.response?.data?.error || err.message);
+      if (!err.response) {
+        setError("Não foi possível conectar ao servidor. Verifique sua conexão ou tente novamente em instantes.");
+      } else if (err.response.status >= 500) {
+        setError("O servidor está temporariamente instável (Erro " + err.response.status + "). Por favor, aguarde um momento e tente novamente.");
+      } else {
+        setError(err.response?.data?.error || "Credenciais inválidas ou erro inesperado.");
+      }
     } finally {
       setLoading(false);
     }

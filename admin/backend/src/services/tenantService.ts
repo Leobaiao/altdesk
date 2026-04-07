@@ -8,7 +8,7 @@ import { hashPassword } from "../auth.js";
 export async function listTenants() {
     const pool = await getPool();
     const r = await pool.request().query(`
-    SELECT t.TenantId, t.Name, t.CreatedAt, 
+    SELECT t.TenantId, t.Name, t.CreatedAt, t.AccountStatus,
            s.IsActive, s.ExpiresAt, s.AgentsSeatLimit,
            bs.Status as BillingStatus,
            bs.NextDueDate as BillingNextDue,

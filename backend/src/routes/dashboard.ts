@@ -18,15 +18,15 @@ router.get("/stats", async (req, res, next) => {
         // ── Basic counters ────────────────────────────────────────
         const openRes = await pool.request()
             .input("tenantId", tenantId)
-            .query("SELECT COUNT(*) as count FROM altdesk.Conversation WHERE TenantId=@tenantId AND Status='OPEN'");
+            .query("SELECT COUNT(*) as count FROM altdesk.Conversation WHERE TenantId=@tenantId AND DeletedAt IS NULL AND Status='OPEN'");
 
         const resolvedRes = await pool.request()
             .input("tenantId", tenantId)
-            .query("SELECT COUNT(*) as count FROM altdesk.Conversation WHERE TenantId=@tenantId AND Status='RESOLVED'");
+            .query("SELECT COUNT(*) as count FROM altdesk.Conversation WHERE TenantId=@tenantId AND DeletedAt IS NULL AND Status='RESOLVED'");
 
         const queueRes = await pool.request()
             .input("tenantId", tenantId)
-            .query("SELECT COUNT(*) as count FROM altdesk.Conversation WHERE TenantId=@tenantId AND QueueId IS NOT NULL AND AssignedUserId IS NULL AND Status='OPEN'");
+            .query("SELECT COUNT(*) as count FROM altdesk.Conversation WHERE TenantId=@tenantId AND DeletedAt IS NULL AND QueueId IS NOT NULL AND AssignedUserId IS NULL AND Status='OPEN'");
 
         const msgsRes = await pool.request()
             .input("tenantId", tenantId)
@@ -47,6 +47,7 @@ router.get("/stats", async (req, res, next) => {
                 SELECT AVG(DATEDIFF(SECOND, CreatedAt, FirstResponseAt)) as avgSeconds
                 FROM altdesk.Conversation
                 WHERE TenantId = @tenantId
+                  AND DeletedAt IS NULL
                   AND FirstResponseAt IS NOT NULL
                   AND CreatedAt >= DATEADD(day, -30, GETUTCDATE())
             `);
@@ -58,6 +59,7 @@ router.get("/stats", async (req, res, next) => {
                 SELECT AVG(DATEDIFF(SECOND, CreatedAt, ClosedAt)) as avgSeconds
                 FROM altdesk.Conversation
                 WHERE TenantId = @tenantId
+                  AND DeletedAt IS NULL
                   AND ClosedAt IS NOT NULL
                   AND CreatedAt >= DATEADD(day, -30, GETUTCDATE())
             `);
@@ -70,6 +72,7 @@ router.get("/stats", async (req, res, next) => {
                        COUNT(CsatScore) as csatCount
                 FROM altdesk.Conversation
                 WHERE TenantId = @tenantId
+                  AND DeletedAt IS NULL
                   AND CsatScore IS NOT NULL
                   AND CreatedAt >= DATEADD(day, -30, GETUTCDATE())
             `);
@@ -84,6 +87,7 @@ router.get("/stats", async (req, res, next) => {
                     COUNT(CASE WHEN SlaStatus IS NOT NULL THEN 1 END) as total
                 FROM altdesk.Conversation
                 WHERE TenantId = @tenantId
+                  AND DeletedAt IS NULL
                   AND CreatedAt >= DATEADD(day, -30, GETUTCDATE())
             `);
 
@@ -106,6 +110,7 @@ router.get("/stats", async (req, res, next) => {
                 SELECT CAST(CreatedAt AS DATE) as day, COUNT(*) as count
                 FROM altdesk.Conversation
                 WHERE TenantId = @tenantId
+                  AND DeletedAt IS NULL
                   AND CreatedAt >= DATEADD(day, -7, GETUTCDATE())
                 GROUP BY CAST(CreatedAt AS DATE)
                 ORDER BY CAST(CreatedAt AS DATE)

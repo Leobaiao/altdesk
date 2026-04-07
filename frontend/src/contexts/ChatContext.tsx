@@ -14,6 +14,7 @@ type ChatContextType = {
     refreshConversations: () => void;
     typingUsers: Record<string, string>; // conversationId → userName
     emitTyping: (conversationId: string, isTyping: boolean) => void;
+    accountStatus: "TRIAL" | "ACTIVE" | null;
 };
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -27,6 +28,7 @@ export function ChatProvider({ children, token, onLogout }: { children: ReactNod
     const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
     const [typingUsers, setTypingUsers] = useState<Record<string, string>>({});
+    const [accountStatus, setAccountStatus] = useState<"TRIAL" | "ACTIVE" | null>(null);
 
     const emitTyping = (conversationId: string, isTyping: boolean) => {
         if (!socket) return;
@@ -72,6 +74,15 @@ export function ChatProvider({ children, token, onLogout }: { children: ReactNod
         setSocket(newSocket);
 
         refreshConversations();
+
+        // Buscar status da conta (Trial/Active)
+        api.get("/api/billing/subscription")
+            .then(res => {
+                if (res.data && res.data.AccountStatus) {
+                    setAccountStatus(res.data.AccountStatus);
+                }
+            })
+            .catch(console.error);
 
         newSocket.emit("tenant:join", tenantId);
 
@@ -192,7 +203,8 @@ export function ChatProvider({ children, token, onLogout }: { children: ReactNod
             setMessages,
             refreshConversations,
             typingUsers,
-            emitTyping
+            emitTyping,
+            accountStatus
         }}>
             {children}
         </ChatContext.Provider>

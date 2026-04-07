@@ -167,10 +167,19 @@ export async function getSubscriptionStatus(tenantId: string) {
     const result = await pool.request()
         .input("tenantId", tenantId)
         .query(`
-            SELECT bs.*, bp.Code AS PlanCode, bp.Name AS PlanName
-            FROM altdesk.BillingSubscription bs
-            JOIN altdesk.BillingPlan bp ON bp.PlanId = bs.PlanId
-            WHERE bs.TenantId = @tenantId AND bs.Provider = 'asaas'
+            SELECT 
+                t.AccountStatus,
+                bs.BillingSubscriptionId,
+                bs.Status,
+                bs.PaymentMethod,
+                bs.ValueCents,
+                bs.NextDueDate,
+                bp.Code AS PlanCode,
+                bp.Name AS PlanName
+            FROM altdesk.Tenant t
+            LEFT JOIN altdesk.BillingSubscription bs ON bs.TenantId = t.TenantId AND bs.Provider = 'asaas' AND bs.Status <> 'canceled'
+            LEFT JOIN altdesk.BillingPlan bp ON bp.PlanId = bs.PlanId
+            WHERE t.TenantId = @tenantId
             ORDER BY bs.CreatedAt DESC
         `);
     return result.recordset[0] || null;

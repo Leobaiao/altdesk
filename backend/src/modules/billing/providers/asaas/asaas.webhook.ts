@@ -80,7 +80,19 @@ export async function processWebhookEvent(payload: AsaasWebhookPayload): Promise
                 await upsertInvoice(pool, payment);
                 if (payment.subscription) {
                     await updateSubscriptionStatus(pool, payment.subscription, "active");
-                    await reactivateTenantIfSuspended(pool, payment.subscription);
+                    const tenantId = await reactivateTenantIfSuspended(pool, payment.subscription);
+                    
+                    // Se o tenant for TRIAL, ativa a conta oficial e limpa dados demo
+                    if (tenantId) {
+                        const tenantResult = await pool.request()
+                            .input("id", tenantId)
+                            .query("SELECT AccountStatus FROM altdesk.Tenant WHERE TenantId = @id");
+                        
+                        if (tenantResult.recordset[0]?.AccountStatus === 'TRIAL') {
+                            const { activateOfficialSubscription } = await import("../../../../services/subscriptionService.js");
+                            await activateOfficialSubscription(tenantId);
+                        }
+                    }
                 }
                 break;
 
@@ -223,7 +235,7 @@ async function updateSubscriptionStatus(pool: any, providerSubscriptionId: strin
         `);
 }
 
-async function reactivateTenantIfSuspended(pool: any, providerSubscriptionId: string) {
+async function reactivateTenantIfSuspended(pool: any, providerSubscriptionId: string): Promise<string | null> {
     // Find the tenant from the subscription
     const result = await pool.request()
         .input("provider", "asaas")
@@ -231,7 +243,7 @@ async function reactivateTenantIfSuspended(pool: any, providerSubscriptionId: st
         .query("SELECT TenantId FROM altdesk.BillingSubscription WHERE Provider = @provider AND ProviderSubscriptionId = @subId");
 
     const tenantId = result.recordset[0]?.TenantId;
-    if (!tenantId) return;
+    if (!tenantId) return null;
 
     // Reactivate the old Subscription table entry if needed
     await pool.request()
@@ -240,4 +252,6 @@ async function reactivateTenantIfSuspended(pool: any, providerSubscriptionId: st
             UPDATE altdesk.Subscription SET IsActive = 1
             WHERE TenantId = @tenantId AND IsActive = 0
         `);
+    
+    return tenantId;
 }

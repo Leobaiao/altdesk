@@ -15,6 +15,7 @@ interface Plan {
 interface Subscription {
   BillingSubscriptionId?: string;
   Status: string;
+  AccountStatus?: string;
   PlanCode?: string;
   PlanName?: string;
   ValueCents?: number;
@@ -177,6 +178,24 @@ export function Billing({ onBack }: { onBack: () => void }) {
             </div>
         }
       />
+
+      {/* Trial Warning Banner */}
+      {subscription?.AccountStatus === "TRIAL" && (
+        <div style={{
+          background: "rgba(255, 152, 0, 0.1)", border: "1px solid rgba(255, 152, 0, 0.3)",
+          borderRadius: 12, padding: "16px 20px", marginBottom: 24, display: "flex", alignItems: "center", gap: 16
+        }}>
+          <div style={{ background: "rgba(255, 152, 0, 0.2)", color: "#ff9800", padding: 10, borderRadius: 10 }}>
+            <Clock size={20} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 700, color: "#ff9800", fontSize: "0.95rem" }}>Período de Teste Ativo (Trial)</div>
+            <div style={{ color: "var(--text-secondary)", fontSize: "0.85rem" }}>
+              Você está explorando o AltDesk com dados de demonstração. Assine um plano para liberar todas as funcionalidades e começar a usar com seus dados reais.
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Current Subscription Card */}
       <div style={{
@@ -400,6 +419,22 @@ export function Billing({ onBack }: { onBack: () => void }) {
                   })}
                 </div>
               </div>
+
+              {/* Data Purge Warning explicitly for Trial users */}
+              {subscription?.AccountStatus === "TRIAL" && (
+                <div style={{
+                  padding: "14px 16px", borderRadius: 12, background: "rgba(234, 67, 53, 0.08)",
+                  border: "1px solid rgba(234, 67, 53, 0.2)", marginTop: 8
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--danger)", marginBottom: 6 }}>
+                    <AlertTriangle size={16} />
+                    <span style={{ fontWeight: 700, fontSize: "0.85rem" }}>AVISO DE LIMPEZA DE DADOS</span>
+                  </div>
+                  <p style={{ margin: 0, fontSize: "0.8rem", color: "var(--text-secondary)", lineHeight: 1.5 }}>
+                    Ao confirmar sua assinatura oficial, todos os <strong>dados de demonstração</strong> (mensagens, contatos fake e tickets de teste) serão <strong>apagados permanentemente</strong> para que você inicie sua conta limpa e pronta para uso real.
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Error */}

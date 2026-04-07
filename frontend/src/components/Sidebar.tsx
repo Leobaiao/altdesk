@@ -47,7 +47,7 @@ function getUserIdFromToken() {
 }
 
 export function Sidebar({ setView }: { setView: (view: any) => void }) {
-    const { conversations, selectedConversationId, setSelectedConversationId } = useChat();
+    const { conversations, selectedConversationId, setSelectedConversationId, accountStatus } = useChat();
     const token = localStorage.getItem("token");
     const role = useMemo(() => {
         if (!token) return "AGENT";
@@ -84,7 +84,22 @@ export function Sidebar({ setView }: { setView: (view: any) => void }) {
     return (
         <div className="conversation-list-panel">
             <div className="sidebar-header" style={{ padding: "10px 15px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <h2>Conversas</h2>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <h2 style={{ margin: 0 }}>Conversas</h2>
+                    {accountStatus === "TRIAL" && (
+                        <span style={{ 
+                            fontSize: "0.65rem", 
+                            background: "#ff9800", 
+                            color: "white", 
+                            padding: "2px 6px", 
+                            borderRadius: 4, 
+                            fontWeight: 800,
+                            letterSpacing: "0.5px"
+                        }}>
+                            TRIAL
+                        </span>
+                    )}
+                </div>
                 <div style={{ display: "flex", gap: 10 }}>
                     <button onClick={() => setView("CONTACTS")} title="Novo Chat" style={{ background: "none", border: "none", color: "var(--primary)", cursor: "pointer", display: "flex", alignItems: "center" }}>
                         <Plus size={20} color="#00a884" />

@@ -62,7 +62,7 @@ export async function listConversations(user: UserContext, limit: number = 50, o
     const pool = await getPool();
 
     // Se for AGENTE, vê apenas as dele OU unassigned (em fila)
-    let filterClause = "WHERE c.TenantId = @tenantId";
+    let filterClause = "WHERE c.TenantId = @tenantId AND c.DeletedAt IS NULL";
     let messageFilter = "WHERE Direction = 'OUT' AND TenantId = @tenantId";
 
     if (user.role === 'AGENT') {
@@ -79,7 +79,7 @@ export async function listConversations(user: UserContext, limit: number = 50, o
         )`;
     } else if (user.role === 'SUPERADMIN') {
         // SUPERADMIN vê todas as conversas de todos os tenants
-        filterClause = "WHERE 1=1";
+        filterClause = "WHERE c.DeletedAt IS NULL";
         messageFilter = "WHERE Direction = 'OUT'";
     }
 

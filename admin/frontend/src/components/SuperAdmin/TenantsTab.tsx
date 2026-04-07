@@ -19,6 +19,7 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
     const [showInactive, setShowInactive] = useState(false);
     const [instances, setInstances] = useState<any[]>([]);
     const [instancesLoading, setInstancesLoading] = useState(false);
+    const [statusFilter, setStatusFilter] = useState<"ALL" | "TRIAL" | "ACTIVE">("ALL");
 
     useEffect(() => {
         loadTenants();
@@ -109,7 +110,8 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
     const filteredTenants = tenants.filter(t => {
         const matchesSearch = !search || t.Name?.toLowerCase().includes(search.toLowerCase());
         const matchesActive = showInactive || t.IsActive;
-        return matchesSearch && matchesActive;
+        const matchesStatus = statusFilter === "ALL" || t.AccountStatus === statusFilter;
+        return matchesSearch && matchesActive && matchesStatus;
     });
 
     const isExpired = (expiresAt: string) => expiresAt && new Date(expiresAt) < new Date();
@@ -141,10 +143,28 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
                             }}
                         />
                     </div>
-                    <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12, fontSize: "0.8rem", color: "var(--text-secondary)", cursor: "pointer" }}>
-                        <input type="checkbox" checked={showInactive} onChange={e => setShowInactive(e.target.checked)} />
-                        Mostrar empresas inativas
-                    </label>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
+                        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.8rem", color: "var(--text-secondary)", cursor: "pointer" }}>
+                            <input type="checkbox" checked={showInactive} onChange={e => setShowInactive(e.target.checked)} />
+                            Mostrar empresas inativas
+                        </label>
+                        <div style={{ display: "flex", background: "var(--bg-primary)", padding: 4, borderRadius: 10, border: "1px solid var(--border)", gap: 2 }}>
+                            {["ALL", "TRIAL", "ACTIVE"].map(s => (
+                                <button
+                                    key={s}
+                                    onClick={() => setStatusFilter(s as any)}
+                                    style={{
+                                        flex: 1, padding: "4px 0", fontSize: "0.72rem", fontWeight: 700, borderRadius: 8,
+                                        border: "none", cursor: "pointer", transition: "all 0.2s",
+                                        background: statusFilter === s ? "var(--accent)" : "transparent",
+                                        color: statusFilter === s ? "#fff" : "var(--text-secondary)"
+                                    }}
+                                >
+                                    {s === "ALL" ? "TODAS" : s === "TRIAL" ? "TESTE" : "REAL"}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
                     <button
                         onClick={() => setShowCreateModal(true)}
                         className="btn btn-primary"
@@ -178,9 +198,14 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
                                         }}
                                         className={!activeItem ? "table-row-hover" : ""}
                                     >
-                                        <div style={{ overflow: "hidden" }}>
-                                            <div style={{ fontSize: "0.92rem", fontWeight: 600, color: activeItem ? "var(--accent)" : "var(--text-primary)", whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden" }}>
-                                                {t.Name}
+                                        <div style={{ overflow: "hidden", flex: 1 }}>
+                                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                                <div style={{ fontSize: "0.92rem", fontWeight: 600, color: activeItem ? "var(--accent)" : "var(--text-primary)", whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden" }}>
+                                                    {t.Name}
+                                                </div>
+                                                {t.AccountStatus === 'TRIAL' && (
+                                                    <span style={{ fontSize: "0.55rem", background: "rgba(255,165,0,0.15)", color: "orange", padding: "1px 4px", borderRadius: 4, fontWeight: 800 }}>TRIAL</span>
+                                                )}
                                             </div>
                                             <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", marginTop: 2 }}>{t.UserCount} usuários • {t.InstanceCount || 0} inst.</div>
                                         </div>
@@ -212,6 +237,11 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
                                     <span style={{ fontSize: "0.65rem", padding: "3px 8px", borderRadius: 12, background: selectedTenant.IsActive ? "rgba(0,168,132,0.15)" : "rgba(234,67,53,0.15)", color: selectedTenant.IsActive ? "var(--accent)" : "var(--danger)", textTransform: "uppercase", fontWeight: 700 }}>
                                         {selectedTenant.IsActive ? "Ativo" : "Inativo"}
                                     </span>
+                                    {selectedTenant.AccountStatus === 'TRIAL' && (
+                                        <span style={{ fontSize: "0.65rem", padding: "3px 8px", borderRadius: 12, background: "rgba(255,165,0,0.15)", color: "orange", textTransform: "uppercase", fontWeight: 700 }}>
+                                            Trial (Onboarding)
+                                        </span>
+                                    )}
                                 </h2>
                                 <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 4 }}>ID Global: {selectedTenant.TenantId}</div>
                             </div>

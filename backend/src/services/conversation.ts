@@ -111,7 +111,9 @@ export async function saveInboundMessage(inb: NormalizedInbound, conversationId:
       UPDATE altdesk.Conversation 
       SET LastMessageAt = SYSUTCDATETIME(),
           SlaDeadline = ISNULL(SlaDeadline, DATEADD(hour, 4, SYSUTCDATETIME())),
-          SlaStatus = CASE WHEN SlaStatus IS NULL OR SlaStatus = 'MET' THEN 'PENDING' ELSE SlaStatus END
+          SlaStatus = CASE WHEN SlaStatus IS NULL OR SlaStatus = 'MET' THEN 'PENDING' ELSE SlaStatus END,
+          DeletedAt = NULL,
+          Status = CASE WHEN Status = 'RESOLVED' THEN 'OPEN' ELSE Status END
       WHERE ConversationId=@conversationId;
     `);
 
@@ -302,11 +304,9 @@ export async function deleteConversation(tenantId: string, conversationId: strin
       .input("tenantId", tenantId)
       .input("conversationId", conversationId)
       .query(`
-        DELETE FROM altdesk.ConversationHistory WHERE ConversationId = @conversationId;
-        DELETE FROM altdesk.ConversationTag WHERE ConversationId = @conversationId;
-        DELETE FROM altdesk.Message WHERE ConversationId = @conversationId AND TenantId = @tenantId;
-        DELETE FROM altdesk.ExternalThreadMap WHERE ConversationId = @conversationId AND TenantId = @tenantId;
-        DELETE FROM altdesk.Conversation WHERE ConversationId = @conversationId AND TenantId = @tenantId;
+        UPDATE altdesk.Conversation 
+        SET DeletedAt = SYSUTCDATETIME() 
+        WHERE ConversationId = @conversationId AND TenantId = @tenantId;
       `);
     await transaction.commit();
   } catch (err) {
