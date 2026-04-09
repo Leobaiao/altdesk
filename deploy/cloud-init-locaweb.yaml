@@ -1,0 +1,98 @@
+#cloud-config
+# ═══════════════════════════════════════════════════
+# AltDesk — Cloud-Init para Locaweb Cloud (Ubuntu 22.04+)
+# Cole este conteúdo no campo "User Data / Cloud-Init"
+# ao criar a máquina virtual na Locaweb.
+# ═══════════════════════════════════════════════════
+
+# 1. Atualizar sistema
+package_update: true
+package_upgrade: true
+
+# 2. Pacotes essenciais
+packages:
+  - apt-transport-https
+  - ca-certificates
+  - curl
+  - gnupg
+  - lsb-release
+  - software-properties-common
+  - git
+  - ufw
+  - nginx
+  - certbot
+  - python3-certbot-nginx
+  - fail2ban
+  - htop
+  - unzip
+
+# 3. Criar usuário de deploy (mais seguro que usar root)
+users:
+  - default
+  - name: deploy
+    groups: sudo, docker
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    ssh_authorized_keys:
+      - "COLE_SUA_CHAVE_SSH_PUBLICA_AQUI"
+
+# 4. Comandos executados como root no primeiro boot
+runcmd:
+  # ── Firewall (UFW) ──
+  - ufw default deny incoming
+  - ufw default allow outgoing
+  - ufw allow OpenSSH
+  - ufw allow 'Nginx Full'
+  - ufw --force enable
+
+  # ── Fail2Ban (proteção contra brute-force SSH) ──
+  - systemctl enable fail2ban
+  - systemctl start fail2ban
+
+  # ── Docker Engine (repositório oficial) ──
+  - curl -fsSL https://get.docker.com -o /tmp/get-docker.sh
+  - sh /tmp/get-docker.sh
+  - systemctl enable docker
+  - systemctl start docker
+
+  # ── Docker Compose v2 (plugin oficial) ──
+  - mkdir -p /usr/local/lib/docker/cli-plugins
+  - curl -SL "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-$(uname -m)" -o /usr/local/lib/docker/cli-plugins/docker-compose
+  - chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+
+  # ── Adicionar o usuário deploy ao grupo docker ──
+  - usermod -aG docker deploy
+
+  # ── Estrutura de pastas do projeto ──
+  - mkdir -p /opt/altdesk
+  - chown -R deploy:deploy /opt/altdesk
+
+  # ── Configurar swap (2GB — SQL Server precisa de memória) ──
+  - fallocate -l 2G /swapfile
+  - chmod 600 /swapfile
+  - mkswap /swapfile
+  - swapon /swapfile
+  - echo '/swapfile none swap sw 0 0' | tee -a /etc/fstab
+
+  # ── Limpar o Nginx default e preparar para o proxy reverso ──
+  - rm -f /etc/nginx/sites-enabled/default
+
+  # ── Reiniciar Nginx ──
+  - systemctl restart nginx
+
+  # ── Log final ──
+  - echo "=== AltDesk Cloud-Init finalizado em $(date) ===" >> /var/log/altdesk-init.log
+
+# 5. Mensagem final no console
+final_message: |
+  ═══════════════════════════════════════════════════
+   AltDesk — Servidor configurado com sucesso!
+   
+   Próximos passos:
+   1. ssh deploy@SEU_IP
+   2. cd /opt/altdesk
+   3. git clone https://github.com/Leobaiao/altdesk.git .
+   4. cp deploy/.env.example .env && nano .env
+   5. docker compose -f deploy/docker-compose.prod.yml up -d --build
+   6. sudo certbot --nginx -d app.seudominio.com -d admin.seudominio.com
+  ═══════════════════════════════════════════════════

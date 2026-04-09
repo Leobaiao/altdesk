@@ -1,0 +1,127 @@
+services:
+  # Banco de Dados (Igual ao de desenvolvimento, mas sem mapear para fora da rede localhost)
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: altdesk_db_prod
+    user: root
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=${MSSQL_SA_PASSWORD}
+    ports:
+      # Expõe a porta 1433 apenas para localhost (127.0.0.1) por segurança
+      - "127.0.0.1:14333:1433"
+    volumes:
+      - mssql_data_prod:/var/opt/mssql
+      - ./backend/db:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -C -Q "SELECT 1" -b -o /dev/null || exit 1
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 45s
+    restart: always
+
+  # Migrador do Banco (Apenas roda quando solicitado ou atualizado)
+  db-migrate:
+    image: mcr.microsoft.com/mssql-tools:latest
+    container_name: altdesk_migrate_prod
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend/db:/scripts
+    environment:
+      - SA_PASSWORD=${MSSQL_SA_PASSWORD}
+    entrypoint: >
+      /bin/bash -c "
+        echo 'Runing script for SQL Server migrations in PROD...';
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/03-migration-roles-cpf-audit.sql;
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/04-fix-user-displayname.sql;
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/05-migration-subscription-fields.sql;
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/06-password-reset.sql;
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/07-billing-and-service-desk.sql;
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/08-trash-system.sql;
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/09-onboarding.sql;
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/11-cpf-sessions.sql;
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/13-tenant-status-and-tags.sql;
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/14-sp-purge-demo-data.sql;
+        echo 'Todas as migrations concluidas em PROD!';
+      "
+
+  # Backend API
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: altdesk_api_prod
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env # Usar um .env central para produção
+    environment:
+      PORT: 3002
+      DB_USER: ${DB_USER:-sa}
+      DB_PASS: ${MSSQL_SA_PASSWORD}
+      DB_NAME: ${DB_NAME:-AltDeskDev}
+      DB_HOST: db
+      JWT_SECRET: ${JWT_SECRET}
+    ports:
+      # Opcional, apenas para acesso local se o nginx host enviar para a web.
+      - "127.0.0.1:3002:3002"
+    restart: always
+
+  # Frontend Web Cliente (App)
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        - VITE_API_URL=${VITE_API_URL_APP}
+    container_name: altdesk_web_prod
+    depends_on:
+      - backend
+    ports:
+      # O Nginx no hospedeiro vai apontar para a 3000
+      - "127.0.0.1:3000:80"
+    restart: always
+
+  # Admin Backend
+  admin-backend:
+    build:
+      context: .
+      dockerfile: admin/backend/Dockerfile
+    container_name: altdesk_admin_api_prod
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      PORT: 3002
+      DB_USER: ${DB_USER:-sa}
+      DB_PASS: ${MSSQL_SA_PASSWORD}
+      DB_NAME: ${DB_NAME:-AltDeskDev}
+      DB_HOST: db
+      JWT_SECRET: ${JWT_SECRET}
+    ports:
+      - "127.0.0.1:3003:3002"
+    restart: always
+
+  # Admin Frontend Web
+  admin-frontend:
+    build:
+      context: .
+      dockerfile: admin/frontend/Dockerfile
+      args:
+        - VITE_API_URL=${VITE_API_URL_ADMIN}
+    container_name: altdesk_admin_web_prod
+    depends_on:
+      - admin-backend
+    ports:
+      # O Nginx hospedeiro apontará para a 3001
+      - "127.0.0.1:3001:80"
+    restart: always
+
+volumes:
+  mssql_data_prod:

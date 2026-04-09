@@ -1,0 +1,44 @@
+name: Deploy Locaweb Produção
+
+on:
+  push:
+    branches:
+      - main  # O deploy acontecerá apenas quando fizer push direto na main ou via PR
+
+jobs:
+  deploy:
+    name: Deploy to Locaweb VPS
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          # Pode usar senha ou chave SSH. É mais seguro usar chave (SSH_KEY).
+          # password: ${{ secrets.SSH_PASSWORD }}
+          key: ${{ secrets.SSH_KEY }}
+          port: 22
+          script: |
+            cd /opt/altdesk
+            echo "1. Baixando atualizações do Git..."
+            # Garante que vai sobrepor com o que estiver na branch main do repositório
+            git fetch --all
+            git reset --hard origin/main
+            
+            echo "2. Atualizando containers com Docker Compose..."
+            # Usa o docker-compose de produção e faz o build
+            # --build garante que os containers Node/React usem o código novo
+            # -d roda em background sem travar o actions
+            docker compose -f deploy/docker-compose.prod.yml up -d --build
+            
+            echo "3. Executando as automações de banco (migrations)..."
+            # Inicia o container de db-migrate manualmente para plugar as novas alterações do banco
+            docker compose -f deploy/docker-compose.prod.yml up db-migrate
+            
+            echo "4. Deploy concluído!"
+            docker compose -f deploy/docker-compose.prod.yml ps
