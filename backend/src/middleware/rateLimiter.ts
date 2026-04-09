@@ -24,7 +24,7 @@ export const onboardingLimiter = rateLimit({
 // Moderado para suportar picos de mensagens
 export const webhookLimiter = rateLimit({
     windowMs: 1 * 60 * 1000, // 1 minuto
-    limit: 100, // Limite de 100 requisições por IP
+    limit: 2000, // Limite de 2000 requisições por minuto (essencial para sync de contatos)
     message: { error: "Limite de processamento de webhooks excedido." },
     standardHeaders: true,
     legacyHeaders: false,
@@ -34,7 +34,7 @@ export const webhookLimiter = rateLimit({
 // Proteção genérica contra abusos
 export const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutos
-    limit: 500, // Limite de 500 requisições
+    limit: 5000, // Limite de 5000 requisições (mais generoso para bots ativos)
     message: { error: "Limite de requisições excedido. Tente novamente mais tarde." },
     standardHeaders: true,
     legacyHeaders: false,

@@ -176,7 +176,7 @@ BEGIN
     VALUES
     (@tenant_id, CONCAT('agente.exemplo.', @prefix, '@demo.local'),
      -- Password '123456' hash
-     CAST('$2b$12$twjUYsHwk21CmfIfkUNkwOnW3JyDvJmcWMZkj62WqRcLjkpOHG.Xe' AS VARBINARY(MAX)), 'AGENT', 'Agente Exemplo', 'Agente Exemplo', 1, @now);
+     CAST('$2b$10$B.10oi63pO.7yjwuOdD4a.y8irlF3yI0uIBBnhvXOp//gBtdKr/P.' AS VARBINARY(MAX)), 'AGENT', 'Agente Exemplo', 'Agente Exemplo', 1, @now);
 
     -- 5 Contatos
     INSERT INTO altdesk.Contact (TenantId, Name, Phone, Email, Tags, CreatedAt)

@@ -8,13 +8,21 @@ import { listQueues, distributeConversation } from "../services/queue.js";
 import { logger } from "../lib/logger.js";
 import { writeAuditLog } from "../services/auditLog.js";
 
-const router = Router();
+const router = Router({ caseSensitive: false, strict: false });
 router.use(webhookLimiter);
 
-router.post("/whatsapp/:provider/:connectorId/*", async (req, res, next) => {
+router.post("/whatsapp/:provider/:connectorId*", async (req, res, next) => {
+    logger.info({ url: req.originalUrl, params: req.params, body: req.body }, "[Webhook DEBUG] Captured Request");
     try {
         const provider = String(req.params.provider).toLowerCase();
-        const connectorId = req.params.connectorId;
+        // Extract connectorId from the potentially greedy parameter (Express maps :name* to req.params['connectorId*'])
+        const rawId = (req.params as any)["connectorId*"] || (req.params as any)["connectorId"] || "";
+        const connectorId = rawId.startsWith('/') ? rawId.substring(1).split('/')[0] : rawId.split('/')[0];
+
+        if (!connectorId) {
+             logger.warn({ url: req.originalUrl }, "[Webhook] Missing connectorId in URL");
+             return res.status(400).json({ error: "Missing connectorId" });
+        }
 
         const connector = await loadConnector(connectorId);
 

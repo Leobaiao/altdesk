@@ -152,6 +152,7 @@ io.on("connection", (socket) => {
 });
 
 // --- API ROUTES ---
+app.use("/api/webhooks", webhooksRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/onboarding", onboardingRouter);
 app.use("/api/profile", profileRouter);
@@ -170,8 +171,6 @@ app.use("/api/knowledge", knowledgeRouter);
 app.use("/api/business-hours", businessHoursRouter);
 app.use("/api/reports", reportsRouter);
 
-// Webhooks
-app.use("/api", webhooksRouter);
 app.use("/api/public", publicRouter);
 
 // Billing (inclui webhook público + rotas autenticadas)

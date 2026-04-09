@@ -561,8 +561,18 @@ router.post("/instances/:connectorId/set-webhook", validateBody(z.object({
             return res.status(400).json({ error: `Provider "${connector.Provider}" não suporta configuração automática de webhook.` });
         }
 
-        webhookBaseUrl = typeof webhookBaseUrl === 'string' ? webhookBaseUrl.replace(/\/$/, '') : "";
+        webhookBaseUrl = (typeof webhookBaseUrl === 'string' && webhookBaseUrl.length > 0) 
+            ? webhookBaseUrl.replace(/\/$/, '') 
+            : `${req.protocol}://${req.get('host')}`;
+        
+        // If we're on the standard ports (like 8080 or behind nginx), we need to ensure the URL points to the main API
+        // For production on vps65855, we can assume it should be port 80 (implicitly) unless specified
+        if (webhookBaseUrl.includes(':8080')) {
+            webhookBaseUrl = webhookBaseUrl.replace(':8080', ''); // Main API is usually behind nginx on port 80
+        }
+
         const fullWebhookUrl = `${webhookBaseUrl}/api/webhooks/whatsapp/${connector.Provider}/${connectorId}`;
+        logger.info({ connectorId, fullWebhookUrl }, "[Admin] Auto-generating webhook URL");
 
         await adapter.setWebhook(connector, {
             url: fullWebhookUrl,
