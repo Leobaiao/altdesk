@@ -35,6 +35,11 @@ services:
     entrypoint: >
       /bin/bash -c "
         echo 'Runing script for SQL Server migrations in PROD...';
+        echo 'Step 1: Creating database and tables...';
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d master -i /scripts/01-init.sql;
+        echo 'Step 2: Inserting seed data...';
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/02-seed.sql;
+        echo 'Step 3: Running migrations...';
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/03-migration-roles-cpf-audit.sql;
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/04-fix-user-displayname.sql;
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/05-migration-subscription-fields.sql;
@@ -42,7 +47,9 @@ services:
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/07-billing-and-service-desk.sql;
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/08-trash-system.sql;
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/09-onboarding.sql;
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/10-instance-assignment.sql;
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/11-cpf-sessions.sql;
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/12-soft-delete-conversations.sql;
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/13-tenant-status-and-tags.sql;
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/14-sp-purge-demo-data.sql;
         echo 'Todas as migrations concluidas em PROD!';

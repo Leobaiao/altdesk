@@ -34,7 +34,7 @@ users:
     shell: /bin/bash
     sudo: ALL=(ALL) NOPASSWD:ALL
     ssh_authorized_keys:
-      - "COLE_SUA_CHAVE_SSH_PUBLICA_AQUI"
+      - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPaZ+PYybp2Raovwf2yMCkNuZQq8jTRqP3nQL1bLqKCO admin@altdesk"
 
 # 4. Comandos executados como root no primeiro boot
 runcmd:
