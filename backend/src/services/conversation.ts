@@ -94,7 +94,7 @@ export async function resolveConversationForInbound(inb: NormalizedInbound, conn
 
 export async function saveInboundMessage(inb: NormalizedInbound, conversationId: string) {
   const pool = await getPool();
-  await pool.request()
+    const result = await pool.request()
     .input("tenantId", inb.tenantId)
     .input("conversationId", conversationId)
     .input("senderExternalId", inb.externalUserId)
@@ -106,6 +106,7 @@ export async function saveInboundMessage(inb: NormalizedInbound, conversationId:
     .input("payload", JSON.stringify(inb.raw))
     .query(`
       INSERT INTO altdesk.Message (TenantId, ConversationId, SenderExternalId, Direction, Body, MediaType, MediaUrl, ExternalMessageId, PayloadJson)
+      OUTPUT INSERTED.MessageId
       VALUES (@tenantId, @conversationId, @senderExternalId, @direction, @body, @mediaType, @mediaUrl, @externalMessageId, @payload);
 
       UPDATE altdesk.Conversation 
@@ -117,6 +118,8 @@ export async function saveInboundMessage(inb: NormalizedInbound, conversationId:
       WHERE ConversationId=@conversationId;
     `);
 
+  const messageId = result.recordset[0]?.MessageId;
+
   // Registrar interação no histórico
   await recordConversationHistory({
     tenantId: inb.tenantId,
@@ -124,6 +127,8 @@ export async function saveInboundMessage(inb: NormalizedInbound, conversationId:
     action: "REPLIED",
     metadata: { direction: "IN", mediaType: inb.mediaType || "text" }
   });
+
+  return messageId;
 }
 
 /**

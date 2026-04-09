@@ -139,31 +139,50 @@ export function ChatProvider({ children, token, onLogout }: { children: ReactNod
         const recentMsgIds = new Set<string>();
 
         const onNew = (m: any) => {
+            // Safe fallback for window.crypto.randomUUID in non-SSL environments
+            const generateId = () => {
+                if (typeof window !== 'undefined' && window.crypto && window.crypto.randomUUID) {
+                    return window.crypto.randomUUID();
+                }
+                return `temp-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+            };
+
             // If message is for THIS conversation, append it
             if (m.conversationId === selectedConversationId) {
-                setMessages((prev) => [
-                    ...prev.filter(msg => msg.MessageId !== m.MessageId), // Deduplication just in case
-                    {
-                        MessageId: m.MessageId || crypto.randomUUID(),
-                        ExternalMessageId: m.ExternalMessageId,
-                        Body: m.text,
-                        Direction: m.direction ?? "IN",
-                        SenderExternalId: m.senderExternalId ?? "",
-                        MediaType: m.mediaType,
-                        MediaUrl: m.mediaUrl,
-                        CreatedAt: new Date().toISOString(),
-                    },
-                ]);
+                setMessages((prev) => {
+                    if (!prev) return [];
+                    // Deduplication based on real MessageId or ExternalMessageId
+                    const exists = prev.some(msg => 
+                        (m.MessageId && msg.MessageId === m.MessageId) || 
+                        (m.ExternalMessageId && msg.ExternalMessageId === m.ExternalMessageId)
+                    );
+                    if (exists) return prev;
+
+                    return [
+                        ...prev,
+                        {
+                            MessageId: m.MessageId || generateId(),
+                            ExternalMessageId: m.ExternalMessageId,
+                            Body: m.text || m.Body || `[${m.mediaType || 'media'}]`,
+                            Direction: m.direction || m.Direction || "IN",
+                            SenderExternalId: m.senderExternalId || m.SenderExternalId || "",
+                            MediaType: m.mediaType || m.MediaType,
+                            MediaUrl: m.mediaUrl || m.MediaUrl,
+                            CreatedAt: m.CreatedAt || new Date().toISOString(),
+                        },
+                    ];
+                });
             }
 
             // Atualiza preview da sidebar
-            setConversations((prev) =>
-                prev.map((c) =>
+            setConversations((prev) => {
+                if (!prev) return [];
+                return prev.map((c) =>
                     c.ConversationId === m.conversationId
-                        ? { ...c, LastMessageAt: new Date().toISOString(), UnreadCount: 0 }
+                        ? { ...c, LastMessageAt: new Date().toISOString(), UnreadCount: (c.UnreadCount || 0) + (selectedConversationId === m.conversationId ? 0 : 1) }
                         : c
-                )
-            );
+                );
+            });
         };
 
         const onStatusUpdate = (data: any) => {

@@ -127,7 +127,7 @@ router.post("/whatsapp/:provider/:connectorId*", async (req, res, next) => {
         if (!inbound) return res.status(200).send("ignored");
 
         const conversationId = await resolveConversationForInbound(inbound, connector.ConnectorId, connector.ChannelId);
-        await saveInboundMessage(inbound, conversationId);
+        const messageId = await saveInboundMessage(inbound, conversationId);
 
         // --- Business Hours Check ---
         const withinHours = await isWithinBusinessHours(inbound.tenantId);
@@ -227,12 +227,14 @@ router.post("/whatsapp/:provider/:connectorId*", async (req, res, next) => {
         // Emite evento de nova mensagem para o frontend
         if (io) {
             emitConversationEvent(io, inbound.tenantId, conversationId, "message:new", {
+                MessageId: messageId,
                 conversationId,
                 senderExternalId: inbound.externalUserId,
                 text: inbound.text ?? `[${inbound.mediaType}]`,
                 mediaType: inbound.mediaType,
                 mediaUrl: inbound.mediaUrl,
-                direction: "IN"
+                direction: "IN",
+                CreatedAt: new Date().toISOString()
             });
 
             emitConversationEvent(io, inbound.tenantId, conversationId, "conversation:updated", {
