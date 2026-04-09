@@ -6,6 +6,10 @@
 USE AltDeskDev;
 GO
 
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+GO
+
 -- ----------------------------------------
 -- 1. altdesk.Role – tabela de funções
 -- ----------------------------------------

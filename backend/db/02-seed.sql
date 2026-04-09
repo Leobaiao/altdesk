@@ -20,7 +20,7 @@ DECLARE @UserId UNIQUEIDENTIFIER = '99999999-9999-9999-9999-999999999999';
 IF NOT EXISTS (SELECT * FROM altdesk.[User] WHERE Email = 'admin@teste.com')
 BEGIN
     INSERT INTO altdesk.[User] (UserId, TenantId, Email, PasswordHash, Role, IsActive)
-    VALUES (@UserId, @TenantId, 'admin@teste.com', 0x__PASSWORD_HASH__, 'ADMIN', 1);
+    VALUES (@UserId, @TenantId, 'admin@teste.com', CAST('$2a$10$8v5Z2s1uRIdD6xHw5/s49eR9E2cM5n3K/Qv377oQ6r5/63Q0Yp.vG' AS VARBINARY(MAX)), 'ADMIN', 1);
 END
 
 -- 3.1 Usuário SuperAdmin (Global)
@@ -28,7 +28,7 @@ DECLARE @SA_UserId UNIQUEIDENTIFIER = '88888888-8888-8888-8888-888888888888';
 IF NOT EXISTS (SELECT * FROM altdesk.[User] WHERE Email = 'superadmin@teste.com')
 BEGIN
     INSERT INTO altdesk.[User] (UserId, TenantId, Email, PasswordHash, Role, IsActive)
-    VALUES (@SA_UserId, @TenantId, 'superadmin@teste.com', 0x__PASSWORD_HASH__, 'SUPERADMIN', 1);
+    VALUES (@SA_UserId, @TenantId, 'superadmin@teste.com', CAST('$2a$10$8v5Z2s1uRIdD6xHw5/s49eR9E2cM5n3K/Qv377oQ6r5/63Q0Yp.vG' AS VARBINARY(MAX)), 'SUPERADMIN', 1);
 END
 
 -- 4. Channel & Connector
