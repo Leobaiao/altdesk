@@ -15,11 +15,11 @@ services:
       - mssql_data_prod:/var/opt/mssql
       - ../backend/db:/docker-entrypoint-initdb.d
     healthcheck:
-      test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -C -Q "SELECT 1" -b -o /dev/null || exit 1
-      interval: 15s
-      timeout: 10s
-      retries: 10
-      start_period: 45s
+      test: ["CMD-SHELL", "/bin/bash -c ': > /dev/tcp/127.0.0.1/1433'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     restart: always
 
   # Migrador do Banco (Apenas roda quando solicitado ou atualizado)
@@ -37,23 +37,23 @@ services:
       /bin/bash -c "
         echo 'Runing script for SQL Server migrations in PROD...';
         echo 'Step 1: Creating database and tables...';
-        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d master -i /scripts/01-init.sql;
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$MSSQL_SA_PASSWORD -C -d master -i /scripts/01-init.sql;
         echo 'Step 2: Inserting seed data...';
-        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/02-seed.sql;
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$MSSQL_SA_PASSWORD -C -d AltDeskDev -i /scripts/02-seed.sql;
         echo 'Step 3: Running migrations...';
-        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/03-migration-roles-cpf-audit.sql;
-        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/04-fix-user-displayname.sql;
-        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/05-migration-subscription-fields.sql;
-        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/06-password-reset.sql;
-        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/07-billing-and-service-desk.sql;
-        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/08-trash-system.sql;
-        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/09-onboarding.sql;
-        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/10-instance-assignment.sql;
-        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/11-cpf-sessions.sql;
-        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/12-soft-delete-conversations.sql;
-        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/13-tenant-status-and-tags.sql;
-        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/14-sp-purge-demo-data.sql;
-        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/15-missing-features-fields.sql;
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$MSSQL_SA_PASSWORD -C -d AltDeskDev -i /scripts/03-migration-roles-cpf-audit.sql;
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$MSSQL_SA_PASSWORD -C -d AltDeskDev -i /scripts/04-fix-user-displayname.sql;
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$MSSQL_SA_PASSWORD -C -d AltDeskDev -i /scripts/05-migration-subscription-fields.sql;
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$MSSQL_SA_PASSWORD -C -d AltDeskDev -i /scripts/06-password-reset.sql;
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$MSSQL_SA_PASSWORD -C -d AltDeskDev -i /scripts/07-billing-and-service-desk.sql;
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$MSSQL_SA_PASSWORD -C -d AltDeskDev -i /scripts/08-trash-system.sql;
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$MSSQL_SA_PASSWORD -C -d AltDeskDev -i /scripts/09-onboarding.sql;
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$MSSQL_SA_PASSWORD -C -d AltDeskDev -i /scripts/10-instance-assignment.sql;
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$MSSQL_SA_PASSWORD -C -d AltDeskDev -i /scripts/11-cpf-sessions.sql;
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$MSSQL_SA_PASSWORD -C -d AltDeskDev -i /scripts/12-soft-delete-conversations.sql;
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$MSSQL_SA_PASSWORD -C -d AltDeskDev -i /scripts/13-tenant-status-and-tags.sql;
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$MSSQL_SA_PASSWORD -C -d AltDeskDev -i /scripts/14-sp-purge-demo-data.sql;
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$MSSQL_SA_PASSWORD -C -d AltDeskDev -i /scripts/15-missing-features-fields.sql;
         echo 'Todas as migrations concluidas em PROD!';
       "
 
