@@ -112,7 +112,7 @@ export async function getBusinessExceptions(tenantId: string) {
     const r = await pool.request()
         .input("tenantId", tenantId)
         .query(`
-            SELECT ExceptionId, [Date], Description, IsOpen, 
+            SELECT ExceptionId, CONVERT(VARCHAR(10), [Date], 120) as [Date], Description, IsOpen, 
                    CONVERT(VARCHAR(5), StartTime, 108) as StartTime, 
                    CONVERT(VARCHAR(5), EndTime, 108) as EndTime
             FROM altdesk.BusinessDayException

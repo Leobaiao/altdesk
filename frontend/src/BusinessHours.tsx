@@ -277,7 +277,15 @@ export function BusinessHours({ onBack }: Props) {
                                 }}>
                                     <div>
                                         <div style={{ fontWeight: 700, fontSize: "0.9rem" }}>
-                                            {new Date(e.Date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}
+                                            {(() => {
+                                                try {
+                                                    const dateStr = e.Date?.includes('T') ? e.Date.split('T')[0] : e.Date;
+                                                    const d = new Date(dateStr + 'T12:00:00');
+                                                    return isNaN(d.getTime()) ? 'Data Inválida' : d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' });
+                                                } catch (err) {
+                                                    return 'Data Errada';
+                                                }
+                                            })()}
                                         </div>
                                         <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
                                             {e.Description || 'Exceção'} • <span style={{ color: e.IsOpen ? "var(--accent)" : "var(--danger)", fontWeight: 600 }}>

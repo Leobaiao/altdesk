@@ -33,6 +33,7 @@ import tagsRouter from "./routes/tags.js";
 import knowledgeRouter from "./routes/knowledge.js";
 import businessHoursRouter from "./routes/business-hours.js";
 import publicRouter from "./routes/public.js";
+import auditRouter from "./routes/auditLog.js";
 import { startSlaWorker } from "./services/slaService.js";
 import reportsRouter from "./routes/reports.js";
 import billingRouter from "./modules/billing/billing.controller.js";
@@ -171,6 +172,7 @@ app.use("/api/roles", rolesRouter);
 app.use("/api/tags", tagsRouter);
 app.use("/api/knowledge", knowledgeRouter);
 app.use("/api/business-hours", businessHoursRouter);
+app.use("/api/audit", auditRouter);
 app.use("/api/reports", reportsRouter);
 
 app.use("/api/public", publicRouter);

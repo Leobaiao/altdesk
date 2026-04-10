@@ -15,6 +15,7 @@ import { TagsSettings } from "./TagsSettings";
 import { KnowledgeBase } from "./KnowledgeBase";
 import { BusinessHours } from "./BusinessHours";
 import { Billing } from "./Billing";
+import { AuditLogs } from "./AuditLogs";
 import { Tag as TagIcon, Book, Clock, BarChart2, CreditCard } from "lucide-react";
 
 // Novas importações do refactoring
@@ -302,6 +303,7 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
             <Route path="/tickets" element={<Tickets token={token} onBack={() => navigate("/chat")} role={role || 'AGENT'} />} />
             <Route path="/reports" element={<Reports onBack={() => navigate("/chat")} />} />
             <Route path="/billing" element={<Billing onBack={() => navigate("/settings")} />} />
+            <Route path="/audit" element={<AuditLogs onBack={() => navigate("/settings")} />} />
 
             <Route path="*" element={<Navigate to="/chat" replace />} />
           </Routes>

@@ -14,7 +14,7 @@ export async function listQueues(tenantId: string): Promise<Queue[]> {
     .input("tenantId", tenantId)
     .query(`
       SELECT * FROM altdesk.Queue
-      WHERE TenantId = @tenantId AND IsActive = 1
+      WHERE TenantId = @tenantId AND DeletedAt IS NULL
       ORDER BY Name ASC
     `);
   return result.recordset as Queue[];
@@ -37,7 +37,7 @@ export async function deleteQueue(tenantId: string, queueId: string) {
     .input("tenantId", tenantId)
     .input("queueId", queueId)
     .query(`
-      UPDATE altdesk.Queue SET IsActive = 0
+      UPDATE altdesk.Queue SET DeletedAt = SYSUTCDATETIME(), IsActive = 0
       WHERE TenantId = @tenantId AND QueueId = @queueId
     `);
 }

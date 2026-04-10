@@ -825,6 +825,7 @@ router.get("/audit-logs", (async (req: AuthenticatedRequest, res: Response, next
         const r = await request.query(`
             SELECT TOP (@limit)
                 al.LogId, al.Action, al.TargetTable, al.TargetId,
+                al.BeforeValues, al.AfterValues,
                 al.IpAddress, al.CreatedAt,
                 u.DisplayName AS UserName, u.Email AS UserEmail,
                 t.Name AS TenantName

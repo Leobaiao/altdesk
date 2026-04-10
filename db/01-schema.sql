@@ -238,14 +238,16 @@ GO
 -- Audit Logs Table
 CREATE TABLE altdesk.AuditLog (
     AuditId UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID() PRIMARY KEY,
-    TenantId UNIQUEIDENTIFIER NOT NULL,
+    TenantId UNIQUEIDENTIFIER NULL,
     UserId UNIQUEIDENTIFIER NULL,
     Action NVARCHAR(50) NOT NULL, -- CREATE, UPDATE, DELETE, SOFT_DELETE
-    Entity NVARCHAR(50) NOT NULL, -- User, Tenant, Message, etc.
-    EntityId NVARCHAR(100) NOT NULL, -- Can be GUID or String ID
-    PreviousData NVARCHAR(MAX) NULL, -- JSON Representation
-    NewData NVARCHAR(MAX) NULL, -- JSON Representation
+    TargetTable NVARCHAR(50) NOT NULL, -- User, Tenant, Message, etc.
+    TargetId NVARCHAR(100) NOT NULL, -- Can be GUID or String ID
+    BeforeValues NVARCHAR(MAX) NULL, -- JSON Representation
+    AfterValues NVARCHAR(MAX) NULL, -- JSON Representation
     MessageId UNIQUEIDENTIFIER NULL, -- If related to a specific chat message
+    IpAddress NVARCHAR(50) NULL,
+    UserAgent NVARCHAR(MAX) NULL,
     CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
 );
 GO

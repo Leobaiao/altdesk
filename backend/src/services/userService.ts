@@ -29,6 +29,30 @@ export async function listAllUsers() {
 }
 
 /**
+ * Exclui logicamente um usuário e seu agente (Soft Delete)
+ */
+export async function deleteUser(userId: string) {
+    const pool = await getPool();
+    const transaction = new sql.Transaction(pool);
+    await transaction.begin();
+
+    try {
+        await transaction.request()
+            .input("id", userId)
+            .query("UPDATE altdesk.[User] SET DeletedAt = SYSUTCDATETIME(), IsActive = 0 WHERE UserId = @id");
+
+        await transaction.request()
+            .input("id", userId)
+            .query("UPDATE altdesk.Agent SET DeletedAt = SYSUTCDATETIME(), IsActive = 0 WHERE UserId = @id");
+
+        await transaction.commit();
+    } catch (err) {
+        await transaction.rollback();
+        throw err;
+    }
+}
+
+/**
  * Cria usuário e agente correspondente (Transacional)
  */
 export async function createGlobalUser(data: CreateUserData) {

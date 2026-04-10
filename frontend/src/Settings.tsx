@@ -176,7 +176,10 @@ export function Settings({ token, onBack, role }: Props) {
                     { label: "Base de Conhecimento", path: "/knowledge", desc: "Arquivos e links" },
                     { label: "Filas de Atendimento", path: "/queues", desc: "Roteamento de chats" },
                     { label: "Tags", path: "/tags", desc: "Categorização" },
-                    ...(isAdmin ? [{ label: "Faturamento", path: "/billing", desc: "Gestão de assinaturas" }] : [])
+                    ...(isAdmin ? [
+                        { label: "Faturamento", path: "/billing", desc: "Gestão de assinaturas" },
+                        { label: "Logs de Auditoria", path: "/audit", desc: "Histórico de ações" }
+                    ] : [])
                 ].map(item => (
                     <div 
                         key={item.path} 

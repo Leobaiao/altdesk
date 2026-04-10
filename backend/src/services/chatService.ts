@@ -63,7 +63,7 @@ export async function listConversations(user: UserContext, limit: number = 50, o
 
     // Se for AGENTE, vê apenas as dele OU unassigned (em fila)
     let filterClause = "WHERE c.TenantId = @tenantId AND c.DeletedAt IS NULL";
-    let messageFilter = "WHERE Direction = 'OUT' AND TenantId = @tenantId";
+    let messageFilter = "WHERE Direction = 'OUT' AND TenantId = @tenantId AND DeletedAt IS NULL";
 
     if (user.role === 'AGENT') {
         filterClause += ` AND (
@@ -80,7 +80,7 @@ export async function listConversations(user: UserContext, limit: number = 50, o
     } else if (user.role === 'SUPERADMIN') {
         // SUPERADMIN vê todas as conversas de todos os tenants
         filterClause = "WHERE c.DeletedAt IS NULL";
-        messageFilter = "WHERE Direction = 'OUT'";
+        messageFilter = "WHERE Direction = 'OUT' AND DeletedAt IS NULL";
     }
 
     const r = await pool.request()
@@ -117,6 +117,7 @@ export async function listConversations(user: UserContext, limit: number = 50, o
                 WHERE m.ConversationId = c.ConversationId
                   AND m.Direction = 'IN'
                   AND m.CreatedAt > ISNULL(lo.LastOutAt, '1900-01-01')
+                  AND m.DeletedAt IS NULL
               ) AS UnreadCount
       FROM altdesk.Conversation c
       LEFT JOIN altdesk.ExternalThreadMap etm ON etm.ConversationId = c.ConversationId
