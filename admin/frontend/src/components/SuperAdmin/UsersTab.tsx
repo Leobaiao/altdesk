@@ -147,7 +147,7 @@ export function UsersTab() {
                             return (
                                 <tr key={u.UserId} style={{ borderBottom: "1px solid var(--border)", opacity: u.IsActive ? 1 : 0.55, transition: "all 0.15s" }} className="table-row-hover">
                                     <td style={{ padding: "14px 20px" }}>
-                                        <div style={{ fontWeight: 600 }}>{u.AgentName || u.Name || "—"}</div>
+                                        <div style={{ fontWeight: 600 }}>{u.AgentName || u.DisplayName || u.Email || "—"}</div>
                                     </td>
                                     <td style={{ padding: "14px 20px", color: "var(--text-secondary)", fontSize: "0.9rem" }}>{u.Email}</td>
                                     <td style={{ padding: "14px 20px" }}>

@@ -147,7 +147,7 @@ export async function getConversationMessages(conversationId: string, tenantId: 
         .query(`
       SELECT MessageId, ExternalMessageId, Body, Direction, SenderExternalId, MediaType, MediaUrl, Status, CreatedAt
       FROM altdesk.Message
-      WHERE ConversationId = @conversationId AND TenantId = @tenantId
+      WHERE ConversationId = @conversationId AND TenantId = @tenantId AND DeletedAt IS NULL
       ORDER BY CreatedAt DESC
       OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
     `);

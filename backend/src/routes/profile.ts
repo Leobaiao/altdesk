@@ -23,8 +23,10 @@ router.get("/", authMw, async (req: any, res: Response, next: NextFunction) => {
             .input("userId", user.userId)
             .query(`
                 SELECT u.Email, u.DisplayName AS Name, u.Avatar, u.Position, u.Role, u.HasLogAccess, u.CPF,
-                       r.Name AS RoleName, r.CanOpen, r.CanEscalate, r.CanClose, r.CanComment, r.HourlyValue
+                       r.Name AS RoleName, r.CanOpen, r.CanEscalate, r.CanClose, r.CanComment, r.HourlyValue,
+                       t.Name AS TenantName
                 FROM altdesk.[User] u
+                INNER JOIN altdesk.Tenant t ON t.TenantId = u.TenantId
                 LEFT JOIN altdesk.Role r ON r.RoleId = u.RoleId
                 WHERE u.UserId = @userId
             `);

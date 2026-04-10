@@ -34,7 +34,7 @@ router.post("/login", authLimiter, validateBody(LoginSchema), async (req, res, n
                 .query(`
           SELECT TOP 1 UserId, TenantId, Role, PasswordHash, IsActive, DisplayName
           FROM altdesk.[User]
-          WHERE TenantId=@tenantId AND Email=@email
+          WHERE TenantId=@tenantId AND Email=@email AND DeletedAt IS NULL
         `);
         } else {
             r = await pool.request()
@@ -42,7 +42,7 @@ router.post("/login", authLimiter, validateBody(LoginSchema), async (req, res, n
                 .query(`
           SELECT TOP 1 UserId, TenantId, Role, PasswordHash, IsActive, DisplayName
           FROM altdesk.[User]
-          WHERE Email=@email
+          WHERE Email=@email AND DeletedAt IS NULL
         `);
         }
 

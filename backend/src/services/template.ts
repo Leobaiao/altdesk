@@ -15,7 +15,7 @@ export async function listTemplates(tenantId: string): Promise<Template[]> {
         .input("tenantId", tenantId)
         .query(`
       SELECT * FROM altdesk.Template
-      WHERE TenantId = @tenantId
+      WHERE TenantId = @tenantId AND DeletedAt IS NULL
       ORDER BY Name ASC
     `);
 
@@ -44,7 +44,7 @@ export async function deleteTemplate(tenantId: string, templateId: string) {
         .input("tenantId", tenantId)
         .input("templateId", templateId)
         .query(`
-      DELETE FROM altdesk.Template
+      UPDATE altdesk.Template SET DeletedAt = SYSUTCDATETIME()
       WHERE TenantId = @tenantId AND TemplateId = @templateId
     `);
 }

@@ -18,7 +18,7 @@ router.get("/", async (req, res, next) => {
             .query(`
                 SELECT RoleId, Name, CanOpen, CanEscalate, CanClose, CanComment, HourlyValue, CreatedAt
                 FROM altdesk.Role
-                WHERE TenantId = @tenantId
+                WHERE TenantId = @tenantId AND DeletedAt IS NULL
                 ORDER BY Name ASC
             `);
         res.json(r.recordset);
@@ -144,7 +144,7 @@ router.delete("/:id", async (req, res, next) => {
         await pool.request()
             .input("roleId", req.params.id)
             .input("tenantId", u.tenantId)
-            .query("DELETE FROM altdesk.Role WHERE RoleId = @roleId AND TenantId = @tenantId");
+            .query("UPDATE altdesk.Role SET DeletedAt = SYSUTCDATETIME() WHERE RoleId = @roleId AND TenantId = @tenantId");
 
         // Audit log
         const reqInfo = extractRequestInfo(req);

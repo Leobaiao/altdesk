@@ -9,6 +9,7 @@ import { getPool } from "./db.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { apiLimiter } from "./middleware/rateLimiter.js";
 import { requestLogger } from "./middleware/requestLogger.js";
+import { globalAuditLogger } from "./middleware/auditLogger.js";
 import { GtiAdapter } from "./adapters/gti.js";
 import { OfficialAdapter } from "./adapters/official.js";
 import { WebChatAdapter } from "./adapters/webchat.js";
@@ -56,6 +57,7 @@ app.use(express.static("public"));
 
 // HTTP Access Log (antes das rotas para capturar todos os requests)
 app.use(requestLogger);
+app.use(globalAuditLogger);
 
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: allowedOrigins } });

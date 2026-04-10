@@ -19,7 +19,7 @@ export interface CreateUserData {
 export async function listAllUsers() {
     const pool = await getPool();
     return (await pool.request().query(`
-    SELECT u.UserId, u.Email, u.Role, u.IsActive, u.TenantId, t.Name as TenantName,
+    SELECT u.UserId, u.Email, u.Role, u.IsActive, u.TenantId, t.Name as TenantName, u.DisplayName,
            (SELECT Name FROM altdesk.Agent a WHERE a.UserId = u.UserId) as AgentName
     FROM altdesk.[User] u
     LEFT JOIN altdesk.Tenant t ON t.TenantId = u.TenantId
@@ -113,7 +113,13 @@ export async function updateGlobalUser(userId: string, data: Partial<CreateUserD
             .query(`
             UPDATE altdesk.Agent 
             SET Name=@name, TenantId=@tenantId
-            WHERE UserId=@id
+            WHERE UserId=@id;
+
+            IF @@ROWCOUNT = 0
+            BEGIN
+              INSERT INTO altdesk.Agent (TenantId, UserId, Kind, Name, IsActive)
+              VALUES (@tenantId, @id, 'HUMAN', @name, 1);
+            END
         `);
 
         await transaction.commit();
@@ -157,7 +163,7 @@ export async function setUserActiveStatus(userId: string, isActive: boolean) {
 export async function listDeletedUsers() {
     const pool = await getPool();
     return (await pool.request().query(`
-        SELECT u.UserId, u.Email, u.Role, u.DeletedAt, u.TenantId, t.Name as TenantName,
+        SELECT u.UserId, u.Email, u.Role, u.DeletedAt, u.TenantId, t.Name as TenantName, u.DisplayName,
                (SELECT Name FROM altdesk.Agent a WHERE a.UserId = u.UserId) as AgentName
         FROM altdesk.[User] u
         LEFT JOIN altdesk.Tenant t ON t.TenantId = u.TenantId
@@ -188,5 +194,23 @@ export async function restoreUser(userId: string) {
         await transaction.rollback();
         throw err;
     }
+
 }
+
+/**
+ * Lista usuários de um tenant específico
+ */
+export async function listTenantUsers(tenantId: string) {
+    const pool = await getPool();
+    return (await pool.request()
+        .input("tenantId", tenantId)
+        .query(`
+        SELECT u.UserId, u.Email, u.Role, u.IsActive, u.CreatedAt, u.DisplayName,
+               (SELECT Name FROM altdesk.Agent a WHERE a.UserId = u.UserId) as AgentName
+        FROM altdesk.[User] u
+        WHERE u.TenantId = @tenantId AND u.DeletedAt IS NULL
+        ORDER BY u.CreatedAt DESC
+    `)).recordset;
+}
+
 

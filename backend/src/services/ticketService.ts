@@ -13,7 +13,7 @@ export async function createTicketForConversation(tenantId: string, conversation
         .input("conversationId", conversationId)
         .query(`
             SELECT TOP 1 * FROM altdesk.Ticket
-            WHERE TenantId = @tenantId AND ConversationId = @conversationId AND Status != 'CLOSED'
+            WHERE TenantId = @tenantId AND ConversationId = @conversationId AND Status != 'CLOSED' AND DeletedAt IS NULL
             ORDER BY CreatedAt DESC
         `);
 
@@ -51,7 +51,7 @@ export async function getActiveTicketForConversation(tenantId: string, conversat
         .input("conversationId", conversationId)
         .query(`
             SELECT TOP 1 * FROM altdesk.Ticket
-            WHERE TenantId = @tenantId AND ConversationId = @conversationId AND Status != 'CLOSED'
+            WHERE TenantId = @tenantId AND ConversationId = @conversationId AND Status != 'CLOSED' AND DeletedAt IS NULL
             ORDER BY CreatedAt DESC
         `);
     return result.recordset[0] || null;

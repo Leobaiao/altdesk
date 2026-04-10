@@ -6,7 +6,10 @@ import {
     getBusinessHours,
     setBusinessHours,
     getOffHoursMessage,
-    setOffHoursMessage
+    setOffHoursMessage,
+    getBusinessExceptions,
+    addBusinessException,
+    deleteBusinessException
 } from "../services/businessHoursService.js";
 
 const router = Router();
@@ -46,5 +49,44 @@ router.put("/", validateBody(z.object({
         next(error);
     }
 }) as any);
+
+// --- EXCEPTIONS ---
+
+router.get("/exceptions", (async (req: any, res: any, next: any) => {
+    try {
+        const tenantId = req.user.tenantId;
+        const exceptions = await getBusinessExceptions(tenantId);
+        res.json(exceptions);
+    } catch (error) {
+        next(error);
+    }
+}) as any);
+
+router.post("/exceptions", validateBody(z.object({
+    date: z.string(), // ISO date 
+    description: z.string().optional(),
+    isOpen: z.boolean(),
+    startTime: z.string().optional().nullable(),
+    endTime: z.string().optional().nullable()
+})), (async (req: any, res: any, next: any) => {
+    try {
+        const tenantId = req.user.tenantId;
+        await addBusinessException(tenantId, req.body);
+        res.json({ ok: true });
+    } catch (error) {
+        next(error);
+    }
+}) as any);
+
+router.delete("/exceptions/:id", (async (req: any, res: any, next: any) => {
+    try {
+        const tenantId = req.user.tenantId;
+        await deleteBusinessException(tenantId, req.params.id);
+        res.json({ ok: true });
+    } catch (error) {
+        next(error);
+    }
+}) as any);
+
 
 export default router;

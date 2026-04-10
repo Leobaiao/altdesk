@@ -7,7 +7,7 @@ export async function listTags(tenantId: string) {
     const pool = await getPool();
     const r = await pool.request()
         .input("tenantId", tenantId)
-        .query("SELECT TagId, Name, Color FROM altdesk.Tag WHERE TenantId = @tenantId ORDER BY Name");
+        .query("SELECT TagId, Name, Color FROM altdesk.Tag WHERE TenantId = @tenantId AND DeletedAt IS NULL ORDER BY Name");
     return r.recordset;
 }
 
@@ -61,16 +61,12 @@ export async function removeTagFromConversation(conversationId: string, tagId: s
         .query("DELETE FROM altdesk.ConversationTag WHERE ConversationId = @conversationId AND TagId = @tagId");
 }
 
-/**
- * Deletes a tag entirely.
- */
 export async function deleteTag(tenantId: string, tagId: string) {
     const pool = await getPool();
-    // First remove from all conversations
-    await pool.request().input("tagId", tagId).query("DELETE FROM altdesk.ConversationTag WHERE TagId = @tagId");
-    // Then delete the tag
+    // In soft-delete mode, we don't necessarily need to remove from ConversationTag,
+    // but we MUST mark the tag as deleted.
     await pool.request()
         .input("tenantId", tenantId)
         .input("tagId", tagId)
-        .query("DELETE FROM altdesk.Tag WHERE TenantId = @tenantId AND TagId = @tagId");
+        .query("UPDATE altdesk.Tag SET DeletedAt = SYSUTCDATETIME() WHERE TenantId = @tenantId AND TagId = @tagId");
 }

@@ -10,7 +10,7 @@ interface UserModalProps {
 
 export function UserModal({ editUser, tenants, onClose, onSubmit }: UserModalProps) {
     const [userTenantId, setUserTenantId] = useState(editUser?.TenantId || "");
-    const [userName, setUserName] = useState(editUser?.AgentName || editUser?.Name || "");
+    const [userName, setUserName] = useState(editUser?.AgentName || editUser?.DisplayName || editUser?.Name || "");
     const [userEmail, setUserEmail] = useState(editUser?.Email || "");
     const [userPassword, setUserPassword] = useState("");
     const [userRole, setUserRole] = useState(editUser?.Role || "AGENT");

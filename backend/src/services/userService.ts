@@ -23,6 +23,7 @@ export async function listAllUsers() {
            (SELECT Name FROM altdesk.Agent a WHERE a.UserId = u.UserId) as AgentName
     FROM altdesk.[User] u
     LEFT JOIN altdesk.Tenant t ON t.TenantId = u.TenantId
+    WHERE u.DeletedAt IS NULL
     ORDER BY u.Email ASC
   `)).recordset;
 }
@@ -34,7 +35,7 @@ export async function createGlobalUser(data: CreateUserData) {
     const pool = await getPool();
 
     // check email duplication
-    const check = await pool.request().input("email", data.email).query("SELECT UserId FROM altdesk.[User] WHERE Email=@email");
+    const check = await pool.request().input("email", data.email).query("SELECT UserId FROM altdesk.[User] WHERE Email=@email AND DeletedAt IS NULL");
     if (check.recordset.length > 0) throw new Error("Email já cadastrado");
 
     const transaction = new sql.Transaction(pool);

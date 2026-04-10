@@ -156,7 +156,7 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
   const navigate = useNavigate();
   const location = useLocation();
   const { conversations, setConversations, selectedConversationId, setSelectedConversationId, refreshConversations, socket } = useChat();
-  const [profile, setProfile] = useState<{ Name?: string; Avatar?: string; Position?: string } | null>(null);
+  const [profile, setProfile] = useState<{ Name?: string; Avatar?: string; Position?: string; TenantName?: string } | null>(null);
 
   // Push Notifications
   usePushNotifications(socket, selectedConversationId, conversations);
@@ -227,6 +227,22 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
   const isChat = currentPath.startsWith("/chat") || currentPath === "/";
   const isMobileDetailOpen = isChat && !!selectedConversationId;
 
+  const ProfileHeader = () => (
+    <div className="global-header" style={{ padding: "12px 20px", display: "flex", justifyContent: "flex-end", alignItems: "center", borderBottom: "1px solid var(--border)", background: "var(--bg-primary)" }}>
+       <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", marginRight: 15 }}>
+           <span style={{ fontWeight: 600, fontSize: "0.9rem" }}>{profile?.Name || "Usuário"}</span>
+           <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>{profile?.TenantName || "Empresa"}</span>
+       </div>
+       {profile?.Avatar ? (
+           <img src={profile.Avatar} alt="Profile" style={{ width: 36, height: 36, borderRadius: 10, objectFit: "cover" }} />
+       ) : (
+           <div style={{ width: 36, height: 36, borderRadius: 10, background: "var(--accent)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>
+               {profile?.Name ? profile.Name.charAt(0).toUpperCase() : role.charAt(0)}
+           </div>
+       )}
+    </div>
+  );
+
   return (
     <div className={`app-layout ${isChat ? "is-chat" : "not-chat"} ${isMobileDetailOpen ? "mobile-detail-open" : ""}`}>
       {/* Sidebar Principal (Menu de Ícones) */}
@@ -234,36 +250,28 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
         <div className="brand" onClick={() => navigate("/chat")} style={{ cursor: "pointer", marginBottom: 30, display: "flex", justifyContent: "center" }}>
           <img src={logo} alt="Brand" style={{ width: 44, height: 44, borderRadius: 12 }} />
         </div>
-        <div className="profile-selection" style={{ marginBottom: 30, textAlign: "center" }} onClick={() => navigate("/settings")}>
-          {profile?.Avatar ? (
-            <img src={profile.Avatar} alt="Profile" className="sidebar-avatar" />
-          ) : (
-            <div className="sidebar-avatar-placeholder">
-              {profile?.Name ? profile.Name.charAt(0).toUpperCase() : role.charAt(0)}
-            </div>
+        
+        <div className="nav-items">
+          <NavIcon icon={LayoutDashboard} label="Dashboard" active={currentPath.startsWith("/dashboard")} onClick={() => navigate("/dashboard")} />
+          <NavIcon icon={MessageSquare} label="Conversas" active={isChat} onClick={() => navigate("/chat")} />
+          <NavIcon icon={Ticket} label="Chamados (Tickets)" active={currentPath.startsWith("/tickets")} onClick={() => navigate("/tickets")} />
+          
+          <div style={{ height: 1, background: "var(--border)", margin: "10px 15px", opacity: 0.5 }} />
+          
+          <NavIcon icon={ContactsIcon} label="Contatos" active={currentPath.startsWith("/contacts")} onClick={() => navigate("/contacts")} />
+          {(role === 'ADMIN' || role === 'SUPERADMIN') && (
+            <NavIcon icon={UsersIcon} label="Usuários" active={currentPath.startsWith("/users")} onClick={() => navigate("/users")} />
+          )}
+          
+          {(role === 'ADMIN' || role === 'SUPERADMIN') && (
+            <>
+              <div style={{ height: 1, background: "var(--border)", margin: "10px 15px", opacity: 0.5 }} />
+              <NavIcon icon={BarChart2} label="Relatórios" active={currentPath.startsWith("/reports")} onClick={() => navigate("/reports")} />
+            </>
           )}
         </div>
-        <div className="nav-items">
-          {/* Atendimento */}
-          <NavIcon icon={MessageSquare} label="Conversas" active={isChat} onClick={() => navigate("/chat")} />
-          <NavIcon icon={ContactsIcon} label="Contatos" active={currentPath.startsWith("/contacts")} onClick={() => navigate("/contacts")} />
-          <NavIcon icon={LayoutDashboard} label="Dashboard" active={currentPath.startsWith("/dashboard")} onClick={() => navigate("/dashboard")} />
-
-          <div style={{ height: 1, background: "var(--border)", margin: "10px 15px", opacity: 0.5 }} />
-
-          {/* Gestão e Apoio */}
-          <NavIcon icon={BookOpen} label="Respostas Rápidas" active={currentPath.startsWith("/canned")} onClick={() => navigate("/canned")} />
-          <NavIcon icon={UsersIcon} label="Minha Equipe" active={currentPath.startsWith("/users")} onClick={() => navigate("/users")} />
-          <NavIcon icon={Search} label="Filas de Atendimento" active={currentPath.startsWith("/queues")} onClick={() => navigate("/queues")} />
-          <NavIcon icon={TagIcon} label="Tags" active={currentPath.startsWith("/tags")} onClick={() => navigate("/tags")} />
-          <NavIcon icon={Book} label="Base de Conhecimento" active={currentPath.startsWith("/knowledge")} onClick={() => navigate("/knowledge")} />
-          <NavIcon icon={Clock} label="Horário de Atendimento" active={currentPath.startsWith("/business-hours")} onClick={() => navigate("/business-hours")} />
-          <NavIcon icon={Ticket} label="Chamados" active={currentPath.startsWith("/tickets")} onClick={() => navigate("/tickets")} />
-          <NavIcon icon={BarChart2} label="Relatórios" active={currentPath.startsWith("/reports")} onClick={() => navigate("/reports")} />
-          <NavIcon icon={CreditCard} label="Faturamento" active={currentPath.startsWith("/billing")} onClick={() => navigate("/billing")} />
-        </div>
         <div className="footer-items">
-          <NavIcon icon={SettingsIcon} label="Config" active={currentPath.startsWith("/settings")} onClick={() => navigate("/settings")} />
+          <NavIcon icon={SettingsIcon} label="Config" active={currentPath.startsWith("/settings") || currentPath.startsWith("/business-hours") || currentPath.startsWith("/canned") || currentPath.startsWith("/knowledge") || currentPath.startsWith("/billing")} onClick={() => navigate("/settings")} />
           <button onClick={onLogout} style={{ background: "none", border: "none", cursor: "pointer", opacity: 0.7, padding: 10, color: "var(--text-secondary)" }} title="Sair">
             <LogOut size={24} />
           </button>
@@ -274,27 +282,30 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
       {isChat && <Sidebar setView={(v) => navigate(`/${v.toLowerCase()}`)} />}
 
       {/* Área Principal Dinâmica (Chat window, ou outra tela de config) */}
-      <div className="chat-area">
-        <Routes>
-          <Route path="/" element={<Navigate to="/chat" replace />} />
-          <Route path="/chat" element={<ChatWindow setView={(v) => navigate(`/${v.toLowerCase()}`)} showToast={showToast} />} />
-          <Route path="/contacts" element={<Contacts onBack={() => navigate("/chat")} onStartChat={handleStartChat} />} />
-          <Route path="/canned" element={<CannedResponses onBack={() => navigate("/chat")} />} />
-          <Route path="/dashboard" element={<DashboardView token={token} onBack={() => navigate("/chat")} />} />
+      <div className="chat-area" style={{ display: "flex", flexDirection: "column" }}>
+        <ProfileHeader />
+        <div style={{ flex: 1, overflow: "hidden", position: "relative", display: "flex", flexDirection: "column" }}>
+          <Routes>
+            <Route path="/" element={<Navigate to="/chat" replace />} />
+            <Route path="/chat" element={<ChatWindow setView={(v) => navigate(`/${v.toLowerCase()}`)} showToast={showToast} />} />
+            <Route path="/contacts" element={<Contacts onBack={() => navigate("/chat")} onStartChat={handleStartChat} />} />
+            <Route path="/canned" element={<CannedResponses onBack={() => navigate("/settings")} />} />
+            <Route path="/dashboard" element={<DashboardView token={token} onBack={() => navigate("/chat")} />} />
 
-          <Route path="/users" element={<Users token={token} onBack={() => navigate("/chat")} role={role || 'AGENT'} />} />
+            <Route path="/users" element={<Users token={token} onBack={() => navigate("/chat")} role={role || 'AGENT'} />} />
 
-          <Route path="/settings" element={<Settings token={token} onBack={() => navigate("/chat")} role={role || 'AGENT'} />} />
-          <Route path="/queues" element={<QueueSettings onBack={() => navigate("/chat")} />} />
-          <Route path="/tags" element={<TagsSettings onBack={() => navigate("/chat")} />} />
-          <Route path="/knowledge" element={<KnowledgeBase onBack={() => navigate("/chat")} />} />
-          <Route path="/business-hours" element={<BusinessHours onBack={() => navigate("/chat")} />} />
-          <Route path="/tickets" element={<Tickets token={token} onBack={() => navigate("/chat")} role={role || 'AGENT'} />} />
-          <Route path="/reports" element={<Reports onBack={() => navigate("/chat")} />} />
-          <Route path="/billing" element={<Billing onBack={() => navigate("/chat")} />} />
+            <Route path="/settings" element={<Settings token={token} onBack={() => navigate("/chat")} role={role || 'AGENT'} />} />
+            <Route path="/queues" element={<QueueSettings onBack={() => navigate("/settings")} />} />
+            <Route path="/tags" element={<TagsSettings onBack={() => navigate("/settings")} />} />
+            <Route path="/knowledge" element={<KnowledgeBase onBack={() => navigate("/settings")} />} />
+            <Route path="/business-hours" element={<BusinessHours onBack={() => navigate("/settings")} />} />
+            <Route path="/tickets" element={<Tickets token={token} onBack={() => navigate("/chat")} role={role || 'AGENT'} />} />
+            <Route path="/reports" element={<Reports onBack={() => navigate("/chat")} />} />
+            <Route path="/billing" element={<Billing onBack={() => navigate("/settings")} />} />
 
-          <Route path="*" element={<Navigate to="/chat" replace />} />
-        </Routes>
+            <Route path="*" element={<Navigate to="/chat" replace />} />
+          </Routes>
+        </div>
       </div>
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}

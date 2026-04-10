@@ -15,7 +15,7 @@ export async function listContacts(tenantId: string, search?: string): Promise<C
     const pool = await getPool();
     let query = `
     SELECT * FROM altdesk.Contact
-    WHERE TenantId = @tenantId
+    WHERE TenantId = @tenantId AND DeletedAt IS NULL
   `;
 
     if (search) {
@@ -81,7 +81,7 @@ export async function deleteContact(tenantId: string, contactId: string) {
     await pool.request()
         .input("tenantId", tenantId)
         .input("contactId", contactId)
-        .query(`DELETE FROM altdesk.Contact WHERE TenantId = @tenantId AND ContactId = @contactId`);
+        .query(`UPDATE altdesk.Contact SET DeletedAt = SYSUTCDATETIME() WHERE TenantId = @tenantId AND ContactId = @contactId`);
 }
 
 export async function getContactByPhone(tenantId: string, phone: string): Promise<Contact | null> {
@@ -89,7 +89,7 @@ export async function getContactByPhone(tenantId: string, phone: string): Promis
     const result = await pool.request()
         .input("tenantId", tenantId)
         .input("phone", phone)
-        .query(`SELECT TOP 1 * FROM altdesk.Contact WHERE TenantId = @tenantId AND Phone = @phone`);
+        .query(`SELECT TOP 1 * FROM altdesk.Contact WHERE TenantId = @tenantId AND Phone = @phone AND DeletedAt IS NULL`);
 
     if (result.recordset.length === 0) return null;
     const row = result.recordset[0];

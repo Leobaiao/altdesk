@@ -20,6 +20,9 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
     const [instances, setInstances] = useState<any[]>([]);
     const [instancesLoading, setInstancesLoading] = useState(false);
     const [statusFilter, setStatusFilter] = useState<"ALL" | "TRIAL" | "ACTIVE">("ALL");
+    const [activeTab, setActiveTab] = useState<"GERAL" | "USUARIOS" | "CANAIS" | "METRICAS">("GERAL");
+    const [tenantUsers, setTenantUsers] = useState<any[]>([]);
+    const [usersLoading, setUsersLoading] = useState(false);
 
     useEffect(() => {
         loadTenants();
@@ -30,6 +33,12 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
             loadInstances(selectedTenant.TenantId);
         }
     }, [selectedTenant]);
+
+    useEffect(() => {
+        if (selectedTenant && activeTab === "USUARIOS") {
+            loadTenantUsers(selectedTenant.TenantId);
+        }
+    }, [selectedTenant, activeTab]);
 
     const loadTenants = async () => {
         setLoading(true);
@@ -55,6 +64,18 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
             console.error(err);
         } finally {
             setInstancesLoading(false);
+        }
+    };
+
+    const loadTenantUsers = async (tenantId: string) => {
+        setUsersLoading(true);
+        try {
+            const res = await api.get(`/api/admin/tenants/${tenantId}/users`);
+            setTenantUsers(res.data);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setUsersLoading(false);
         }
     };
 
@@ -230,120 +251,139 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
                 ) : (
                     <div style={{ flex: 1, display: "flex", flexDirection: "column", animation: "fadeIn 0.2s ease-out" }}>
                         {/* Detail Header */}
-                        <div style={{ padding: "20px 32px", borderBottom: "1px solid var(--border)", background: "var(--bg-primary)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <div>
-                                <h2 style={{ fontSize: "1.4rem", fontWeight: 800, margin: 0, display: "flex", alignItems: "center", gap: 10 }}>
-                                    {selectedTenant.Name}
-                                    <span style={{ fontSize: "0.65rem", padding: "3px 8px", borderRadius: 12, background: selectedTenant.IsActive ? "rgba(0,168,132,0.15)" : "rgba(234,67,53,0.15)", color: selectedTenant.IsActive ? "var(--accent)" : "var(--danger)", textTransform: "uppercase", fontWeight: 700 }}>
-                                        {selectedTenant.IsActive ? "Ativo" : "Inativo"}
-                                    </span>
-                                    {selectedTenant.AccountStatus === 'TRIAL' && (
-                                        <span style={{ fontSize: "0.65rem", padding: "3px 8px", borderRadius: 12, background: "rgba(255,165,0,0.15)", color: "orange", textTransform: "uppercase", fontWeight: 700 }}>
-                                            Trial (Onboarding)
+                        <div style={{ padding: "20px 32px 0 32px", borderBottom: "1px solid var(--border)", background: "var(--bg-primary)", display: "flex", flexDirection: "column" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 20 }}>
+                                <div>
+                                    <h2 style={{ fontSize: "1.4rem", fontWeight: 800, margin: 0, display: "flex", alignItems: "center", gap: 10 }}>
+                                        {selectedTenant.Name}
+                                        <span style={{ fontSize: "0.65rem", padding: "3px 8px", borderRadius: 12, background: selectedTenant.IsActive ? "rgba(0,168,132,0.15)" : "rgba(234,67,53,0.15)", color: selectedTenant.IsActive ? "var(--accent)" : "var(--danger)", textTransform: "uppercase", fontWeight: 700 }}>
+                                            {selectedTenant.IsActive ? "Ativo" : "Inativo"}
                                         </span>
-                                    )}
-                                </h2>
-                                <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 4 }}>ID Global: {selectedTenant.TenantId}</div>
+                                        {selectedTenant.AccountStatus === 'TRIAL' && (
+                                            <span style={{ fontSize: "0.65rem", padding: "3px 8px", borderRadius: 12, background: "rgba(255,165,0,0.15)", color: "orange", textTransform: "uppercase", fontWeight: 700 }}>
+                                                Trial (Onboarding)
+                                            </span>
+                                        )}
+                                    </h2>
+                                    <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 4 }}>ID Global: {selectedTenant.TenantId}</div>
+                                </div>
+                                <div style={{ display: "flex", gap: 10 }}>
+                                    <button
+                                        onClick={() => { setEditTenant(selectedTenant); setShowLimitModal(true); }}
+                                        className="btn btn-ghost"
+                                        style={{ padding: "8px 16px", borderRadius: 10, fontSize: "0.85rem", border: "1px solid var(--border)" }}
+                                    >
+                                        🛡️ Limites
+                                    </button>
+
+                                    <button
+                                        onClick={() => handleSetStatus(selectedTenant.TenantId, !selectedTenant.IsActive)}
+                                        className="btn btn-ghost"
+                                        style={{ padding: "8px 16px", borderRadius: 10, fontSize: "0.85rem", border: "1px solid var(--border)" }}
+                                    >
+                                        {selectedTenant.IsActive ? "🔴 Inativar" : "🟢 Reativar"}
+                                    </button>
+
+                                    <button
+                                        onClick={() => handleDelete(selectedTenant.TenantId)}
+                                        className="btn btn-ghost"
+                                        style={{ padding: "8px 16px", borderRadius: 10, fontSize: "0.85rem", border: "1px solid var(--border)", color: "var(--danger)" }}
+                                        title="Mover para Lixeira"
+                                    >
+                                        🗑️ Excluir
+                                    </button>
+                                </div>
                             </div>
-                            <div style={{ display: "flex", gap: 10 }}>
-                                <button
-                                    onClick={() => { setEditTenant(selectedTenant); setShowLimitModal(true); }}
-                                    className="btn btn-ghost"
-                                    style={{ padding: "8px 16px", borderRadius: 10, fontSize: "0.85rem", border: "1px solid var(--border)" }}
-                                >
-                                    ✎ Ajustar Limites
-                                </button>
-                                {selectedTenant.IsActive ? (
-                                    <button
-                                        onClick={() => handleSetStatus(selectedTenant.TenantId, false)}
-                                        className="btn btn-ghost"
-                                        style={{ padding: "8px 16px", borderRadius: 10, fontSize: "0.85rem", border: "1px solid var(--border)", color: "#999" }}
-                                        title="Inativar Empresa"
+                            
+                            {/* Tabs Row */}
+                            <div style={{ display: "flex", gap: 32, fontSize: "0.95rem", fontWeight: 600, color: "var(--text-secondary)" }}>
+                                {[
+                                    { id: "GERAL", label: "Geral" },
+                                    { id: "CANAIS", label: `Canais (${selectedTenant.InstanceCount || 0})` },
+                                    { id: "USUARIOS", label: `Usuários (${selectedTenant.UserCount || 0})` },
+                                    { id: "METRICAS", label: "Limites & Métricas" }
+                                ].map(tab => (
+                                    <div 
+                                        key={tab.id}
+                                        onClick={() => setActiveTab(tab.id as any)}
+                                        style={{ 
+                                            paddingBottom: 16, 
+                                            cursor: "pointer", 
+                                            borderBottom: activeTab === tab.id ? "3px solid var(--accent)" : "3px solid transparent",
+                                            color: activeTab === tab.id ? "var(--text-primary)" : "inherit",
+                                            transition: "all 0.2s"
+                                        }}
                                     >
-                                        ⏸️ Inativar
-                                    </button>
-                                ) : (
-                                    <button
-                                        onClick={() => handleSetStatus(selectedTenant.TenantId, true)}
-                                        className="btn btn-ghost"
-                                        style={{ padding: "8px 16px", borderRadius: 10, fontSize: "0.85rem", border: "1px solid var(--border)", color: "#00a884" }}
-                                        title="Reativar Empresa"
-                                    >
-                                        ✅ Reativar
-                                    </button>
-                                )}
-                                <button
-                                    onClick={() => handleDelete(selectedTenant.TenantId)}
-                                    className="btn btn-ghost"
-                                    style={{ padding: "8px 16px", borderRadius: 10, fontSize: "0.85rem", border: "1px solid var(--border)", color: "var(--danger)" }}
-                                    title="Mover para Lixeira"
-                                >
-                                    🗑️ Excluir
-                                </button>
+                                        {tab.label}
+                                    </div>
+                                ))}
                             </div>
                         </div>
 
                         {/* Detail Content */}
                         <div style={{ flex: 1, overflowY: "auto", padding: 32 }}>
-                            {/* Stats Grid */}
-                            <div className="admin-metrics-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20, marginBottom: 32 }}>
-                                <div style={{ background: "var(--bg-primary)", padding: 20, borderRadius: 20, border: "1px solid var(--border)", textAlign: "center", position: "relative" }}>
-                                    <div style={{ position: "absolute", right: 12, top: 12, color: "var(--accent)", opacity: 0.2 }}><User size={24} /></div>
-                                    <div style={{ fontSize: "2rem", fontWeight: 800 }}>{selectedTenant.UserCount}</div>
-                                    <div style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "var(--text-secondary)", fontWeight: 700, marginTop: 4 }}>Usuários Ativos</div>
-                                </div>
-                                <div style={{ background: "var(--bg-primary)", padding: 20, borderRadius: 20, border: "1px solid var(--border)", textAlign: "center", position: "relative" }}>
-                                    <div style={{ position: "absolute", right: 12, top: 12, color: "var(--secondary)", opacity: 0.2 }}><Smartphone size={24} /></div>
-                                    <div style={{ fontSize: "2rem", fontWeight: 800 }}>{selectedTenant.InstanceCount || 0}</div>
-                                    <div style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "var(--text-secondary)", fontWeight: 700, marginTop: 4 }}>Instâncias (Canais)</div>
-                                </div>
-                                <div style={{ background: "var(--bg-primary)", padding: 20, borderRadius: 20, border: "1px solid var(--border)", textAlign: "center", position: "relative" }}>
-                                    <div style={{ position: "absolute", right: 12, top: 12, color: "orange", opacity: 0.2 }}><ShieldCheck size={24} /></div>
-                                    <div style={{ fontSize: "2rem", fontWeight: 800 }}>{selectedTenant.AgentsSeatLimit}</div>
-                                    <div style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "var(--text-secondary)", fontWeight: 700, marginTop: 4 }}>Limite de Agentes</div>
-                                </div>
-                            </div>
-
-                            <div className="tenants-detail-grid" style={{ display: "grid", gridTemplateColumns: "350px 1fr", gap: 32 }}>
-                                {/* Info Table */}
-                                <div>
-                                    <h3 style={{ fontSize: "0.95rem", fontWeight: 700, marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
-                                        <Globe size={16} /> Dados da Assinatura
-                                    </h3>
-                                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                                        {[
-                                            { label: "Data de Início", value: new Date(selectedTenant.CreatedAt).toLocaleDateString(), icon: <Calendar size={14} /> },
-                                            { label: "Expiração (Sistema)", value: new Date(selectedTenant.ExpiresAt).toLocaleDateString(), icon: <Calendar size={14} />, color: isExpired(selectedTenant.ExpiresAt) ? "var(--danger)" : "var(--text-primary)" },
-                                            { 
-                                                label: "Plano Asaas", 
-                                                value: selectedTenant.PlanName || "Nenhum Plano Ativo", 
-                                                icon: <ShieldCheck size={14} />,
-                                                color: selectedTenant.PlanName ? "var(--accent)" : "var(--text-secondary)"
-                                            },
-                                            { 
-                                                label: "Status Financeiro", 
-                                                value: selectedTenant.BillingStatus ? selectedTenant.BillingStatus.toUpperCase() : "AGUARDANDO", 
-                                                icon: <Hash size={14} />,
-                                                color: selectedTenant.BillingStatus === 'active' ? "var(--accent)" : (selectedTenant.BillingStatus === 'past_due' ? "var(--danger)" : "var(--text-secondary)")
-                                            },
-                                            { 
-                                                label: "Próximo Vencimento", 
-                                                value: selectedTenant.BillingNextDue ? new Date(selectedTenant.BillingNextDue).toLocaleDateString() : "—", 
-                                                icon: <Calendar size={14} /> 
-                                            },
-                                        ].map(item => (
-                                            <div key={item.label} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "var(--bg-primary)", borderRadius: 12, border: "1px solid var(--border)" }}>
-                                                <div style={{ color: "var(--text-secondary)" }}>{item.icon}</div>
-                                                <div>
-                                                    <div style={{ fontSize: "0.65rem", textTransform: "uppercase", color: "var(--text-secondary)", fontWeight: 700 }}>{item.label}</div>
-                                                    <div style={{ fontSize: "0.9rem", fontWeight: 600, color: item.color || "var(--text-primary)" }}>{item.value}</div>
-                                                </div>
-                                            </div>
-                                        ))}
+                            {activeTab === "METRICAS" && (
+                                <div className="admin-metrics-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20, marginBottom: 32 }}>
+                                    <div style={{ background: "var(--bg-primary)", padding: 20, borderRadius: 20, border: "1px solid var(--border)", textAlign: "center", position: "relative" }}>
+                                        <div style={{ position: "absolute", right: 12, top: 12, color: "var(--accent)", opacity: 0.2 }}><User size={24} /></div>
+                                        <div style={{ fontSize: "2rem", fontWeight: 800 }}>{selectedTenant.UserCount}</div>
+                                        <div style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "var(--text-secondary)", fontWeight: 700, marginTop: 4 }}>Usuários Ativos</div>
+                                    </div>
+                                    <div style={{ background: "var(--bg-primary)", padding: 20, borderRadius: 20, border: "1px solid var(--border)", textAlign: "center", position: "relative" }}>
+                                        <div style={{ position: "absolute", right: 12, top: 12, color: "var(--secondary)", opacity: 0.2 }}><Smartphone size={24} /></div>
+                                        <div style={{ fontSize: "2rem", fontWeight: 800 }}>{selectedTenant.InstanceCount || 0}</div>
+                                        <div style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "var(--text-secondary)", fontWeight: 700, marginTop: 4 }}>Instâncias (Canais)</div>
+                                    </div>
+                                    <div style={{ background: "var(--bg-primary)", padding: 20, borderRadius: 20, border: "1px solid var(--border)", textAlign: "center", position: "relative" }}>
+                                        <div style={{ position: "absolute", right: 12, top: 12, color: "orange", opacity: 0.2 }}><ShieldCheck size={24} /></div>
+                                        <div style={{ fontSize: "2rem", fontWeight: 800 }}>{selectedTenant.AgentsSeatLimit}</div>
+                                        <div style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "var(--text-secondary)", fontWeight: 700, marginTop: 4 }}>Limite de Agentes</div>
                                     </div>
                                 </div>
+                            )}
 
-                                {/* Instances List */}
+                            {activeTab === "GERAL" && (
+                                <div className="tenants-detail-grid" style={{ display: "grid", gridTemplateColumns: "1fr", gap: 32 }}>
+                                    <div>
+                                        <h3 style={{ fontSize: "0.95rem", fontWeight: 700, marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
+                                            <Globe size={16} /> Dados da Assinatura
+                                        </h3>
+                                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+                                            {[
+                                                { label: "Data de Início", value: new Date(selectedTenant.CreatedAt).toLocaleDateString(), icon: <Calendar size={14} /> },
+                                                { label: "Expiração (Sistema)", value: new Date(selectedTenant.ExpiresAt).toLocaleDateString(), icon: <Calendar size={14} />, color: isExpired(selectedTenant.ExpiresAt) ? "var(--danger)" : "var(--text-primary)" },
+                                                { 
+                                                    label: "Plano Asaas", 
+                                                    value: selectedTenant.PlanName || "Nenhum Plano Ativo", 
+                                                    icon: <ShieldCheck size={14} />,
+                                                    color: selectedTenant.PlanName ? "var(--accent)" : "var(--text-secondary)"
+                                                },
+                                                { 
+                                                    label: "Status Financeiro", 
+                                                    value: selectedTenant.BillingStatus ? selectedTenant.BillingStatus.toUpperCase() : "AGUARDANDO", 
+                                                    icon: <Hash size={14} />,
+                                                    color: selectedTenant.BillingStatus === 'active' ? "var(--accent)" : (selectedTenant.BillingStatus === 'past_due' ? "var(--danger)" : "var(--text-secondary)")
+                                                },
+                                                { 
+                                                    label: "Próximo Vencimento", 
+                                                    value: selectedTenant.BillingNextDue ? new Date(selectedTenant.BillingNextDue).toLocaleDateString() : "—", 
+                                                    icon: <Calendar size={14} /> 
+                                                },
+                                            ].map(item => (
+                                                <div key={item.label} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "var(--bg-primary)", borderRadius: 12, border: "1px solid var(--border)" }}>
+                                                    <div style={{ color: "var(--text-secondary)" }}>{item.icon}</div>
+                                                    <div>
+                                                        <div style={{ fontSize: "0.65rem", textTransform: "uppercase", color: "var(--text-secondary)", fontWeight: 700 }}>{item.label}</div>
+                                                        <div style={{ fontSize: "0.9rem", fontWeight: 600, color: item.color || "var(--text-primary)" }}>{item.value}</div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeTab === "CANAIS" && (
                                 <div>
                                     <h3 style={{ fontSize: "0.95rem", fontWeight: 700, marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
                                         <Smartphone size={16} /> Canais Ativos
@@ -355,7 +395,7 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
                                             Nenhuma instância vinculada a esta empresa.
                                         </div>
                                     ) : (
-                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 12 }}>
                                             {instances.map(inst => (
                                                 <div key={inst.ConnectorId} style={{ padding: 16, background: "var(--bg-primary)", borderRadius: 16, border: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12 }}>
                                                     <div style={{ width: 40, height: 40, borderRadius: 10, background: inst.IsActive ? "rgba(0,168,132,0.1)" : "rgba(234,67,53,0.1)", display: "flex", alignItems: "center", justifyContent: "center", color: inst.IsActive ? "var(--accent)" : "var(--danger)" }}>
@@ -370,7 +410,67 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
                                         </div>
                                     )}
                                 </div>
-                            </div>
+                            )}
+
+                            {activeTab === "USUARIOS" && (
+                                <div style={{ animation: "fadeIn 0.2s" }}>
+                                    <h3 style={{ fontSize: "0.95rem", fontWeight: 700, marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
+                                        <User size={16} /> Usuários da Empresa
+                                    </h3>
+                                    
+                                    {usersLoading ? (
+                                        <div style={{ padding: 20, textAlign: "center", color: "var(--text-secondary)" }}>Carregando usuários...</div>
+                                    ) : tenantUsers.length === 0 ? (
+                                        <div style={{ padding: 32, textAlign: "center", background: "var(--bg-primary)", borderRadius: 16, border: "1px dashed var(--border)", color: "var(--text-secondary)" }}>
+                                            Nenhum usuário cadastrado nesta empresa.
+                                        </div>
+                                    ) : (
+                                        <div style={{ background: "var(--bg-primary)", borderRadius: 16, border: "1px solid var(--border)", overflow: "hidden" }}>
+                                            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                                                <thead>
+                                                    <tr style={{ background: "var(--bg-secondary)", color: "var(--text-secondary)", textAlign: "left" }}>
+                                                        <th style={{ padding: "12px 16px", fontWeight: 600 }}>Nome / Agente</th>
+                                                        <th style={{ padding: "12px 16px", fontWeight: 600 }}>Email</th>
+                                                        <th style={{ padding: "12px 16px", fontWeight: 600 }}>Cargo</th>
+                                                        <th style={{ padding: "12px 16px", fontWeight: 600 }}>Status</th>
+                                                        <th style={{ padding: "12px 16px", fontWeight: 600 }}>Criado em</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {tenantUsers.map(u => (
+                                                        <tr key={u.UserId} style={{ borderBottom: "1px solid var(--border)" }} className="table-row-hover">
+                                                            <td style={{ padding: "12px 16px" }}>
+                                                                <div style={{ fontWeight: 600 }}>{u.AgentName || u.DisplayName || 'Sem Nome'}</div>
+                                                                {u.DisplayName && u.AgentName !== u.DisplayName && <div style={{ fontSize: "0.7rem", opacity: 0.6 }}>Log: {u.DisplayName}</div>}
+                                                            </td>
+                                                            <td style={{ padding: "12px 16px" }}>{u.Email}</td>
+                                                            <td style={{ padding: "12px 16px" }}>
+                                                                <span style={{ 
+                                                                    fontSize: "0.7rem", padding: "2px 6px", borderRadius: 4, 
+                                                                    background: u.Role === 'ADMIN' ? "rgba(0,168,132,0.1)" : "rgba(134,150,161,0.1)",
+                                                                    color: u.Role === 'ADMIN' ? "var(--accent)" : "var(--text-secondary)",
+                                                                    fontWeight: 600
+                                                                }}>
+                                                                    {u.Role}
+                                                                </span>
+                                                            </td>
+                                                            <td style={{ padding: "12px 16px" }}>
+                                                                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                                                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: u.IsActive ? "var(--accent)" : "var(--danger)" }} />
+                                                                    {u.IsActive ? 'Ativo' : 'Inativo'}
+                                                                </div>
+                                                            </td>
+                                                            <td style={{ padding: "12px 16px", color: "var(--text-secondary)" }}>
+                                                                {new Date(u.CreatedAt).toLocaleDateString()}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}

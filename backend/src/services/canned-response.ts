@@ -15,7 +15,7 @@ export async function listCannedResponses(tenantId: string): Promise<CannedRespo
         .input("tenantId", tenantId)
         .query(`
       SELECT * FROM altdesk.CannedResponse
-      WHERE TenantId = @tenantId
+      WHERE TenantId = @tenantId AND DeletedAt IS NULL
       ORDER BY Shortcut ASC
     `);
     return result.recordset as CannedResponse[];
@@ -40,7 +40,7 @@ export async function deleteCannedResponse(tenantId: string, id: string) {
         .input("tenantId", tenantId)
         .input("id", id)
         .query(`
-      DELETE FROM altdesk.CannedResponse
+      UPDATE altdesk.CannedResponse SET DeletedAt = SYSUTCDATETIME()
       WHERE TenantId = @tenantId AND CannedResponseId = @id
     `);
 }

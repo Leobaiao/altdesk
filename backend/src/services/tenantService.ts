@@ -10,14 +10,15 @@ export async function listTenants() {
     const r = await pool.request().query(`
     SELECT t.TenantId, t.Name, t.CreatedAt, 
            s.IsActive, s.ExpiresAt, s.AgentsSeatLimit,
-           (SELECT COUNT(*) FROM altdesk.[User] u WHERE u.TenantId = t.TenantId AND u.IsActive=1) as UserCount,
+           (SELECT COUNT(*) FROM altdesk.[User] u WHERE u.TenantId = t.TenantId AND u.IsActive=1 AND u.DeletedAt IS NULL) as UserCount,
            (
              SELECT COUNT(*) FROM altdesk.ChannelConnector cc 
              JOIN altdesk.Channel ch ON ch.ChannelId = cc.ChannelId 
-             WHERE ch.TenantId = t.TenantId AND cc.IsActive=1 AND cc.DeletedAt IS NULL
+             WHERE ch.TenantId = t.TenantId AND cc.IsActive=1 AND cc.DeletedAt IS NULL AND ch.DeletedAt IS NULL
            ) as InstanceCount
     FROM altdesk.Tenant t
     LEFT JOIN altdesk.Subscription s ON s.TenantId = t.TenantId
+    WHERE t.DeletedAt IS NULL
     ORDER BY t.CreatedAt DESC
   `);
     return r.recordset;
@@ -117,7 +118,7 @@ export async function setTenantStatus(tenantId: string, active: boolean) {
         await transaction.request()
             .input("tenantId", tenantId)
             .input("active", activeBit)
-            .query("UPDATE altdesk.[User] SET IsActive=@active WHERE TenantId=@tenantId");
+            .query("UPDATE altdesk.[User] SET IsActive=@active WHERE TenantId=@tenantId AND DeletedAt IS NULL");
 
         // Para conectores, se estiver desativando, desativa tudo. 
         // Se estiver reativando, só os que não foram deletados.

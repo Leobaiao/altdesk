@@ -8,7 +8,8 @@ CREATE TABLE altdesk.Tenant (
     Name NVARCHAR(200) NOT NULL,
     DefaultProvider NVARCHAR(50) NOT NULL DEFAULT 'GTI',
     CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
-    IsActive BIT NOT NULL DEFAULT 1
+    IsActive BIT NOT NULL DEFAULT 1,
+    DeletedAt DATETIME2 NULL
 );
 GO
 
@@ -39,6 +40,7 @@ CREATE TABLE altdesk.[User] (
     IsActive BIT NOT NULL DEFAULT 1,
     CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
     LastLoginAt DATETIME2 NULL,
+    DeletedAt DATETIME2 NULL,
     CONSTRAINT UQ_User_Tenant_Email UNIQUE (TenantId, Email),
     CONSTRAINT FK_User_Tenant FOREIGN KEY (TenantId) REFERENCES altdesk.Tenant(TenantId)
 );
@@ -54,6 +56,7 @@ CREATE TABLE altdesk.Agent (
     Name NVARCHAR(200) NOT NULL,
     IsActive BIT NOT NULL DEFAULT 1,
     CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+    DeletedAt DATETIME2 NULL,
     CONSTRAINT FK_Agent_Tenant FOREIGN KEY (TenantId) REFERENCES altdesk.Tenant(TenantId),
     CONSTRAINT FK_Agent_User FOREIGN KEY (UserId) REFERENCES altdesk.[User](UserId)
 );
@@ -68,6 +71,7 @@ CREATE TABLE altdesk.Channel (
     Name NVARCHAR(200) NOT NULL,
     IsActive BIT NOT NULL DEFAULT 1,
     CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+    DeletedAt DATETIME2 NULL,
     CONSTRAINT FK_Channel_Tenant FOREIGN KEY (TenantId) REFERENCES altdesk.Tenant(TenantId)
 );
 GO
@@ -78,6 +82,7 @@ CREATE TABLE altdesk.Queue (
     Name NVARCHAR(100) NOT NULL,
     IsActive BIT NOT NULL DEFAULT 1,
     CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+    DeletedAt DATETIME2 NULL,
     CONSTRAINT FK_Queue_Tenant FOREIGN KEY (TenantId) REFERENCES altdesk.Tenant(TenantId)
 );
 GO
@@ -107,6 +112,7 @@ CREATE TABLE altdesk.Conversation (
     AssignedUserId UNIQUEIDENTIFIER NULL,
     CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
     LastMessageAt DATETIME2 NULL,
+    DeletedAt DATETIME2 NULL,
     CONSTRAINT FK_Conversation_Tenant FOREIGN KEY (TenantId) REFERENCES altdesk.Tenant(TenantId),
     CONSTRAINT FK_Conversation_Channel FOREIGN KEY (ChannelId) REFERENCES altdesk.Channel(ChannelId),
     CONSTRAINT FK_Conversation_Queue FOREIGN KEY (QueueId) REFERENCES altdesk.Queue(QueueId),
@@ -136,6 +142,7 @@ CREATE TABLE altdesk.Contact (
     Tags NVARCHAR(MAX) NULL,
     Notes NVARCHAR(MAX) NULL,
     CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+    DeletedAt DATETIME2 NULL,
     CONSTRAINT FK_Contact_Tenant FOREIGN KEY (TenantId) REFERENCES altdesk.Tenant(TenantId)
 );
 GO
@@ -156,6 +163,7 @@ CREATE TABLE altdesk.Message (
     Status NVARCHAR(20) NOT NULL DEFAULT 'SENT', -- SENT, DELIVERED, READ
     PayloadJson NVARCHAR(MAX) NULL,
     CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+    DeletedAt DATETIME2 NULL,
     CONSTRAINT FK_Message_Tenant FOREIGN KEY (TenantId) REFERENCES altdesk.Tenant(TenantId),
     CONSTRAINT FK_Message_Conversation FOREIGN KEY (ConversationId) REFERENCES altdesk.Conversation(ConversationId),
     CONSTRAINT FK_Message_SenderAgent FOREIGN KEY (SenderAgentId) REFERENCES altdesk.Agent(AgentId)
@@ -175,6 +183,7 @@ CREATE TABLE altdesk.Ticket (
     SLA_DueAt DATETIME2 NULL,
     CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
     UpdatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+    DeletedAt DATETIME2 NULL,
     CONSTRAINT FK_Ticket_Tenant FOREIGN KEY (TenantId) REFERENCES altdesk.Tenant(TenantId),
     CONSTRAINT FK_Ticket_Conversation FOREIGN KEY (ConversationId) REFERENCES altdesk.Conversation(ConversationId),
     CONSTRAINT FK_Ticket_AssignedAgent FOREIGN KEY (AssignedAgentId) REFERENCES altdesk.Agent(AgentId)
@@ -224,4 +233,21 @@ CREATE TABLE altdesk.InstanceAssignment (
     PRIMARY KEY (ConnectorId, UserId),
     CONSTRAINT FK_IA_User FOREIGN KEY (UserId) REFERENCES altdesk.[User](UserId)
 );
+GO
+
+-- Audit Logs Table
+CREATE TABLE altdesk.AuditLog (
+    AuditId UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID() PRIMARY KEY,
+    TenantId UNIQUEIDENTIFIER NOT NULL,
+    UserId UNIQUEIDENTIFIER NULL,
+    Action NVARCHAR(50) NOT NULL, -- CREATE, UPDATE, DELETE, SOFT_DELETE
+    Entity NVARCHAR(50) NOT NULL, -- User, Tenant, Message, etc.
+    EntityId NVARCHAR(100) NOT NULL, -- Can be GUID or String ID
+    PreviousData NVARCHAR(MAX) NULL, -- JSON Representation
+    NewData NVARCHAR(MAX) NULL, -- JSON Representation
+    MessageId UNIQUEIDENTIFIER NULL, -- If related to a specific chat message
+    CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+);
+GO
+CREATE INDEX IX_AuditLog_Tenant_Time ON altdesk.AuditLog(TenantId, CreatedAt DESC);
 GO

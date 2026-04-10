@@ -29,7 +29,8 @@ import {
     updateGlobalUser,
     setUserActiveStatus,
     listDeletedUsers,
-    restoreUser
+    restoreUser,
+    listTenantUsers
 } from "../services/userService.js";
 import { 
     listDeletedTenants,
@@ -158,6 +159,31 @@ router.delete("/tenants/:id", (async (req: AuthenticatedRequest, res: Response, 
                     JOIN altdesk.Channel ch ON ch.ChannelId = cc.ChannelId
                     WHERE ch.TenantId = @id AND cc.DeletedAt IS NULL
                 `);
+
+            // Cascade to Channels
+            await transaction.request()
+                .input("id", tenantId)
+                .query("UPDATE altdesk.Channel SET DeletedAt = GETDATE(), IsActive = 0 WHERE TenantId = @id AND DeletedAt IS NULL");
+
+            // Cascade to Queues
+            await transaction.request()
+                .input("id", tenantId)
+                .query("UPDATE altdesk.Queue SET DeletedAt = GETDATE(), IsActive = 0 WHERE TenantId = @id AND DeletedAt IS NULL");
+
+            // Cascade to Contacts
+            await transaction.request()
+                .input("id", tenantId)
+                .query("UPDATE altdesk.Contact SET DeletedAt = GETDATE() WHERE TenantId = @id AND DeletedAt IS NULL");
+
+            // Cascade to Conversations
+            await transaction.request()
+                .input("id", tenantId)
+                .query("UPDATE altdesk.Conversation SET DeletedAt = GETDATE() WHERE TenantId = @id AND DeletedAt IS NULL");
+
+            // Cascade to Tickets
+            await transaction.request()
+                .input("id", tenantId)
+                .query("UPDATE altdesk.Ticket SET DeletedAt = GETDATE() WHERE TenantId = @id AND DeletedAt IS NULL");
 
             await transaction.commit();
 
@@ -309,6 +335,16 @@ router.get("/tenants/:id/instances", (async (req: AuthenticatedRequest, res: Res
         const tenantId = req.params.id;
         const instances = await listTenantInstances(tenantId);
         res.json(instances);
+    } catch (error) {
+        next(error);
+    }
+}) as any);
+
+router.get("/tenants/:id/users", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const tenantId = req.params.id;
+        const users = await listTenantUsers(tenantId);
+        res.json(users);
     } catch (error) {
         next(error);
     }

@@ -6,7 +6,7 @@ import { KnowledgeArticle } from "../../../shared/types/index.js";
  */
 export async function listArticles(tenantId: string, onlyPublic: boolean = false) {
     const pool = await getPool();
-    let query = "SELECT ArticleId, TenantId, Title, Content, Category, IsPublic, CreatedAt, UpdatedAt FROM altdesk.KnowledgeArticle WHERE TenantId = @tenantId";
+    let query = "SELECT ArticleId, TenantId, Title, Content, Category, IsPublic, CreatedAt, UpdatedAt FROM altdesk.KnowledgeArticle WHERE TenantId = @tenantId AND DeletedAt IS NULL";
     if (onlyPublic) {
         query += " AND IsPublic = 1";
     }
@@ -68,7 +68,7 @@ export async function deleteArticle(tenantId: string, articleId: string) {
     await pool.request()
         .input("tenantId", tenantId)
         .input("articleId", articleId)
-        .query("DELETE FROM altdesk.KnowledgeArticle WHERE TenantId = @tenantId AND ArticleId = @articleId");
+        .query("UPDATE altdesk.KnowledgeArticle SET DeletedAt = SYSUTCDATETIME() WHERE TenantId = @tenantId AND ArticleId = @articleId");
 }
 
 /**
@@ -83,7 +83,7 @@ export async function searchArticles(tenantId: string, query: string) {
             SELECT ArticleId, Title, Content, Category 
             FROM altdesk.KnowledgeArticle 
             WHERE TenantId = @tenantId 
-              AND IsPublic = 1 
+              AND IsPublic = 1 AND DeletedAt IS NULL
               AND (Title LIKE @query OR Content LIKE @query OR Category LIKE @query)
             ORDER BY Title
         `);
@@ -104,7 +104,7 @@ export async function searchArticlesByConnector(connectorId: string, query: stri
             JOIN altdesk.Channel ch ON ch.TenantId = a.TenantId
             JOIN altdesk.ChannelConnector cc ON cc.ChannelId = ch.ChannelId
             WHERE cc.ConnectorId = @cid 
-              AND a.IsPublic = 1 
+              AND a.IsPublic = 1 AND a.DeletedAt IS NULL
               AND (a.Title LIKE @query OR a.Content LIKE @query OR a.Category LIKE @query)
             ORDER BY a.Title
         `);

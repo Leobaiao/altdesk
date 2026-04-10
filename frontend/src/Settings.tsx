@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { api } from "./lib/api";
 import { PageHeader } from "./components/PageHeader";
 import { User, Briefcase, Image as ImageIcon, Lock, MonitorSmartphone, KeySquare, Blocks, ShieldCheck, PhoneCall, Settings as SettingsIcon } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 interface Props {
     token: string;
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export function Settings({ token, onBack, role }: Props) {
+    const navigate = useNavigate();
     const [name, setName] = useState("");
     const [password, setPassword] = useState("");
     const [avatar, setAvatar] = useState("");
@@ -153,7 +155,7 @@ export function Settings({ token, onBack, role }: Props) {
     };
 
     return (
-        <div className="settings-page" style={{ height: "100%", overflowY: "auto" }}>
+        <div className="settings-page" style={{ height: "100%", overflowY: "auto", padding: "24px" }}>
             <PageHeader
                 title="Configurações da Empresa"
                 subtitle="Ajuste dados básicos da sua conta e preferências globais."
@@ -162,15 +164,32 @@ export function Settings({ token, onBack, role }: Props) {
                 helpText={
                     <div>
                         <p>Configure as preferências do seu perfil e o comportamento global da plataforma para sua empresa.</p>
-                        <ul style={{ marginTop: 12, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 8 }}>
-                            <li><strong>Perfil:</strong> Atualize seu nome, e-mail e foto de identificação.</li>
-                            <li><strong>Aparência:</strong> Alterne entre os temas Dark (mais confortável à noite) e Light.</li>
-                            <li><strong>Instâncias:</strong> Verifique o status de conexão da sua integração com o WhatsApp.</li>
-                            <li><strong>Preferências:</strong> Ajuste o fuso horário e notificações para garantir que nada passe despercebido.</li>
-                        </ul>
                     </div>
                 }
             />
+
+            {/* Config Navigation */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 32 }}>
+                {[
+                    { label: "Calendário (Horários)", path: "/business-hours", desc: "Cronograma e expedientes" },
+                    { label: "Respostas Rápidas", path: "/canned", desc: "Atalhos de texto" },
+                    { label: "Base de Conhecimento", path: "/knowledge", desc: "Arquivos e links" },
+                    { label: "Filas de Atendimento", path: "/queues", desc: "Roteamento de chats" },
+                    { label: "Tags", path: "/tags", desc: "Categorização" },
+                    ...(isAdmin ? [{ label: "Faturamento", path: "/billing", desc: "Gestão de assinaturas" }] : [])
+                ].map(item => (
+                    <div 
+                        key={item.path} 
+                        onClick={() => navigate(item.path)}
+                        style={{ background: "var(--bg-secondary)", padding: 16, borderRadius: 12, border: "1px solid var(--border)", cursor: "pointer", transition: "all 0.2s" }}
+                        onMouseEnter={e => e.currentTarget.style.borderColor = "var(--accent)"}
+                        onMouseLeave={e => e.currentTarget.style.borderColor = "var(--border)"}
+                    >
+                        <div style={{ fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}>{item.label}</div>
+                        <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>{item.desc}</div>
+                    </div>
+                ))}
+            </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 24 }}>
                 {/* Perfil + Aparência */}
