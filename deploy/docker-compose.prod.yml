@@ -6,7 +6,8 @@ services:
     user: root
     environment:
       - ACCEPT_EULA=Y
-      - MSSQL_SA_PASSWORD=${MSSQL_SA_PASSWORD}
+    env_file:
+      - ../.env
     ports:
       # Expõe a porta 1433 apenas para localhost (127.0.0.1) por segurança
       - "127.0.0.1:14333:1433"
@@ -30,8 +31,8 @@ services:
         condition: service_healthy
     volumes:
       - ../backend/db:/scripts
-    environment:
-      - SA_PASSWORD=${MSSQL_SA_PASSWORD}
+    env_file:
+      - ../.env
     entrypoint: >
       /bin/bash -c "
         echo 'Runing script for SQL Server migrations in PROD...';
@@ -69,11 +70,7 @@ services:
       - ../.env # Usar um .env central para produção
     environment:
       PORT: 3002
-      DB_USER: ${DB_USER:-sa}
-      DB_PASS: ${MSSQL_SA_PASSWORD}
-      DB_NAME: ${DB_NAME:-AltDeskDev}
       DB_HOST: db
-      JWT_SECRET: ${JWT_SECRET}
     ports:
       # Opcional, apenas para acesso local se o nginx host enviar para a web.
       - "127.0.0.1:3002:3002"
@@ -107,11 +104,7 @@ services:
       - ../.env
     environment:
       PORT: 3002
-      DB_USER: ${DB_USER:-sa}
-      DB_PASS: ${MSSQL_SA_PASSWORD}
-      DB_NAME: ${DB_NAME:-AltDeskDev}
       DB_HOST: db
-      JWT_SECRET: ${JWT_SECRET}
     ports:
       - "127.0.0.1:3003:3002"
     restart: always
