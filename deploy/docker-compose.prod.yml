@@ -12,7 +12,7 @@ services:
       - "127.0.0.1:14333:1433"
     volumes:
       - mssql_data_prod:/var/opt/mssql
-      - ./backend/db:/docker-entrypoint-initdb.d
+      - ../backend/db:/docker-entrypoint-initdb.d
     healthcheck:
       test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -C -Q "SELECT 1" -b -o /dev/null || exit 1
       interval: 15s
@@ -29,7 +29,7 @@ services:
       db:
         condition: service_healthy
     volumes:
-      - ./backend/db:/scripts
+      - ../backend/db:/scripts
     environment:
       - SA_PASSWORD=${MSSQL_SA_PASSWORD}
     entrypoint: >
@@ -59,7 +59,7 @@ services:
   # Backend API
   backend:
     build:
-      context: .
+      context: ..
       dockerfile: backend/Dockerfile
     container_name: altdesk_api_prod
     depends_on:
@@ -82,7 +82,7 @@ services:
   # Frontend Web Cliente (App)
   frontend:
     build:
-      context: .
+      context: ..
       dockerfile: frontend/Dockerfile
       args:
         - VITE_API_URL=${VITE_API_URL_APP}
@@ -97,7 +97,7 @@ services:
   # Admin Backend
   admin-backend:
     build:
-      context: .
+      context: ..
       dockerfile: admin/backend/Dockerfile
     container_name: altdesk_admin_api_prod
     depends_on:
@@ -119,7 +119,7 @@ services:
   # Admin Frontend Web
   admin-frontend:
     build:
-      context: .
+      context: ..
       dockerfile: admin/frontend/Dockerfile
       args:
         - VITE_API_URL=${VITE_API_URL_ADMIN}
