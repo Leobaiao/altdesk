@@ -30,6 +30,7 @@ import { Onboarding } from "./Onboarding";
 import LogoHorizontal from "./assets/logo/logo-horizontal.png";
 import logo from "./assets/logo/logo.png";
 import { WelcomeScreen } from "./WelcomeScreen";
+import { ThemeToggle } from "./components/ThemeToggle";
 
 import {
   LayoutDashboard,
@@ -114,6 +115,7 @@ function LoginScreen({ onLogin }: { onLogin: (token: string, role: string) => vo
 
   return (
     <div className="login-container">
+      <ThemeToggle style={{ position: "absolute", top: 20, right: 30 }} />
       <form className="login-card" onSubmit={handleSubmit}>
         <div style={{ textAlign: "center", marginBottom: 20 }}>
           <img src={LogoHorizontal} alt="AltDesk Logo" style={{ maxWidth: "200px", height: "auto" }} />
@@ -174,11 +176,6 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
             } catch (e) {}
         }
     }).catch(console.error);
-    // Initialize theme from localStorage
-    const savedTheme = localStorage.getItem("theme");
-    if (savedTheme === "light") {
-      document.documentElement.setAttribute("data-theme", "light");
-    }
   }, []);
 
   const handleStartChat = async (contact: any) => {

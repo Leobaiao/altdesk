@@ -7,21 +7,6 @@
 }
 
 :root {
-  --bg-primary: #0b141a;
-  --bg-secondary: #111b21;
-  --bg-hover: #1f2c33;
-  --bg-active: #2a3942;
-  --border: #24333b;
-  --text-primary: #e9edef;
-  --text-secondary: #8696a0;
-  --accent: #00a884;
-  --accent-hover: #06cf9c;
-  --bubble-in: #1f2c33;
-  --bubble-out: #005c4b;
-  --danger: #ea4335;
-}
-
-[data-theme="light"] {
   --bg-primary: #f0f2f5;
   --bg-secondary: #ffffff;
   --bg-hover: #e9edef;
@@ -33,6 +18,21 @@
   --accent-hover: #06cf9c;
   --bubble-in: #ffffff;
   --bubble-out: #d9fdd3;
+  --danger: #ea4335;
+}
+
+[data-theme="dark"] {
+  --bg-primary: #0b141a;
+  --bg-secondary: #111b21;
+  --bg-hover: #1f2c33;
+  --bg-active: #2a3942;
+  --border: #24333b;
+  --text-primary: #e9edef;
+  --text-secondary: #8696a0;
+  --accent: #00a884;
+  --accent-hover: #06cf9c;
+  --bubble-in: #1f2c33;
+  --bubble-out: #005c4b;
   --danger: #ea4335;
 }
 
@@ -81,19 +81,6 @@ body,
 
 /* ONBOARDING DESIGN SYSTEM & TOKENS */
 :root {
-  --ob-bg: #0b141a;
-  --ob-card-bg: #111b21;
-  --ob-border: rgba(134, 150, 160, 0.15);
-  --ob-text-primary: #e9edef;
-  --ob-text-secondary: #8696a1;
-  --ob-accent: #00a884;
-  --ob-accent-hover: #008f72;
-  --ob-input-bg: #2a3942;
-  --ob-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
-  --ob-label: #00a884;
-}
-
-body.light-theme {
   --ob-bg: #f8fafc;
   --ob-card-bg: #ffffff;
   --ob-border: #e2e8f0;
@@ -103,6 +90,19 @@ body.light-theme {
   --ob-accent-hover: #008f72;
   --ob-input-bg: #f1f5f9;
   --ob-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  --ob-label: #00a884;
+}
+
+[data-theme="dark"] {
+  --ob-bg: #0b141a;
+  --ob-card-bg: #111b21;
+  --ob-border: rgba(134, 150, 160, 0.15);
+  --ob-text-primary: #e9edef;
+  --ob-text-secondary: #8696a1;
+  --ob-accent: #00a884;
+  --ob-accent-hover: #008f72;
+  --ob-input-bg: #2a3942;
+  --ob-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
   --ob-label: #00a884;
 }
 

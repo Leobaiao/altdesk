@@ -43,7 +43,11 @@ export function Settings({ token, onBack, role }: Props) {
     function toggleTheme(newTheme: string) {
         setTheme(newTheme);
         localStorage.setItem("theme", newTheme);
-        document.documentElement.setAttribute("data-theme", newTheme === "light" ? "light" : "");
+        if (newTheme === "dark") {
+            document.documentElement.setAttribute("data-theme", "dark");
+        } else {
+            document.documentElement.removeAttribute("data-theme");
+        }
     }
 
     useEffect(() => {
