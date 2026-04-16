@@ -671,7 +671,8 @@ router.post("/users", validateBody(z.object({
     name: z.string().min(2),
     email: z.string().email(),
     password: z.string().min(6),
-    role: z.enum(["ADMIN", "AGENT", "SUPERADMIN"]).default("AGENT")
+    role: z.enum(["ADMIN", "AGENT", "SUPERADMIN"]).default("AGENT"),
+    permissionsJson: z.string().optional()
 })), (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const body = req.body;
@@ -680,7 +681,8 @@ router.post("/users", validateBody(z.object({
             name: body.name,
             email: body.email,
             passwordRaw: body.password,
-            role: body.role
+            role: body.role,
+            permissionsJson: body.permissionsJson
         });
 
         // Audit Log
@@ -707,7 +709,8 @@ router.put("/users/:id", validateBody(z.object({
     email: z.string().email(),
     password: z.string().optional(),
     role: z.enum(["ADMIN", "AGENT", "SUPERADMIN"]),
-    tenantId: z.string().uuid()
+    tenantId: z.string().uuid(),
+    permissionsJson: z.string().optional()
 })), (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const userId = req.params.id;
@@ -717,7 +720,8 @@ router.put("/users/:id", validateBody(z.object({
             name: body.name,
             email: body.email,
             passwordRaw: body.password,
-            role: body.role
+            role: body.role,
+            permissionsJson: body.permissionsJson
         });
 
         // Audit Log

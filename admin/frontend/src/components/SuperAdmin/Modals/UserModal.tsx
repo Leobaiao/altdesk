@@ -14,6 +14,16 @@ export function UserModal({ editUser, tenants, onClose, onSubmit }: UserModalPro
     const [userEmail, setUserEmail] = useState(editUser?.Email || "");
     const [userPassword, setUserPassword] = useState("");
     const [userRole, setUserRole] = useState(editUser?.Role || "AGENT");
+    const [permissions, setPermissions] = useState(() => {
+        try {
+            if (editUser?.PermissionsJson) return JSON.parse(editUser.PermissionsJson);
+        } catch(e) {}
+        return {
+            dashboard: true, chat: true, tickets: true, contacts: true, 
+            reports: true, billing: (editUser?.Role === 'ADMIN' || editUser?.Role === 'SUPERADMIN'), 
+            users: (editUser?.Role === 'ADMIN' || editUser?.Role === 'SUPERADMIN'), settings: true
+        };
+    });
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -22,6 +32,7 @@ export function UserModal({ editUser, tenants, onClose, onSubmit }: UserModalPro
             name: userName,
             email: userEmail,
             role: userRole,
+            permissionsJson: JSON.stringify(permissions),
             password: userPassword || undefined
         });
         onClose();
@@ -73,8 +84,14 @@ export function UserModal({ editUser, tenants, onClose, onSubmit }: UserModalPro
 
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                         <div className="field">
-                            <label style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 600, color: "var(--text-secondary)" }}>Permissão</label>
-                            <select required value={userRole} onChange={e => setUserRole(e.target.value)} style={{ width: "100%", marginTop: 8, background: "var(--bg-primary)", padding: "12px 16px", borderRadius: 12, border: "1px solid var(--border)", color: "var(--text-primary)", cursor: "pointer", outline: "none" }}>
+                            <label style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 600, color: "var(--text-secondary)" }}>Permissão Base</label>
+                            <select required value={userRole} onChange={e => {
+                                const newRole = e.target.value;
+                                setUserRole(newRole);
+                                if (newRole === 'AGENT') {
+                                    setPermissions((p: any) => ({ ...p, billing: false, users: false }));
+                                }
+                            }} style={{ width: "100%", marginTop: 8, background: "var(--bg-primary)", padding: "12px 16px", borderRadius: 12, border: "1px solid var(--border)", color: "var(--text-primary)", cursor: "pointer", outline: "none" }}>
                                 <option value="AGENT">Agente</option>
                                 <option value="ADMIN">Gerente (Admin)</option>
                                 <option value="SUPERADMIN">Root (SuperAdmin)</option>
@@ -86,6 +103,45 @@ export function UserModal({ editUser, tenants, onClose, onSubmit }: UserModalPro
                         </div>
                     </div>
                     {editUser && <p style={{ fontSize: "0.7rem", color: "var(--text-secondary)", marginTop: -12 }}>Deixe a senha em branco para não alterar.</p>}
+
+                    <div className="field">
+                        <label style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 600, color: "var(--text-secondary)" }}>Áreas de Acesso Específicas</label>
+                        <div style={{ 
+                            display: "grid", 
+                            gridTemplateColumns: "1fr 1fr", 
+                            gap: "10px", 
+                            marginTop: 12,
+                            padding: "15px",
+                            background: "var(--bg-primary)",
+                            borderRadius: "12px",
+                            border: "1px solid var(--border)"
+                        }}>
+                            {[
+                                { key: 'dashboard', label: 'Dashboard' },
+                                { key: 'chat', label: 'Chat' },
+                                { key: 'tickets', label: 'Tickets' },
+                                { key: 'contacts', label: 'Contatos' },
+                                { key: 'reports', label: 'Relatórios' },
+                                { key: 'settings', label: 'Configurações' },
+                                { key: 'billing', label: 'Faturamento', adminOnly: true },
+                                { key: 'users', label: 'Usuários', adminOnly: true }
+                            ].map(item => {
+                                // SuperAdmin pode editar até permissões admin de quem caiu pra agent? 
+                                // Melhor não travar a checkbox pro SuperAdmin.
+                                return (
+                                    <label key={item.key} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: "0.9rem", color: "var(--text-primary)" }}>
+                                        <input 
+                                            type="checkbox" 
+                                            checked={(permissions as any)[item.key]} 
+                                            onChange={e => setPermissions((p: any) => ({ ...p, [item.key]: e.target.checked }))}
+                                            style={{ width: 18, height: 18, accentColor: "var(--accent)" }}
+                                        />
+                                        {item.label}
+                                    </label>
+                                );
+                            })}
+                        </div>
+                    </div>
 
                     <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", marginTop: 12 }}>
                         <button type="button" onClick={onClose} className="btn btn-ghost" style={{ padding: "12px 24px", borderRadius: 12 }}>Cancelar</button>

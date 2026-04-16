@@ -11,6 +11,7 @@ export interface CreateUserData {
     email: string;
     passwordRaw: string;
     role: "ADMIN" | "AGENT" | "SUPERADMIN";
+    permissionsJson?: string;
 }
 
 /**
@@ -19,7 +20,7 @@ export interface CreateUserData {
 export async function listAllUsers() {
     const pool = await getPool();
     return (await pool.request().query(`
-    SELECT u.UserId, u.Email, u.Role, u.IsActive, u.TenantId, t.Name as TenantName, u.DisplayName,
+    SELECT u.UserId, u.Email, u.Role, u.IsActive, u.TenantId, t.Name as TenantName, u.DisplayName, u.PermissionsJson,
            (SELECT Name FROM altdesk.Agent a WHERE a.UserId = u.UserId) as AgentName
     FROM altdesk.[User] u
     LEFT JOIN altdesk.Tenant t ON t.TenantId = u.TenantId
@@ -49,10 +50,11 @@ export async function createGlobalUser(data: CreateUserData) {
             .input("name", data.name)
             .input("hash", hash)
             .input("role", data.role)
+            .input("permissionsJson", data.permissionsJson || null)
             .query(`
-          INSERT INTO altdesk.[User] (TenantId, Email, DisplayName, PasswordHash, Role, IsActive)
+          INSERT INTO altdesk.[User] (TenantId, Email, DisplayName, PasswordHash, Role, IsActive, PermissionsJson)
           OUTPUT inserted.UserId
-          VALUES (@tenantId, @email, @name, @hash, @role, 1)
+          VALUES (@tenantId, @email, @name, @hash, @role, 1, @permissionsJson)
         `);
         const newUserId = rUser.recordset[0].UserId;
 
@@ -87,7 +89,8 @@ export async function updateGlobalUser(userId: string, data: Partial<CreateUserD
             .input("tenantId", data.tenantId)
             .input("email", data.email)
             .input("name", data.name)
-            .input("role", data.role);
+            .input("role", data.role)
+            .input("permissionsJson", data.permissionsJson || null);
 
         if (data.passwordRaw) {
             const hash = await hashPassword(data.passwordRaw);
@@ -95,13 +98,13 @@ export async function updateGlobalUser(userId: string, data: Partial<CreateUserD
                 .input("hash", hash)
                 .query(`
             UPDATE altdesk.[User] 
-            SET Email=@email, DisplayName=@name, Role=@role, PasswordHash=@hash, TenantId=@tenantId
+            SET Email=@email, DisplayName=@name, Role=@role, PasswordHash=@hash, TenantId=@tenantId, PermissionsJson=@permissionsJson
             WHERE UserId=@id
           `);
         } else {
             await request.query(`
         UPDATE altdesk.[User] 
-        SET Email=@email, DisplayName=@name, Role=@role, TenantId=@tenantId
+        SET Email=@email, DisplayName=@name, Role=@role, TenantId=@tenantId, PermissionsJson=@permissionsJson
         WHERE UserId=@id
       `);
         }
