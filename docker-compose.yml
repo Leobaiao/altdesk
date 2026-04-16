@@ -8,7 +8,7 @@ services:
       - ACCEPT_EULA=Y
       - MSSQL_SA_PASSWORD=${MSSQL_SA_PASSWORD:?Defina MSSQL_SA_PASSWORD no .env}
     ports:
-      - "14333:1433"
+      - "14334:1433"
     volumes:
       - mssql_data:/var/opt/mssql
       - ./backend/db:/docker-entrypoint-initdb.d
