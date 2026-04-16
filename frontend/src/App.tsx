@@ -291,7 +291,9 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
           )}
         </div>
         <div className="footer-items">
-          <NavIcon icon={SettingsIcon} label="Config" active={currentPath.startsWith("/settings") || currentPath.startsWith("/business-hours") || currentPath.startsWith("/canned") || currentPath.startsWith("/knowledge") || currentPath.startsWith("/billing")} onClick={() => navigate("/settings")} />
+          {(role === 'SUPERADMIN' || role === 'ADMIN' || livePermissions?.settings !== false) && (
+            <NavIcon icon={SettingsIcon} label="Config" active={currentPath.startsWith("/settings") || currentPath.startsWith("/business-hours") || currentPath.startsWith("/canned") || currentPath.startsWith("/knowledge") || currentPath.startsWith("/billing")} onClick={() => navigate("/settings")} />
+          )}
           <button onClick={onLogout} style={{ background: "none", border: "none", cursor: "pointer", opacity: 0.7, padding: 10, color: "var(--text-secondary)" }} title="Sair">
             <LogOut size={24} />
           </button>
@@ -314,7 +316,11 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
 
             <Route path="/users" element={<Users token={token} onBack={() => navigate("/chat")} role={role || 'AGENT'} />} />
 
-            <Route path="/settings" element={<Settings token={token} onBack={() => navigate("/chat")} role={role || 'AGENT'} />} />
+            <Route path="/settings" element={
+              (role === 'SUPERADMIN' || role === 'ADMIN' || livePermissions?.settings !== false) 
+                ? <Settings token={token} onBack={() => navigate("/chat")} role={role || 'AGENT'} />
+                : <Navigate to="/chat" replace />
+            } />
             <Route path="/queues" element={<QueueSettings onBack={() => navigate("/settings")} />} />
             <Route path="/tags" element={<TagsSettings onBack={() => navigate("/settings")} />} />
             <Route path="/knowledge" element={<KnowledgeBase onBack={() => navigate("/settings")} />} />
