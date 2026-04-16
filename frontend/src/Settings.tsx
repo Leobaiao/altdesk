@@ -9,9 +9,10 @@ interface Props {
     token: string;
     onBack: () => void;
     role: string;
+    livePermissions?: any;
 }
 
-export function Settings({ token, onBack, role }: Props) {
+export function Settings({ token, onBack, role, livePermissions }: Props) {
     const navigate = useNavigate();
     const [name, setName] = useState("");
     const [password, setPassword] = useState("");
@@ -37,7 +38,7 @@ export function Settings({ token, onBack, role }: Props) {
     const [loading, setLoading] = useState(false);
     const [msg, setMsg] = useState("");
     const decoded = parseJwt(token);
-    const userPermissions = decoded?.permissions || {};
+    const userPermissions = livePermissions || decoded?.permissions || {};
     const isAdmin = role === "ADMIN" || role === "SUPERADMIN";
 
     function toggleTheme(newTheme: string) {

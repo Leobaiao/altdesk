@@ -315,7 +315,7 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
 
             <Route path="/settings" element={
               (role === 'SUPERADMIN' || role === 'ADMIN' || livePermissions?.settings !== false) 
-                ? <Settings token={token} onBack={() => navigate("/chat")} role={role || 'AGENT'} />
+                ? <Settings token={token} onBack={() => navigate("/chat")} role={role || 'AGENT'} livePermissions={livePermissions} />
                 : <Navigate to="/chat" replace />
             } />
             <Route path="/queues" element={<QueueSettings onBack={() => navigate("/settings")} />} />
