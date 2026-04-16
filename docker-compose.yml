@@ -34,6 +34,8 @@ services:
     entrypoint: >
       /bin/bash -c "
         echo 'SQL Server healthy, executando migrations...';
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -i /scripts/01-init.sql;
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/02-seed.sql;
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/03-migration-roles-cpf-audit.sql;
         echo 'Executando migration 04 (fix displayname)...';
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/04-fix-user-displayname.sql;
