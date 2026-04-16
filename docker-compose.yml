@@ -120,7 +120,7 @@ services:
       DB_HOST: db
       JWT_SECRET: ${JWT_SECRET:?Defina JWT_SECRET no .env}
     ports:
-      - "3003:3002"
+      - "3004:3002"
     restart: always
 
   # Admin Frontend (Painel SuperAdmin)
