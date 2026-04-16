@@ -44,9 +44,9 @@ router.use(authMw as any, requireRole("SUPERADMIN") as any);
 function isValidGtiUrl(url: string): boolean {
     try {
         const parsed = new URL(url);
-        // Only allow trusted GTI worker domain
-        const allowedDomains = ["api.gtiapi.workers.dev"];
-        return allowedDomains.includes(parsed.hostname) && parsed.protocol === "https:";
+        // Allow main and homologation GTI worker domains
+        const validHost = parsed.hostname === "api.gtiapi.workers.dev" || parsed.hostname.endsWith(".gtiapi.workers.dev");
+        return validHost && parsed.protocol === "https:";
     } catch {
         return false;
     }

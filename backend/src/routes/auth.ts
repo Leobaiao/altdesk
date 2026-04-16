@@ -32,7 +32,7 @@ router.post("/login", authLimiter, validateBody(LoginSchema), async (req, res, n
                 .input("tenantId", body.tenantId)
                 .input("email", body.email)
                 .query(`
-          SELECT TOP 1 UserId, TenantId, Role, PasswordHash, IsActive, DisplayName
+          SELECT TOP 1 UserId, TenantId, Role, PasswordHash, IsActive, DisplayName, Position, PermissionsJson
           FROM altdesk.[User]
           WHERE TenantId=@tenantId AND Email=@email AND DeletedAt IS NULL
         `);
@@ -40,7 +40,7 @@ router.post("/login", authLimiter, validateBody(LoginSchema), async (req, res, n
             r = await pool.request()
                 .input("email", body.email)
                 .query(`
-          SELECT TOP 1 UserId, TenantId, Role, PasswordHash, IsActive, DisplayName
+          SELECT TOP 1 UserId, TenantId, Role, PasswordHash, IsActive, DisplayName, Position, PermissionsJson
           FROM altdesk.[User]
           WHERE Email=@email AND DeletedAt IS NULL
         `);
@@ -99,8 +99,39 @@ router.post("/login", authLimiter, validateBody(LoginSchema), async (req, res, n
             return res.status(401).json({ error: "Credenciais inválidas" });
         }
 
+        // Parse Permissions
+        let permissions = {
+            dashboard: true,
+            chat: true,
+            tickets: true,
+            contacts: true,
+            reports: true,
+            billing: false,
+            users: false,
+            settings: true
+        };
+
+        if (u.PermissionsJson) {
+            try {
+                permissions = { ...permissions, ...JSON.parse(u.PermissionsJson) };
+            } catch (e) {
+                logger.error({ userId: u.UserId }, "Failed to parse PermissionsJson");
+            }
+        } else if (u.Role === 'ADMIN' || u.Role === 'SUPERADMIN') {
+            // Default full access for admins if no special config exists
+            permissions.billing = true;
+            permissions.users = true;
+        }
+
         // Login bem-sucedido
-        const token = signToken({ userId: u.UserId, tenantId: u.TenantId, role: u.Role });
+        const token = signToken({ 
+            userId: u.UserId, 
+            tenantId: u.TenantId, 
+            role: u.Role, 
+            displayName: u.DisplayName,
+            position: u.Position,
+            permissions
+        });
 
         logger.info({ requestId, userId: u.UserId, tenantId: u.TenantId, role: u.Role, email: body.email, ip }, "Login success");
         await writeAuditLog({
@@ -112,7 +143,7 @@ router.post("/login", authLimiter, validateBody(LoginSchema), async (req, res, n
             afterValues: { email: body.email, role: u.Role }
         });
 
-        return res.json({ token, role: u.Role, tenantId: u.TenantId });
+        return res.json({ token, role: u.Role, tenantId: u.TenantId, permissions });
     } catch (error) {
         next(error);
     }

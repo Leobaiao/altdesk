@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { getPool } from "../db.js";
-import { authMw, requireRole } from "../mw.js";
+import { authMw, requireRole, requirePermission } from "../mw.js";
 
 const router = Router();
 
@@ -9,7 +9,7 @@ const router = Router();
  * Lista os logs de auditoria do tenant atual. 
  * Apenas ADMIN ou SUPERADMIN.
  */
-router.get("/", authMw, requireRole("ADMIN", "SUPERADMIN"), async (req: any, res) => {
+router.get("/", authMw, requirePermission('settings'), requireRole("ADMIN", "SUPERADMIN"), async (req: any, res) => {
     try {
         const pool = await getPool();
         const tenantId = req.user.tenantId;
@@ -37,7 +37,7 @@ router.get("/", authMw, requireRole("ADMIN", "SUPERADMIN"), async (req: any, res
  * GET /api/audit/admin/all
  * Lista logs globais (Super Admin apenas).
  */
-router.get("/admin/all", authMw, requireRole("SUPERADMIN"), async (req, res) => {
+router.get("/admin/all", authMw, requirePermission('settings'), requireRole("SUPERADMIN"), async (req, res) => {
     try {
         const pool = await getPool();
         const r = await pool.request()

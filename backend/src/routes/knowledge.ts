@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { authMw } from "../mw.js";
+import { authMw, requirePermission } from "../mw.js";
 import { validateBody } from "../middleware/validateMw.js";
 import { AuthenticatedRequest } from "../types/index.js";
 import {
@@ -31,7 +31,7 @@ router.get("/public/search", (async (req: any, res: any, next: any) => {
 }) as any);
 
 // Auth required for management
-router.use(authMw);
+router.use(authMw, requirePermission('settings'));
 
 // List all articles
 router.get("/", (async (req: any, res: any, next: any) => {

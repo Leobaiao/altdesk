@@ -1,5 +1,16 @@
 import { Request } from "express";
 
+export interface Permissions {
+    dashboard: boolean;
+    chat: boolean;
+    tickets: boolean;
+    contacts: boolean;
+    reports: boolean;
+    billing: boolean;
+    users: boolean;
+    settings: boolean;
+}
+
 /**
  * Representa o usuário autenticado no JWT
  */
@@ -9,6 +20,8 @@ export interface AuthUser {
     role: 'AGENT' | 'ADMIN' | 'SUPERADMIN' | 'SUPERVISOR' | 'END_USER';
     displayName?: string;
     email?: string;
+    position?: string;
+    permissions?: Permissions;
 }
 
 /**

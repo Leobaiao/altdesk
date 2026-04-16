@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { api } from "../../../lib/api";
+import { useNotification } from "../../../contexts/NotificationContext";
 
 interface WebhookModalProps {
     connectorId: string;
@@ -20,6 +20,7 @@ export function WebhookModal({ connectorId, onClose }: WebhookModalProps) {
     const [addUrlTypesMessages, setAddUrlTypesMessages] = useState(true);
     const [loadingWebhookStatus, setLoadingWebhookStatus] = useState(false);
     const [webhookStatus, setWebhookStatus] = useState<any>(null);
+    const { notify } = useNotification();
 
     useEffect(() => {
         handleFetchWebhookStatus();
@@ -47,21 +48,22 @@ export function WebhookModal({ connectorId, onClose }: WebhookModalProps) {
                 addUrlEvents,
                 addUrlTypesMessages
             });
-            alert("Webhook configurado com sucesso!");
+            notify("Webhook configurado com sucesso!", "success");
             handleFetchWebhookStatus();
         } catch (err) {
             console.error(err);
-            alert("Erro ao configurar webhook");
+            notify("Erro ao configurar webhook", "error");
         }
     };
 
     const handleDeleteWebhook = async () => {
         try {
             await api.delete(`/api/admin/instances/${connectorId}/webhook`);
-            alert("Webhook removido");
+            notify("Webhook removido", "success");
             handleFetchWebhookStatus();
         } catch (err) {
             console.error(err);
+            notify("Erro ao remover webhook", "error");
         }
     };
 
@@ -124,7 +126,7 @@ export function WebhookModal({ connectorId, onClose }: WebhookModalProps) {
                 <form onSubmit={handleSetWebhook} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
                     <div className="field">
                         <label style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 600, color: "var(--text-secondary)" }}>URL do Webhook</label>
-                        <input required value={webhookBaseUrl} onChange={e => setWebhookBaseUrl(e.target.value)} style={{ width: "100%", marginTop: 8, background: "var(--bg-primary)", padding: "12px 16px", borderRadius: 12, border: "1px solid var(--border)", color: "white" }} placeholder="https://seu-dominio.com/webhook" />
+                        <input required value={webhookBaseUrl} onChange={e => setWebhookBaseUrl(e.target.value)} style={{ width: "100%", marginTop: 8, background: "var(--bg-primary)", padding: "12px 16px", borderRadius: 12, border: "1px solid var(--border)", color: "var(--text-primary)" }} placeholder="https://seu-dominio.com/webhook" />
                     </div>
                     {/* Simplified event selection for brevity in this extraction, keeping original logic if possible */}
                     <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", marginTop: 12 }}>

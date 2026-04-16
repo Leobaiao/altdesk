@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { getPool } from "../db.js";
-import { authMw } from "../mw.js";
+import { authMw, requirePermission } from "../mw.js";
 
 const router = Router();
 router.use(authMw);
@@ -9,7 +9,7 @@ router.use(authMw);
  * GET /api/dashboard/stats
  * Returns basic counters + advanced metrics for the tenant.
  */
-router.get("/stats", async (req, res, next) => {
+router.get("/stats", requirePermission('dashboard'), async (req, res, next) => {
     try {
         const user = (req as any).user;
         const pool = await getPool();

@@ -47,7 +47,7 @@ export function LimitModal({ tenant, onClose, onSubmit }: LimitModalProps) {
                             min="1"
                             value={newLimit}
                             onChange={e => setNewLimit(Number(e.target.value))}
-                            style={{ width: "100%", marginTop: 8, background: "var(--bg-primary)", padding: "12px 16px", borderRadius: 12, border: "1px solid var(--border)", color: "white" }}
+                            style={{ width: "100%", marginTop: 8, background: "var(--bg-primary)", padding: "12px 16px", borderRadius: 12, border: "1px solid var(--border)", color: "var(--text-primary)" }}
                         />
                     </div>
                     <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>

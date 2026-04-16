@@ -47,12 +47,20 @@ services:
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/08-trash-system.sql;
         echo 'Executando migration 09 (onboarding)...';
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/09-onboarding.sql;
+        echo 'Executando migration 10 (instance assignment)...';
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/10-instance-assignment.sql;
         echo 'Executando migration 11 (cpf sessions)...';
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/11-cpf-sessions.sql;
+        echo 'Executando migration 12 (soft-delete conversations)...';
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/12-soft-delete-conversations.sql;
         echo 'Executando migration 13 (tenant status and tags)...';
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/13-tenant-status-and-tags.sql;
         echo 'Executando migration 14 (sp purge demo data)...';
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/14-sp-purge-demo-data.sql;
+        echo 'Executando migration 15 (missing features fields)...';
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/15-missing-features-fields.sql;
+        echo 'Executando migration 16 (permissions and nomenclature)...';
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/16-permissions-and-nomenclature.sql;
         echo 'Todas as migrations concluidas!';
       "
 

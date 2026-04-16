@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Edit2, Play, Pause, Trash2 } from "lucide-react";
 import { api } from "../../lib/api";
 import { UserModal } from "./Modals/UserModal";
+import { useNotification } from "../../contexts/NotificationContext";
 
 type RoleFilter = "ALL" | "SUPERADMIN" | "ADMIN" | "AGENT";
 
@@ -13,6 +14,7 @@ export function UsersTab() {
     const [editUser, setEditUser] = useState<any>(null);
     const [search, setSearch] = useState("");
     const [roleFilter, setRoleFilter] = useState<RoleFilter>("ALL");
+    const { notify } = useNotification();
 
     useEffect(() => {
         loadData();
@@ -40,10 +42,11 @@ export function UsersTab() {
                 await api.put(`/api/admin/users/${editUser.UserId}`, data);
             } else {
                 await api.post("/api/admin/users", data);
+                notify("Usuário cadastrado com sucesso!", "success");
             }
             loadData();
         } catch (err: any) {
-            alert(err.response?.data?.error || "Erro ao salvar usuário");
+            notify(err.response?.data?.error || "Erro ao salvar usuário", "error");
         }
     };
 
@@ -60,9 +63,10 @@ export function UsersTab() {
         if (!confirm("Deseja mover este usuário para a LIXEIRA? Ele será desativado e poderá ser restaurado depois.")) return;
         try {
             await api.delete(`/api/admin/users/${userId}`);
+            notify("Usuário movido para a lixeira", "success");
             loadData();
         } catch (err: any) {
-            alert(err.response?.data?.error || "Erro ao mover para a lixeira");
+            notify(err.response?.data?.error || "Erro ao mover para a lixeira", "error");
         }
     };
 

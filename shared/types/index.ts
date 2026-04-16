@@ -10,6 +10,8 @@ export interface User {
     CreatedAt?: string;
     AgentName?: string;
     TenantName?: string;
+    Position?: string;
+    PermissionsJson?: string;
 }
 
 export interface Tenant {

@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import sql from "mssql";
 import { getPool } from "../db.js";
-import { authMw, requireRole } from "../mw.js";
+import { authMw, requireRole, requirePermission } from "../mw.js";
 import { hashPassword } from "../auth.js";
 import { validateBody } from "../middleware/validateMw.js";
 import { writeAuditLog, extractRequestInfo } from "../services/auditLog.js";
@@ -11,14 +11,14 @@ const router = Router();
 router.use(authMw);
 
 // GET /api/users is accessible to AGENTs (e.g. for listing chat transfer targets)
-router.get("/", async (req, res, next) => {
+router.get("/", requirePermission('users'), async (req, res, next) => {
     try {
         const u = (req as any).user;
         const pool = await getPool();
         const r = await pool.request()
             .input("tenantId", u.tenantId)
             .query(`
-        SELECT u.UserId, u.Email, u.Role, u.IsActive, a.Name as AgentName
+        SELECT u.UserId, u.Email, u.Role, u.IsActive, u.Position, u.PermissionsJson, u.DisplayName AS Name, a.Name as AgentName
         FROM altdesk.[User] u
         LEFT JOIN altdesk.Agent a ON a.UserId = u.UserId
         WHERE u.TenantId = @tenantId AND u.Role != 'SUPERADMIN' AND u.DeletedAt IS NULL
@@ -31,11 +31,13 @@ router.get("/", async (req, res, next) => {
 });
 
 // All routes below require ADMIN role
-router.post("/", requireRole("ADMIN"), validateBody(z.object({
+router.post("/", requirePermission('users'), requireRole("ADMIN"), validateBody(z.object({
     name: z.string().min(2),
     email: z.string().email(),
     password: z.string().min(6),
-    role: z.enum(["ADMIN", "AGENT"]).default("AGENT")
+    role: z.enum(["ADMIN", "AGENT"]).default("AGENT"),
+    position: z.string().optional(),
+    permissions: z.record(z.boolean()).optional()
 })), async (req, res, next) => {
     try {
         const u = (req as any).user;
@@ -47,16 +49,20 @@ router.post("/", requireRole("ADMIN"), validateBody(z.object({
 
         try {
             const hash = await hashPassword(body.password);
+            const permissionsJson = body.permissions ? JSON.stringify(body.permissions) : null;
+
             const rUser = await transaction.request()
                 .input("tenantId", u.tenantId)
                 .input("email", body.email)
                 .input("name", body.name)
                 .input("hash", hash)
                 .input("role", body.role)
+                .input("position", body.position || null)
+                .input("permissionsJson", permissionsJson)
                 .query(`
-          INSERT INTO altdesk.[User] (TenantId, Email, DisplayName, PasswordHash, Role)
+          INSERT INTO altdesk.[User] (TenantId, Email, DisplayName, PasswordHash, Role, Position, PermissionsJson)
           OUTPUT inserted.UserId
-          VALUES (@tenantId, @email, @name, @hash, @role)
+          VALUES (@tenantId, @email, @name, @hash, @role, @position, @permissionsJson)
         `);
             const newUserId = rUser.recordset[0].UserId;
 
@@ -94,11 +100,13 @@ router.post("/", requireRole("ADMIN"), validateBody(z.object({
     }
 });
 
-router.put("/:id", requireRole("ADMIN"), validateBody(z.object({
+router.put("/:id", requirePermission('users'), requireRole("ADMIN"), validateBody(z.object({
     name: z.string().min(2),
     email: z.string().email(),
     password: z.string().optional(),
-    role: z.enum(["ADMIN", "AGENT"])
+    role: z.enum(["ADMIN", "AGENT"]),
+    position: z.string().optional(),
+    permissions: z.record(z.boolean()).optional()
 })), async (req, res, next) => {
     try {
         const u = (req as any).user;
@@ -118,28 +126,36 @@ router.put("/:id", requireRole("ADMIN"), validateBody(z.object({
         await transaction.begin();
 
         try {
+            const permissionsJson = body.permissions ? JSON.stringify(body.permissions) : null;
+
             if (body.password) {
                 const hash = await hashPassword(body.password);
                 await transaction.request()
                     .input("tenantId", u.tenantId)
                     .input("id", req.params.id)
+                    .input("name", body.name)
                     .input("email", body.email)
                     .input("role", body.role)
+                    .input("position", body.position || null)
+                    .input("permissionsJson", permissionsJson)
                     .input("hash", hash)
                     .query(`
                         UPDATE altdesk.[User] 
-                        SET Email=@email, Role=@role, PasswordHash=@hash 
+                        SET DisplayName=@name, Email=@email, Role=@role, PasswordHash=@hash, Position=@position, PermissionsJson=@permissionsJson
                         WHERE UserId=@id AND TenantId=@tenantId
                     `);
             } else {
                 await transaction.request()
                     .input("tenantId", u.tenantId)
                     .input("id", req.params.id)
+                    .input("name", body.name)
                     .input("email", body.email)
                     .input("role", body.role)
+                    .input("position", body.position || null)
+                    .input("permissionsJson", permissionsJson)
                     .query(`
                         UPDATE altdesk.[User] 
-                        SET Email=@email, Role=@role 
+                        SET DisplayName=@name, Email=@email, Role=@role, Position=@position, PermissionsJson=@permissionsJson
                         WHERE UserId=@id AND TenantId=@tenantId
                     `);
             }
@@ -233,7 +249,7 @@ router.put("/:id/status", requireRole("ADMIN"), validateBody(z.object({ isActive
     }
 });
 
-router.delete("/:id", requireRole("ADMIN"), async (req, res, next) => {
+router.delete("/:id", requirePermission('users'), requireRole("ADMIN"), async (req, res, next) => {
     try {
         const u = (req as any).user;
         const userId = req.params.id;

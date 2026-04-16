@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Trash2, RotateCcw, Building, Users } from "lucide-react";
 import { api } from "../../lib/api";
+import { useNotification } from "../../contexts/NotificationContext";
 
 export function TrashTab() {
     const [tenants, setTenants] = useState<any[]>([]);
@@ -14,6 +15,7 @@ export function TrashTab() {
         extraInfo?: React.ReactNode
     } | null>(null);
     const [deleteInput, setDeleteInput] = useState("");
+    const { notify } = useNotification();
 
     async function loadTrash() {
         setLoading(true);
@@ -36,23 +38,24 @@ export function TrashTab() {
     }, []);
 
     async function handleRestore(type: "tenants" | "users", id: string) {
-        if (!confirm(`Deseja restaurar este ${type === "tenants" ? "tenant" : "usuário"}?`)) return;
         try {
             await api.post(`/api/admin/trash/${type}/${id}/restore`);
+            notify("Item restaurado com sucesso!", "success");
             loadTrash();
         } catch (e: any) {
-            alert(e.response?.data?.error || "Erro ao restaurar");
+            notify(e.response?.data?.error || "Erro ao restaurar", "error");
         }
     }
 
     async function handlePermanentDelete(type: "tenants" | "users", id: string) {
         try {
             await api.delete(`/api/admin/${type}/${id}/permanent`);
+            notify("Item excluído permanentemente", "success");
             setConfirmDelete(null);
             setDeleteInput("");
             loadTrash();
         } catch (e: any) {
-            alert(e.response?.data?.error || "Erro ao excluir permanentemente");
+            notify(e.response?.data?.error || "Erro ao excluir permanentemente", "error");
         }
     }
 

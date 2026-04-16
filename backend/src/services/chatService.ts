@@ -69,7 +69,7 @@ export async function listConversations(user: UserContext, limit: number = 50, o
         filterClause += ` AND (
             c.AssignedUserId = @userId 
             OR (
-                c.AssignedUserId IS NULL 
+                c.Status = 'OPEN' AND c.AssignedUserId IS NULL 
                 AND (
                     etm.ConnectorId IS NULL
                     OR NOT EXISTS (SELECT 1 FROM altdesk.InstanceAssignment ia WHERE ia.ConnectorId = etm.ConnectorId)

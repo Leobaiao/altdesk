@@ -1,11 +1,11 @@
 import { Router } from "express";
 import { z } from "zod";
-import { authMw } from "../mw.js";
+import { authMw, requirePermission } from "../mw.js";
 import { validateBody } from "../middleware/validateMw.js";
 import { listCannedResponses, createCannedResponse, deleteCannedResponse } from "../services/canned-response.js";
 
 const router = Router();
-router.use(authMw);
+router.use(authMw, requirePermission('settings'));
 
 router.get("/", async (req, res, next) => {
     try {

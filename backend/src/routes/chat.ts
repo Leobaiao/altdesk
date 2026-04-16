@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { getPool } from "../db.js";
-import { authMw, requireRole } from "../mw.js";
+import { authMw, requireRole, requirePermission } from "../mw.js";
 import { validateBody } from "../middleware/validateMw.js";
 import { resolveConversationForInbound, saveInboundMessage, saveOutboundMessage, findOrCreateConversation, deleteConversation } from "../services/conversation.js";
 import { assignConversation } from "../services/queue.js";
@@ -24,7 +24,7 @@ import { emitConversationEvent } from "../services/socketService.js";
 const router = Router();
 router.use(authMw);
 
-router.get("/", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+router.get("/", requirePermission('chat', 'tickets'), (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const user = req.user;
         const page = parseInt(req.query.page as string) || 1;

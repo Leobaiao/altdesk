@@ -4,6 +4,7 @@ import { api } from "../../lib/api";
 import { InstanceModal } from "./Modals/InstanceModal";
 import { WebhookModal } from "./Modals/WebhookModal";
 import { ConnectModal } from "./Modals/ConnectModal";
+import { useNotification } from "../../contexts/NotificationContext";
 
 export function InstancesTab() {
     const [instancesList, setInstancesList] = useState<any[]>([]);
@@ -17,6 +18,7 @@ export function InstancesTab() {
     const [selectedInstanceIds, setSelectedInstanceIds] = useState<Set<string>>(new Set());
     const [search, setSearch] = useState("");
     const [reassigningId, setReassigningId] = useState<string | null>(null);
+    const { notify } = useNotification();
 
     useEffect(() => {
         loadData();
@@ -64,7 +66,7 @@ export function InstancesTab() {
             loadData();
         } catch (err) {
             console.error(err);
-            alert("Erro ao criar instância");
+            notify("Erro ao criar instância", "error");
         }
     };
 
@@ -73,10 +75,11 @@ export function InstancesTab() {
         setReassigningId(connectorId);
         try {
             await api.put(`/api/admin/instances/${connectorId}/tenant`, { tenantId: newTenantId });
+            notify("Instância reatribuída com sucesso!", "success");
             loadData();
         } catch (err: any) {
             console.error(err);
-            alert("Erro ao reatribuir instância: " + (err.response?.data?.error || err.message));
+            notify("Erro ao reatribuir instância: " + (err.response?.data?.error || err.message), "error");
         } finally {
             setReassigningId(null);
         }
@@ -85,10 +88,11 @@ export function InstancesTab() {
     const handleCheckStatus = async (connectorId: string) => {
         try {
             await api.get(`/api/admin/instances/${connectorId}/status`);
+            notify("Status sincronizado!", "success");
             loadData();
         } catch (err: any) {
             console.error(err);
-            alert("Erro ao verificar status: " + (err.response?.data?.error || err.message));
+            notify("Erro ao verificar status: " + (err.response?.data?.error || err.message), "error");
         }
     };
 
@@ -96,10 +100,11 @@ export function InstancesTab() {
         if (!confirm("Tem certeza que deseja desconectar esta instância do WhatsApp?")) return;
         try {
             await api.delete(`/api/admin/instances/${connectorId}/disconnect`);
+            notify("Instância desconectada com sucesso!", "success");
             handleCheckStatus(connectorId);
         } catch (err: any) {
             console.error(err);
-            alert("Erro ao desconectar: " + (err.response?.data?.error || err.message));
+            notify("Erro ao desconectar: " + (err.response?.data?.error || err.message), "error");
         }
     };
 

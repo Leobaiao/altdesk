@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Smartphone, QrCode } from "lucide-react";
 import { api } from "../../../lib/api";
+import { useNotification } from "../../../contexts/NotificationContext";
 
 interface ConnectModalProps {
     connectorId: string;
@@ -11,6 +12,7 @@ export function ConnectModal({ connectorId, onClose }: ConnectModalProps) {
     const [phone, setPhone] = useState("");
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState<any>(null);
+    const { notify } = useNotification();
 
     const handleConnect = async (usePhone: boolean) => {
         setLoading(true);
@@ -19,9 +21,10 @@ export function ConnectModal({ connectorId, onClose }: ConnectModalProps) {
             const payload = usePhone ? { phone } : {};
             const r = await api.post(`/api/admin/instances/${connectorId}/connect`, payload);
             setResult(r.data);
+            notify("Requisição enviada com sucesso!", "success");
         } catch (err: any) {
             console.error(err);
-            alert("Erro ao tentar conectar: " + (err.response?.data?.error || err.message));
+            notify("Erro ao tentar conectar: " + (err.response?.data?.error || err.message), "error");
         } finally {
             setLoading(false);
         }

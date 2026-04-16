@@ -22,7 +22,7 @@ router.get("/", authMw, async (req: any, res: Response, next: NextFunction) => {
         const r = await pool.request()
             .input("userId", user.userId)
             .query(`
-                SELECT u.Email, u.DisplayName AS Name, u.Avatar, u.Position, u.Role, u.HasLogAccess, u.CPF,
+                SELECT u.Email, u.DisplayName AS Name, u.Avatar, u.Position, u.Role, u.HasLogAccess, u.CPF, u.PermissionsJson,
                        r.Name AS RoleName, r.CanOpen, r.CanEscalate, r.CanClose, r.CanComment, r.HourlyValue,
                        t.Name AS TenantName
                 FROM altdesk.[User] u

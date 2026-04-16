@@ -1,6 +1,6 @@
 import { Router, Response, NextFunction } from "express";
 import { getPool } from "../db.js";
-import { authMw } from "../mw.js";
+import { authMw, requirePermission } from "../mw.js";
 import { AuthenticatedRequest } from "../types/index.js";
 
 const router = Router();
@@ -65,7 +65,7 @@ function toCSV(rows: any[]): string {
  * GET /api/reports/conversations
  * Export conversations as CSV with optional filters
  */
-router.get("/conversations", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+router.get("/conversations", requirePermission('reports'), (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const user = req.user;
         const { from, to, status, format = "json" } = req.query as Record<string, string>;
@@ -122,7 +122,7 @@ router.get("/conversations", (async (req: AuthenticatedRequest, res: Response, n
  * GET /api/reports/agents
  * Agent productivity report (closed conversations, avg response time)
  */
-router.get("/agents", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+router.get("/agents", requirePermission('reports'), (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const user = req.user;
         const { from, to, format = "json" } = req.query as Record<string, string>;
@@ -166,7 +166,7 @@ router.get("/agents", (async (req: AuthenticatedRequest, res: Response, next: Ne
  * GET /api/reports/sla
  * SLA violations and compliance report
  */
-router.get("/sla", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+router.get("/sla", requirePermission('reports'), (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const user = req.user;
         const { from, to, format = "json" } = req.query as Record<string, string>;

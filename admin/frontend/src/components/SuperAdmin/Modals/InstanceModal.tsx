@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Smartphone, Globe } from "lucide-react";
 import { api } from "../../../lib/api";
+import { useNotification } from "../../../contexts/NotificationContext";
 
 interface InstanceModalProps {
     onClose: () => void;
@@ -13,6 +14,7 @@ export function InstanceModal({ onClose, onSubmit, tenants }: InstanceModalProps
     const [instProvider, setInstProvider] = useState("GTI");
     const [instConfig, setInstConfig] = useState("");
     const [tenantId, setTenantId] = useState(tenants[0]?.TenantId || "");
+    const { notify } = useNotification();
 
     // GTI Specific Form State
     const [gtiToken, setGtiToken] = useState("");
@@ -20,23 +22,24 @@ export function InstanceModal({ onClose, onSubmit, tenants }: InstanceModalProps
     const [gtiPhoneId, setGtiPhoneId] = useState("");
 
     const handleFetchGtiInfo = async () => {
-        if (!gtiToken) return alert("Insira o token GTI");
+        if (!gtiToken) return notify("Insira o token GTI", "info");
         try {
             const r = await api.get(`/api/admin/instances/gti-info?token=${gtiToken}`);
             const data = r.data;
             if (data.instance) {
                 setGtiInstanceId(data.instance.id);
                 setGtiPhoneId(data.instance.owner || data.instance.number || "");
+                notify("Informações da GTI carregadas", "success");
             }
         } catch (err) {
             console.error(err);
-            alert("Erro ao buscar info da GTI. Verifique o token.");
+            notify("Erro ao buscar info da GTI. Verifique o token.", "error");
         }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!tenantId) return alert("Selecione uma empresa");
+        if (!tenantId) return notify("Selecione uma empresa", "info");
 
         let finalConfig = instConfig;
         if (instProvider === "GTI") {
@@ -84,7 +87,7 @@ export function InstanceModal({ onClose, onSubmit, tenants }: InstanceModalProps
                 <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
                     <div className="field">
                         <label style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 600, color: "var(--text-secondary)" }}>Empresa (Dona)</label>
-                        <select required value={tenantId} onChange={e => setTenantId(e.target.value)} style={{ width: "100%", marginTop: 8, background: "var(--bg-primary)", padding: "12px 16px", borderRadius: 12, border: "1px solid var(--border)", color: "white" }}>
+                        <select required value={tenantId} onChange={e => setTenantId(e.target.value)} style={{ width: "100%", marginTop: 8, background: "var(--bg-primary)", padding: "12px 16px", borderRadius: 12, border: "1px solid var(--border)", color: "var(--text-primary)" }}>
                             <option value="">Selecione uma empresa...</option>
                             {tenants.map(t => (
                                 <option key={t.TenantId} value={t.TenantId}>{t.Name}</option>
@@ -94,12 +97,12 @@ export function InstanceModal({ onClose, onSubmit, tenants }: InstanceModalProps
 
                     <div className="field">
                         <label style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 600, color: "var(--text-secondary)" }}>Nome do Canal</label>
-                        <input required value={instName} onChange={e => setInstName(e.target.value)} style={{ width: "100%", marginTop: 8, background: "var(--bg-primary)", padding: "12px 16px", borderRadius: 12, border: "1px solid var(--border)", color: "white" }} placeholder="EX: WhatsApp Comercial" />
+                        <input required value={instName} onChange={e => setInstName(e.target.value)} style={{ width: "100%", marginTop: 8, background: "var(--bg-primary)", padding: "12px 16px", borderRadius: 12, border: "1px solid var(--border)", color: "var(--text-primary)" }} placeholder="EX: WhatsApp Comercial" />
                     </div>
 
                     <div className="field">
                         <label style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 600, color: "var(--text-secondary)" }}>Provedor</label>
-                        <select value={instProvider} onChange={e => setInstProvider(e.target.value)} style={{ width: "100%", marginTop: 8, background: "var(--bg-primary)", padding: "12px 16px", borderRadius: 12, border: "1px solid var(--border)", color: "white" }}>
+                        <select value={instProvider} onChange={e => setInstProvider(e.target.value)} style={{ width: "100%", marginTop: 8, background: "var(--bg-primary)", padding: "12px 16px", borderRadius: 12, border: "1px solid var(--border)", color: "var(--text-primary)" }}>
                             <option value="GTI">GTI (WhatsApp)</option>
                             <option value="WHATSAPP">WhatsApp Business API</option>
                             <option value="OFFICIAL">Official Cloud API</option>
@@ -120,7 +123,7 @@ export function InstanceModal({ onClose, onSubmit, tenants }: InstanceModalProps
                                         required
                                         value={gtiToken}
                                         onChange={e => setGtiToken(e.target.value)}
-                                        style={{ flex: 1, background: "var(--bg-secondary)", padding: "10px 14px", borderRadius: 10, border: "1px solid var(--border)", color: "white" }}
+                                        style={{ flex: 1, background: "var(--bg-secondary)", padding: "10px 14px", borderRadius: 10, border: "1px solid var(--border)", color: "var(--text-primary)" }}
                                         placeholder="Token da instância"
                                     />
                                     <button
@@ -164,7 +167,7 @@ export function InstanceModal({ onClose, onSubmit, tenants }: InstanceModalProps
                                 value={instConfig}
                                 onChange={e => setInstConfig(e.target.value)}
                                 rows={4}
-                                style={{ width: "100%", marginTop: 8, background: "var(--bg-primary)", padding: "12px 16px", borderRadius: 12, border: "1px solid var(--border)", color: "white", fontFamily: "monospace", fontSize: "0.85rem" }}
+                                style={{ width: "100%", marginTop: 8, background: "var(--bg-primary)", padding: "12px 16px", borderRadius: 12, border: "1px solid var(--border)", color: "var(--text-primary)", fontFamily: "monospace", fontSize: "0.85rem" }}
                                 placeholder='{"apiKey": "xyz", "phoneNumberId": "123"}'
                             />
                         </div>

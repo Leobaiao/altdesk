@@ -1,13 +1,13 @@
 import { Router } from "express";
 import { z } from "zod";
 import { getPool } from "../db.js";
-import { authMw, requireRole } from "../mw.js";
+import { authMw, requireRole, requirePermission } from "../mw.js";
 import { validateBody } from "../middleware/validateMw.js";
 import { listTenantInstances, assignUsersToInstance } from "../services/instanceService.js";
 import { writeAuditLog, extractRequestInfo } from "../services/auditLog.js";
 
 const router = Router();
-router.use(authMw, requireRole("ADMIN", "SUPERADMIN"));
+router.use(authMw, requirePermission('settings'), requireRole("ADMIN", "SUPERADMIN"));
 
 router.get("/", async (req, res, next) => {
     try {

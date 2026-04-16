@@ -144,10 +144,14 @@ function AppContent() {
   );
 }
 
+import { NotificationProvider } from "./contexts/NotificationContext";
+
 export default function App() {
   return (
     <BrowserRouter>
-      <AppContent />
+      <NotificationProvider>
+        <AppContent />
+      </NotificationProvider>
     </BrowserRouter>
   );
 }

@@ -156,14 +156,23 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from
 function MainLayout({ token, role, onLogout }: { token: string; role: string; onLogout: () => void }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const decoded = useMemo(() => parseJwt(token), [token]);
   const { conversations, setConversations, selectedConversationId, setSelectedConversationId, refreshConversations, socket } = useChat();
-  const [profile, setProfile] = useState<{ Name?: string; Avatar?: string; Position?: string; TenantName?: string } | null>(null);
+  const [profile, setProfile] = useState<{ Name?: string; Avatar?: string; Position?: string; TenantName?: string; PermissionsJson?: string } | null>(null);
+  const [livePermissions, setLivePermissions] = useState<any>(decoded?.permissions || {});
 
   // Push Notifications
   usePushNotifications(socket, selectedConversationId, conversations);
 
   useEffect(() => {
-    api.get("/api/profile").then(res => setProfile(res.data)).catch(console.error);
+    api.get("/api/profile").then(res => {
+        setProfile(res.data);
+        if (res.data.PermissionsJson) {
+            try {
+                setLivePermissions(JSON.parse(res.data.PermissionsJson));
+            } catch (e) {}
+        }
+    }).catch(console.error);
     // Initialize theme from localStorage
     const savedTheme = localStorage.getItem("theme");
     if (savedTheme === "light") {
@@ -253,18 +262,27 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
         </div>
         
         <div className="nav-items">
-          <NavIcon icon={LayoutDashboard} label="Dashboard" active={currentPath.startsWith("/dashboard")} onClick={() => navigate("/dashboard")} />
-          <NavIcon icon={MessageSquare} label="Conversas" active={isChat} onClick={() => navigate("/chat")} />
-          <NavIcon icon={Ticket} label="Chamados (Tickets)" active={currentPath.startsWith("/tickets")} onClick={() => navigate("/tickets")} />
+          {livePermissions?.dashboard !== false && (
+            <NavIcon icon={LayoutDashboard} label="Dashboard" active={currentPath.startsWith("/dashboard")} onClick={() => navigate("/dashboard")} />
+          )}
+          {livePermissions?.chat !== false && (
+            <NavIcon icon={MessageSquare} label="Conversas" active={isChat} onClick={() => navigate("/chat")} />
+          )}
+          {livePermissions?.tickets !== false && (
+            <NavIcon icon={Ticket} label="Chamados (Tickets)" active={currentPath.startsWith("/tickets")} onClick={() => navigate("/tickets")} />
+          )}
           
           <div style={{ height: 1, background: "var(--border)", margin: "10px 15px", opacity: 0.5 }} />
           
-          <NavIcon icon={ContactsIcon} label="Contatos" active={currentPath.startsWith("/contacts")} onClick={() => navigate("/contacts")} />
-          {(role === 'ADMIN' || role === 'SUPERADMIN') && (
+          {livePermissions?.contacts !== false && (
+            <NavIcon icon={ContactsIcon} label="Contatos" active={currentPath.startsWith("/contacts")} onClick={() => navigate("/contacts")} />
+          )}
+
+          {livePermissions?.users !== false && (
             <NavIcon icon={UsersIcon} label="Usuários" active={currentPath.startsWith("/users")} onClick={() => navigate("/users")} />
           )}
           
-          {(role === 'ADMIN' || role === 'SUPERADMIN') && (
+          {livePermissions?.reports !== false && (
             <>
               <div style={{ height: 1, background: "var(--border)", margin: "10px 15px", opacity: 0.5 }} />
               <NavIcon icon={BarChart2} label="Relatórios" active={currentPath.startsWith("/reports")} onClick={() => navigate("/reports")} />

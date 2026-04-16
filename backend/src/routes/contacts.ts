@@ -1,11 +1,11 @@
 import { Router } from "express";
 import { z } from "zod";
-import { authMw } from "../mw.js";
+import { authMw, requirePermission } from "../mw.js";
 import { validateBody } from "../middleware/validateMw.js";
 import { listContacts, createContact, updateContact, deleteContact } from "../services/contact.js";
 
 const router = Router();
-router.use(authMw);
+router.use(authMw, requirePermission('contacts'));
 
 router.get("/", async (req, res, next) => {
     try {

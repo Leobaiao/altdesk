@@ -34,6 +34,17 @@ export function Users({ token, onBack, role }: Props) {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [userRole, setUserRole] = useState("AGENT");
+    const [position, setPosition] = useState("");
+    const [permissions, setPermissions] = useState({
+        dashboard: true,
+        chat: true,
+        tickets: true,
+        contacts: true,
+        reports: true,
+        billing: false,
+        users: false,
+        settings: true
+    });
     const [msg, setMsg] = useState("");
 
     useEffect(() => {
@@ -64,7 +75,13 @@ export function Users({ token, onBack, role }: Props) {
             const method = editingUser ? "put" : "post";
             const url = editingUser ? `/api/users/${editingUser.UserId}` : `/api/users`;
 
-            const payload: any = { name, email, role: userRole };
+            const payload: any = { 
+                name, 
+                email, 
+                role: userRole, 
+                position,
+                permissions 
+            };
             if (password || !editingUser) {
                 payload.password = password;
             }
@@ -109,7 +126,21 @@ export function Users({ token, onBack, role }: Props) {
         setName(u.AgentName || u.Name || "");
         setEmail(u.Email);
         setUserRole(u.Role);
+        setPosition(u.Position || "");
         setPassword("");
+        
+        if (u.PermissionsJson) {
+            try {
+                setPermissions(JSON.parse(u.PermissionsJson));
+            } catch (e) {
+                console.error("error parsing permissions", e);
+            }
+        } else {
+            setPermissions({
+                dashboard: true, chat: true, tickets: true, contacts: true, 
+                reports: true, billing: u.Role === 'ADMIN', users: u.Role === 'ADMIN', settings: true
+            });
+        }
         setShowModal(true);
     }
 
@@ -118,6 +149,11 @@ export function Users({ token, onBack, role }: Props) {
         setName("");
         setEmail("");
         setUserRole("AGENT");
+        setPosition("");
+        setPermissions({
+            dashboard: true, chat: true, tickets: true, contacts: true, 
+            reports: true, billing: false, users: false, settings: true
+        });
         setPassword("");
         setShowModal(true);
     }
@@ -286,7 +322,9 @@ export function Users({ token, onBack, role }: Props) {
                         background: "var(--bg-secondary)",
                         border: "1px solid var(--border)",
                         width: "100%", maxWidth: 450,
-                        padding: 32,
+                        maxHeight: "90vh",
+                        overflowY: "auto",
+                        padding: 24,
                         borderRadius: 20,
                         boxShadow: "0 20px 40px rgba(0,0,0,0.4)"
                     }}>
@@ -296,11 +334,11 @@ export function Users({ token, onBack, role }: Props) {
                                 {editingUser ? "Editar Membro" : "Novo Membro da Equipe"}
                             </h2>
                         </div>
-                        <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: 28 }}>
+                        <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: 20 }}>
                             Defina o acesso e as permissões para este usuário.
                         </p>
 
-                        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                             <div className="field">
                                 <label style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 600, color: "var(--text-secondary)" }}>Nome Completo</label>
                                 <input
@@ -337,15 +375,69 @@ export function Users({ token, onBack, role }: Props) {
                             </div>
 
                             <div className="field">
-                                <label style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 600, color: "var(--text-secondary)" }}>Permissão</label>
+                                <label style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 600, color: "var(--text-secondary)" }}>Nomenclatura do Cargo</label>
+                                <input
+                                    value={position}
+                                    onChange={e => setPosition(e.target.value)}
+                                    placeholder="Ex: Supervisor de Atendimento"
+                                    style={{ width: "100%", marginTop: 8, background: "var(--bg-primary)", padding: "12px 16px", borderRadius: 12, border: "1px solid var(--border)", color: "var(--text-primary)" }}
+                                />
+                            </div>
+
+                            <div className="field">
+                                <label style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 600, color: "var(--text-secondary)" }}>Permissão Base</label>
                                 <select
                                     value={userRole}
-                                    onChange={e => setUserRole(e.target.value)}
+                                    onChange={e => {
+                                        const newRole = e.target.value;
+                                        setUserRole(newRole);
+                                        if (newRole === 'AGENT') {
+                                            setPermissions(p => ({ ...p, billing: false, users: false }));
+                                        }
+                                    }}
                                     style={{ width: "100%", marginTop: 8, background: "var(--bg-primary)", padding: "12px 16px", borderRadius: 12, border: "1px solid var(--border)", color: "var(--text-primary)", cursor: "pointer" }}
                                 >
                                     <option value="AGENT">Agente (Atendimento)</option>
                                     <option value="ADMIN">Administrador (Gestão)</option>
                                 </select>
+                            </div>
+
+                            <div className="field">
+                                <label style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 600, color: "var(--text-secondary)" }}>Áreas de Acesso</label>
+                                <div style={{ 
+                                    display: "grid", 
+                                    gridTemplateColumns: "1fr 1fr", 
+                                    gap: "10px", 
+                                    marginTop: 12,
+                                    padding: "15px",
+                                    background: "rgba(255,255,255,0.02)",
+                                    borderRadius: "12px",
+                                    border: "1px solid var(--border)"
+                                }}>
+                                    {[
+                                        { key: 'dashboard', label: 'Dashboard' },
+                                        { key: 'chat', label: 'Chat' },
+                                        { key: 'tickets', label: 'Tickets' },
+                                        { key: 'contacts', label: 'Contatos' },
+                                        { key: 'reports', label: 'Relatórios' },
+                                        { key: 'settings', label: 'Configurações' },
+                                        { key: 'billing', label: 'Faturamento', adminOnly: true },
+                                        { key: 'users', label: 'Usuários', adminOnly: true }
+                                    ].map(item => {
+                                        if (item.adminOnly && userRole !== 'ADMIN') return null;
+                                        return (
+                                            <label key={item.key} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: "0.9rem" }}>
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={(permissions as any)[item.key]} 
+                                                    onChange={e => setPermissions(p => ({ ...p, [item.key]: e.target.checked }))}
+                                                    style={{ width: 18, height: 18, accentColor: "var(--accent)" }}
+                                                />
+                                                {item.label}
+                                            </label>
+                                        );
+                                    })}
+                                </div>
                             </div>
 
                             <div style={{ display: "flex", gap: 12, marginTop: 12 }}>

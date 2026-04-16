@@ -2,12 +2,12 @@ import { Router } from "express";
 import { z } from "zod";
 import sql from "mssql";
 import { getPool } from "../db.js";
-import { authMw, requireRole } from "../mw.js";
+import { authMw, requireRole, requirePermission } from "../mw.js";
 import { hashPassword, assertAgentSeatAvailable } from "../auth.js";
 import { validateBody } from "../middleware/validateMw.js";
 
 const router = Router();
-router.use(authMw, requireRole("ADMIN"));
+router.use(authMw, requirePermission('settings'), requireRole("ADMIN"));
 
 router.post("/", validateBody(z.object({
     kind: z.enum(["HUMAN", "BOT"]),

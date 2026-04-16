@@ -53,7 +53,7 @@ export function UserModal({ editUser, tenants, onClose, onSubmit }: UserModalPro
                 <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
                     <div className="field">
                         <label style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 600, color: "var(--text-secondary)" }}>Empresa (Tenant)</label>
-                        <select required value={userTenantId} onChange={e => setUserTenantId(e.target.value)} style={{ width: "100%", marginTop: 8, background: "var(--bg-primary)", padding: "12px 16px", borderRadius: 12, border: "1px solid var(--border)", color: "white", cursor: "pointer", outline: "none" }}>
+                        <select required value={userTenantId} onChange={e => setUserTenantId(e.target.value)} style={{ width: "100%", marginTop: 8, background: "var(--bg-primary)", padding: "12px 16px", borderRadius: 12, border: "1px solid var(--border)", color: "var(--text-primary)", cursor: "pointer", outline: "none" }}>
                             <option value="" disabled>Selecione uma empresa</option>
                             {tenants.map(t => (
                                 <option key={t.TenantId} value={t.TenantId}>{t.Name}</option>
@@ -63,18 +63,18 @@ export function UserModal({ editUser, tenants, onClose, onSubmit }: UserModalPro
 
                     <div className="field">
                         <label style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 600, color: "var(--text-secondary)" }}>Nome Completo</label>
-                        <input required value={userName} onChange={e => setUserName(e.target.value)} style={{ width: "100%", marginTop: 8, background: "var(--bg-primary)", padding: "12px 16px", borderRadius: 12, border: "1px solid var(--border)", color: "white" }} placeholder="Nome do usuário" />
+                        <input required value={userName} onChange={e => setUserName(e.target.value)} style={{ width: "100%", marginTop: 8, background: "var(--bg-primary)", padding: "12px 16px", borderRadius: 12, border: "1px solid var(--border)", color: "var(--text-primary)" }} placeholder="Nome do usuário" />
                     </div>
 
                     <div className="field">
                         <label style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 600, color: "var(--text-secondary)" }}>Email (Login)</label>
-                        <input required type="email" value={userEmail} onChange={e => setUserEmail(e.target.value)} style={{ width: "100%", marginTop: 8, background: "var(--bg-primary)", padding: "12px 16px", borderRadius: 12, border: "1px solid var(--border)", color: "white" }} placeholder="exem@email.com" />
+                        <input required type="email" value={userEmail} onChange={e => setUserEmail(e.target.value)} style={{ width: "100%", marginTop: 8, background: "var(--bg-primary)", padding: "12px 16px", borderRadius: 12, border: "1px solid var(--border)", color: "var(--text-primary)" }} placeholder="exem@email.com" />
                     </div>
 
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                         <div className="field">
                             <label style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 600, color: "var(--text-secondary)" }}>Permissão</label>
-                            <select required value={userRole} onChange={e => setUserRole(e.target.value)} style={{ width: "100%", marginTop: 8, background: "var(--bg-primary)", padding: "12px 16px", borderRadius: 12, border: "1px solid var(--border)", color: "white", cursor: "pointer", outline: "none" }}>
+                            <select required value={userRole} onChange={e => setUserRole(e.target.value)} style={{ width: "100%", marginTop: 8, background: "var(--bg-primary)", padding: "12px 16px", borderRadius: 12, border: "1px solid var(--border)", color: "var(--text-primary)", cursor: "pointer", outline: "none" }}>
                                 <option value="AGENT">Agente</option>
                                 <option value="ADMIN">Gerente (Admin)</option>
                                 <option value="SUPERADMIN">Root (SuperAdmin)</option>
@@ -82,7 +82,7 @@ export function UserModal({ editUser, tenants, onClose, onSubmit }: UserModalPro
                         </div>
                         <div className="field">
                             <label style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 600, color: "var(--text-secondary)" }}>Senha</label>
-                            <input type="password" required={!editUser} placeholder={editUser ? "••••••" : "Mín. 6 carac."} value={userPassword} onChange={e => setUserPassword(e.target.value)} style={{ width: "100%", marginTop: 8, background: "var(--bg-primary)", padding: "12px 16px", borderRadius: 12, border: "1px solid var(--border)", color: "white" }} />
+                            <input type="password" required={!editUser} placeholder={editUser ? "••••••" : "Mín. 6 carac."} value={userPassword} onChange={e => setUserPassword(e.target.value)} style={{ width: "100%", marginTop: 8, background: "var(--bg-primary)", padding: "12px 16px", borderRadius: 12, border: "1px solid var(--border)", color: "var(--text-primary)" }} />
                         </div>
                     </div>
                     {editUser && <p style={{ fontSize: "0.7rem", color: "var(--text-secondary)", marginTop: -12 }}>Deixe a senha em branco para não alterar.</p>}

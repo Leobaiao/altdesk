@@ -3,6 +3,7 @@ import { api } from "./lib/api";
 import { PageHeader } from "./components/PageHeader";
 import { User, Briefcase, Image as ImageIcon, Lock, MonitorSmartphone, KeySquare, Blocks, ShieldCheck, PhoneCall, Settings as SettingsIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { parseJwt } from "./lib/auth";
 
 interface Props {
     token: string;
@@ -35,6 +36,8 @@ export function Settings({ token, onBack, role }: Props) {
     // UI states
     const [loading, setLoading] = useState(false);
     const [msg, setMsg] = useState("");
+    const decoded = parseJwt(token);
+    const userPermissions = decoded?.permissions || {};
     const isAdmin = role === "ADMIN" || role === "SUPERADMIN";
 
     function toggleTheme(newTheme: string) {
@@ -47,7 +50,7 @@ export function Settings({ token, onBack, role }: Props) {
         // Load configurations (Only for admins)
         if (isAdmin) {
             api.get("/api/settings").then(res => {
-                if (res.data) { // Ensure data exists before processing
+                if (res.data) {
                     const data = res.data;
                     setDefaultProvider(data.defaultProvider || "GTI");
                     if (data.instances && Array.isArray(data.instances)) {
@@ -75,7 +78,7 @@ export function Settings({ token, onBack, role }: Props) {
 
         // Load profile
         api.get("/api/profile").then(res => {
-            if (res.data) { // Ensure data exists before processing
+            if (res.data) {
                 const data = res.data;
                 setName(data.Name || "");
                 setAvatar(data.Avatar || "");
@@ -121,18 +124,15 @@ export function Settings({ token, onBack, role }: Props) {
             // 2. Settings update (Only if Admin and has instances)
             if (isAdmin && selectedConnectorId) {
                 try {
-                    // Update default provider
                     await api.put("/api/settings", {
                         defaultProvider,
                         connectorId: selectedConnectorId
                     });
 
-                    // 2b. Assign users
                     await api.post(`/api/settings/instances/${selectedConnectorId}/assignments`, {
                         userIds: assignedToInstance
                     });
 
-                    // Update local instances state to reflect new assignments
                     setInstances((prev: any[]) => prev.map((inst: any) => 
                         inst.ConnectorId === selectedConnectorId 
                             ? { ...inst, assignedUsers: allUsers.filter(u => assignedToInstance.includes(u.UserId)) }
@@ -154,6 +154,19 @@ export function Settings({ token, onBack, role }: Props) {
         }
     };
 
+    const navItems = [
+        { label: "Calendário (Horários)", path: "/business-hours", desc: "Cronograma e expedientes", perm: "settings" },
+        { label: "Respostas Rápidas", path: "/canned", desc: "Atalhos de texto", perm: "settings" },
+        { label: "Base de Conhecimento", path: "/knowledge", desc: "Arquivos e links", perm: "settings" },
+        { label: "Filas de Atendimento", path: "/queues", desc: "Roteamento de chats", perm: "settings" },
+        { label: "Tags", path: "/tags", desc: "Categorização", perm: "settings" },
+        { label: "Faturamento", path: "/billing", desc: "Gestão de assinaturas", perm: "billing" },
+        { label: "Logs de Auditoria", path: "/audit", desc: "Histórico de ações", perm: "users" } // Audit usually for user managers
+    ].filter(item => {
+        if (role === 'SUPERADMIN') return true;
+        return userPermissions[item.perm] !== false;
+    });
+
     return (
         <div className="settings-page" style={{ height: "100%", overflowY: "auto", padding: "24px" }}>
             <PageHeader
@@ -169,30 +182,22 @@ export function Settings({ token, onBack, role }: Props) {
             />
 
             {/* Config Navigation */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 32 }}>
-                {[
-                    { label: "Calendário (Horários)", path: "/business-hours", desc: "Cronograma e expedientes" },
-                    { label: "Respostas Rápidas", path: "/canned", desc: "Atalhos de texto" },
-                    { label: "Base de Conhecimento", path: "/knowledge", desc: "Arquivos e links" },
-                    { label: "Filas de Atendimento", path: "/queues", desc: "Roteamento de chats" },
-                    { label: "Tags", path: "/tags", desc: "Categorização" },
-                    ...(isAdmin ? [
-                        { label: "Faturamento", path: "/billing", desc: "Gestão de assinaturas" },
-                        { label: "Logs de Auditoria", path: "/audit", desc: "Histórico de ações" }
-                    ] : [])
-                ].map(item => (
-                    <div 
-                        key={item.path} 
-                        onClick={() => navigate(item.path)}
-                        style={{ background: "var(--bg-secondary)", padding: 16, borderRadius: 12, border: "1px solid var(--border)", cursor: "pointer", transition: "all 0.2s" }}
-                        onMouseEnter={e => e.currentTarget.style.borderColor = "var(--accent)"}
-                        onMouseLeave={e => e.currentTarget.style.borderColor = "var(--border)"}
-                    >
-                        <div style={{ fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}>{item.label}</div>
-                        <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>{item.desc}</div>
-                    </div>
-                ))}
-            </div>
+            {navItems.length > 0 && (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 32 }}>
+                    {navItems.map(item => (
+                        <div 
+                            key={item.path} 
+                            onClick={() => navigate(item.path)}
+                            style={{ background: "var(--bg-secondary)", padding: 16, borderRadius: 12, border: "1px solid var(--border)", cursor: "pointer", transition: "all 0.2s" }}
+                            onMouseEnter={e => e.currentTarget.style.borderColor = "var(--accent)"}
+                            onMouseLeave={e => e.currentTarget.style.borderColor = "var(--border)"}
+                        >
+                            <div style={{ fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}>{item.label}</div>
+                            <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>{item.desc}</div>
+                        </div>
+                    ))}
+                </div>
+            )}
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 24 }}>
                 {/* Perfil + Aparência */}

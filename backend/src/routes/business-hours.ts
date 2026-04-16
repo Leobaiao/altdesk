@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { authMw } from "../mw.js";
+import { authMw, requirePermission } from "../mw.js";
 import { validateBody } from "../middleware/validateMw.js";
 import {
     getBusinessHours,
@@ -13,7 +13,7 @@ import {
 } from "../services/businessHoursService.js";
 
 const router = Router();
-router.use(authMw);
+router.use(authMw, requirePermission('settings'));
 
 // Get business hours
 router.get("/", (async (req: any, res: any, next: any) => {

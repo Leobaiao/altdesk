@@ -1,12 +1,12 @@
 import { Router } from "express";
 import { z } from "zod";
 import { getPool } from "../db.js";
-import { authMw, requireRole } from "../mw.js";
+import { authMw, requireRole, requirePermission } from "../mw.js";
 import { validateBody } from "../middleware/validateMw.js";
 import { writeAuditLog, extractRequestInfo } from "../services/auditLog.js";
 
 const router = Router();
-router.use(authMw, requireRole("ADMIN"));
+router.use(authMw, requirePermission('settings'), requireRole("ADMIN"));
 
 // GET /api/roles - Lista todas as funções do tenant
 router.get("/", async (req, res, next) => {

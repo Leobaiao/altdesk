@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { authMw } from "../mw.js";
+import { authMw, requirePermission } from "../mw.js";
 import { validateBody } from "../middleware/validateMw.js";
 import { AuthenticatedRequest } from "../types/index.js";
 import {
@@ -13,7 +13,7 @@ import {
 import { checkConversationAccess } from "../services/chatService.js";
 
 const router = Router();
-router.use(authMw);
+router.use(authMw, requirePermission('settings'));
 
 // List all tags for tenant
 router.get("/", (async (req: AuthenticatedRequest, res: any, next: any) => {

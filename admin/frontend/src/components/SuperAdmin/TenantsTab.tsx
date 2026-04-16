@@ -2,7 +2,13 @@ import React, { useState, useEffect } from "react";
 import { api } from "../../lib/api";
 import { TenantModal } from "./Modals/TenantModal";
 import { LimitModal } from "./Modals/LimitModal";
-import { Globe, Smartphone, User, ArrowLeft, MoreVertical, ShieldCheck, Mail, Calendar, Hash } from "lucide-react";
+import { UserModal } from "./Modals/UserModal";
+import { 
+    Globe, Smartphone, User, ArrowLeft, MoreVertical, 
+    ShieldCheck, Mail, Calendar, Hash, Edit2, 
+    Play, Pause, Trash2, Plus
+} from "lucide-react";
+import { useNotification } from "../../contexts/NotificationContext";
 
 interface TenantsTabProps {
     onShowModalChange: (show: boolean) => void;
@@ -23,6 +29,9 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
     const [activeTab, setActiveTab] = useState<"GERAL" | "USUARIOS" | "CANAIS" | "METRICAS">("GERAL");
     const [tenantUsers, setTenantUsers] = useState<any[]>([]);
     const [usersLoading, setUsersLoading] = useState(false);
+    const [showUserModal, setShowUserModal] = useState(false);
+    const [editUser, setEditUser] = useState<any>(null);
+    const { notify } = useNotification();
 
     useEffect(() => {
         loadTenants();
@@ -79,13 +88,50 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
         }
     };
 
+    const handleSaveUser = async (data: any) => {
+        try {
+            if (editUser) {
+                await api.put(`/api/admin/users/${editUser.UserId}`, data);
+            } else {
+                await api.post("/api/admin/users", data);
+                notify("Usuário criado com sucesso!", "success");
+            }
+            loadTenantUsers(selectedTenant.TenantId);
+            loadTenants(); // Recarrega count na lista lateral
+        } catch (err: any) {
+            notify(err.response?.data?.error || "Erro ao salvar usuário", "error");
+        }
+    };
+
+    const handleToggleUserStatus = async (userId: string, currentStatus: boolean) => {
+        try {
+            await api.put(`/api/admin/users/${userId}/status`, { isActive: !currentStatus });
+            loadTenantUsers(selectedTenant.TenantId);
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const handleDeleteUser = async (userId: string) => {
+        if (!confirm("Deseja mover este usuário para a LIXEIRA? Ele será desativado e poderá ser restaurado depois.")) return;
+        try {
+            await api.delete(`/api/admin/users/${userId}`);
+            notify("Usuário movido para a lixeira", "success");
+            loadTenantUsers(selectedTenant.TenantId);
+            loadTenants(); // Recarrega count na lista lateral
+        } catch (err: any) {
+            notify(err.response?.data?.error || "Erro ao mover para a lixeira", "error");
+        }
+    };
+
     const handleCreateTenant = async (data: any) => {
         try {
             await api.post("/api/admin/tenants", data);
+            notify("Empresa criada com sucesso!", "success");
             loadTenants();
             setShowCreateModal(false);
         } catch (err: any) {
-            alert("Erro ao criar empresa: " + (err.response?.data?.error || err.message));
+            notify("Erro ao criar empresa: " + (err.response?.data?.error || err.message), "error");
         }
     };
 
@@ -97,8 +143,9 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
                 setSelectedTenant({ ...selectedTenant, AgentsSeatLimit: limit });
             }
             setShowLimitModal(false);
+            notify("Limite atualizado com sucesso!", "success");
         } catch (err) {
-            alert("Erro ao salvar limite");
+            notify("Erro ao salvar limite", "error");
         }
     };
 
@@ -414,54 +461,88 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
 
                             {activeTab === "USUARIOS" && (
                                 <div style={{ animation: "fadeIn 0.2s" }}>
-                                    <h3 style={{ fontSize: "0.95rem", fontWeight: 700, marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
-                                        <User size={16} /> Usuários da Empresa
-                                    </h3>
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                                        <h3 style={{ fontSize: "0.95rem", fontWeight: 700, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
+                                            <User size={16} /> Usuários da Empresa
+                                        </h3>
+                                        <button 
+                                            onClick={() => { setEditUser(null); setShowUserModal(true); }}
+                                            className="btn btn-primary"
+                                            style={{ padding: "8px 16px", borderRadius: 10, fontSize: "0.85rem", height: "auto" }}
+                                        >
+                                            <Plus size={16} style={{ marginRight: 6 }} /> Novo Usuário
+                                        </button>
+                                    </div>
                                     
                                     {usersLoading ? (
-                                        <div style={{ padding: 20, textAlign: "center", color: "var(--text-secondary)" }}>Carregando usuários...</div>
+                                        <div style={{ padding: 40, textAlign: "center", color: "var(--text-secondary)" }}>
+                                            <div className="spinner" style={{ marginBottom: 12 }}>⏳</div>
+                                            Carregando usuários...
+                                        </div>
                                     ) : tenantUsers.length === 0 ? (
-                                        <div style={{ padding: 32, textAlign: "center", background: "var(--bg-primary)", borderRadius: 16, border: "1px dashed var(--border)", color: "var(--text-secondary)" }}>
-                                            Nenhum usuário cadastrado nesta empresa.
+                                        <div style={{ padding: 48, textAlign: "center", background: "var(--bg-primary)", borderRadius: 16, border: "1px dashed var(--border)", color: "var(--text-secondary)" }}>
+                                            <User size={32} opacity={0.2} style={{ marginBottom: 12 }} />
+                                            <div style={{ fontSize: "0.95rem", fontWeight: 600 }}>Nenhum usuário cadastrado</div>
+                                            <p style={{ fontSize: "0.8rem", marginTop: 4 }}>Adicione o primeiro operador para esta empresa.</p>
                                         </div>
                                     ) : (
                                         <div style={{ background: "var(--bg-primary)", borderRadius: 16, border: "1px solid var(--border)", overflow: "hidden" }}>
                                             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
                                                 <thead>
                                                     <tr style={{ background: "var(--bg-secondary)", color: "var(--text-secondary)", textAlign: "left" }}>
-                                                        <th style={{ padding: "12px 16px", fontWeight: 600 }}>Nome / Agente</th>
-                                                        <th style={{ padding: "12px 16px", fontWeight: 600 }}>Email</th>
-                                                        <th style={{ padding: "12px 16px", fontWeight: 600 }}>Cargo</th>
-                                                        <th style={{ padding: "12px 16px", fontWeight: 600 }}>Status</th>
-                                                        <th style={{ padding: "12px 16px", fontWeight: 600 }}>Criado em</th>
+                                                        <th style={{ padding: "14px 20px", fontWeight: 700, textTransform: "uppercase", fontSize: "0.7rem", letterSpacing: "0.5px" }}>Nome / Agente</th>
+                                                        <th style={{ padding: "14px 20px", fontWeight: 700, textTransform: "uppercase", fontSize: "0.7rem", letterSpacing: "0.5px" }}>Email</th>
+                                                        <th style={{ padding: "14px 20px", fontWeight: 700, textTransform: "uppercase", fontSize: "0.7rem", letterSpacing: "0.5px" }}>Permissão</th>
+                                                        <th style={{ padding: "14px 20px", fontWeight: 700, textTransform: "uppercase", fontSize: "0.7rem", letterSpacing: "0.5px" }}>Status</th>
+                                                        <th style={{ padding: "14px 20px", fontWeight: 700, textTransform: "uppercase", fontSize: "0.7rem", letterSpacing: "0.5px", textAlign: "right" }}>Ações</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
                                                     {tenantUsers.map(u => (
-                                                        <tr key={u.UserId} style={{ borderBottom: "1px solid var(--border)" }} className="table-row-hover">
-                                                            <td style={{ padding: "12px 16px" }}>
-                                                                <div style={{ fontWeight: 600 }}>{u.AgentName || u.DisplayName || 'Sem Nome'}</div>
-                                                                {u.DisplayName && u.AgentName !== u.DisplayName && <div style={{ fontSize: "0.7rem", opacity: 0.6 }}>Log: {u.DisplayName}</div>}
+                                                        <tr key={u.UserId} style={{ borderBottom: "1px solid var(--border)", opacity: u.IsActive ? 1 : 0.6 }} className="table-row-hover">
+                                                            <td style={{ padding: "14px 20px" }}>
+                                                                <div style={{ fontWeight: 600, color: "var(--text-primary)" }}>{u.AgentName || u.DisplayName || 'Sem Nome'}</div>
+                                                                {u.DisplayName && u.AgentName !== u.DisplayName && <div style={{ fontSize: "0.7rem", color: "var(--text-secondary)" }}>Log: {u.DisplayName}</div>}
                                                             </td>
-                                                            <td style={{ padding: "12px 16px" }}>{u.Email}</td>
-                                                            <td style={{ padding: "12px 16px" }}>
+                                                            <td style={{ padding: "14px 20px", color: "var(--text-secondary)" }}>{u.Email}</td>
+                                                            <td style={{ padding: "14px 20px" }}>
                                                                 <span style={{ 
-                                                                    fontSize: "0.7rem", padding: "2px 6px", borderRadius: 4, 
-                                                                    background: u.Role === 'ADMIN' ? "rgba(0,168,132,0.1)" : "rgba(134,150,161,0.1)",
+                                                                    fontSize: "0.7rem", padding: "3px 8px", borderRadius: 6, 
+                                                                    background: u.Role === 'ADMIN' ? "rgba(0,168,132,0.12)" : "rgba(134,150,161,0.12)",
                                                                     color: u.Role === 'ADMIN' ? "var(--accent)" : "var(--text-secondary)",
-                                                                    fontWeight: 600
+                                                                    fontWeight: 700
                                                                 }}>
                                                                     {u.Role}
                                                                 </span>
                                                             </td>
-                                                            <td style={{ padding: "12px 16px" }}>
-                                                                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                                                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: u.IsActive ? "var(--accent)" : "var(--danger)" }} />
-                                                                    {u.IsActive ? 'Ativo' : 'Inativo'}
+                                                            <td style={{ padding: "14px 20px" }}>
+                                                                <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 600, fontSize: "0.8rem" }}>
+                                                                    <div style={{ width: 7, height: 7, borderRadius: "50%", background: u.IsActive ? "var(--accent)" : "var(--danger)" }} />
+                                                                    <span style={{ color: u.IsActive ? "var(--accent)" : "var(--danger)" }}>{u.IsActive ? 'Ativo' : 'Inativo'}</span>
                                                                 </div>
                                                             </td>
-                                                            <td style={{ padding: "12px 16px", color: "var(--text-secondary)" }}>
-                                                                {new Date(u.CreatedAt).toLocaleDateString()}
+                                                            <td style={{ padding: "14px 20px", textAlign: "right" }}>
+                                                                <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
+                                                                    <button onClick={() => { setEditUser(u); setShowUserModal(true); }} className="btn btn-ghost" style={{ padding: 6, width: 32, height: 32, borderRadius: 8 }} title="Editar">
+                                                                        <Edit2 size={14} />
+                                                                    </button>
+                                                                    <button 
+                                                                        onClick={() => handleToggleUserStatus(u.UserId, u.IsActive)} 
+                                                                        className="btn btn-ghost" 
+                                                                        style={{ padding: 6, width: 32, height: 32, borderRadius: 8, color: u.IsActive ? "var(--danger)" : "var(--accent)" }}
+                                                                        title={u.IsActive ? "Pausar" : "Ativar"}
+                                                                    >
+                                                                        {u.IsActive ? <Pause size={14} /> : <Play size={14} />}
+                                                                    </button>
+                                                                    <button 
+                                                                        onClick={() => handleDeleteUser(u.UserId)} 
+                                                                        className="btn btn-ghost" 
+                                                                        style={{ padding: 6, width: 32, height: 32, borderRadius: 8, color: "var(--danger)" }}
+                                                                        title="Lixeira"
+                                                                    >
+                                                                        <Trash2 size={14} />
+                                                                    </button>
+                                                                </div>
                                                             </td>
                                                         </tr>
                                                     ))}
@@ -477,6 +558,14 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
             </div>
 
             {showCreateModal && <TenantModal onClose={() => setShowCreateModal(false)} onSubmit={handleCreateTenant} />}
+            {showUserModal && (
+                <UserModal
+                    editUser={editUser}
+                    tenants={[{ TenantId: selectedTenant.TenantId, Name: selectedTenant.Name }]}
+                    onClose={() => setShowUserModal(false)}
+                    onSubmit={handleSaveUser}
+                />
+            )}
             {showLimitModal && editTenant && (
                 <div style={{
                     position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000
