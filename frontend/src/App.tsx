@@ -29,6 +29,7 @@ import { ResetPassword } from "./ResetPassword";
 import { Onboarding } from "./Onboarding";
 import LogoHorizontal from "./assets/logo/logo-horizontal.png";
 import logo from "./assets/logo/logo.png";
+import { WelcomeScreen } from "./WelcomeScreen";
 
 import {
   LayoutDashboard,
@@ -372,11 +373,12 @@ function AppContent() {
   if (!token) {
     return (
       <Routes>
+        <Route path="/" element={<WelcomeScreen />} />
         <Route path="/login" element={<LoginScreen onLogin={handleLogin} />} />
         <Route path="/onboarding" element={<Onboarding onLogin={handleLogin} />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     );
   }
