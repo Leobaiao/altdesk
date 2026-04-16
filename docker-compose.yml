@@ -83,7 +83,7 @@ services:
       DB_HOST: db
       JWT_SECRET: ${JWT_SECRET:?Defina JWT_SECRET no .env}
     ports:
-      - "3002:3002"
+      - "3005:3002"
     restart: always
 
   # Frontend (React + Nginx)
