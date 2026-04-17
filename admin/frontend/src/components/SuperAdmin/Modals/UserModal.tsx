@@ -49,6 +49,8 @@ export function UserModal({ editUser, tenants, onClose, onSubmit }: UserModalPro
                 background: "var(--bg-secondary)",
                 border: "1px solid var(--border)",
                 width: "100%", maxWidth: 450,
+                maxHeight: "90vh",
+                overflowY: "auto",
                 padding: 32,
                 borderRadius: 20,
                 boxShadow: "0 20px 40px rgba(0,0,0,0.4)"
