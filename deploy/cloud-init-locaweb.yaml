@@ -3,13 +3,17 @@
 # AltDesk — Cloud-Init para Locaweb Cloud (Ubuntu 22.04+)
 # Cole este conteúdo no campo "User Data / Cloud-Init"
 # ao criar a máquina virtual na Locaweb.
+#
+# NOTA: O Nginx e Certbot NÃO são mais necessários no Host.
+# O proxy reverso e o HTTPS são gerenciados pelo Caddy
+# dentro do Docker Compose de produção.
 # ═══════════════════════════════════════════════════
 
 # 1. Atualizar sistema
 package_update: true
 package_upgrade: true
 
-# 2. Pacotes essenciais
+# 2. Pacotes essenciais (sem nginx/certbot — Caddy roda no Docker)
 packages:
   - apt-transport-https
   - ca-certificates
@@ -19,9 +23,6 @@ packages:
   - software-properties-common
   - git
   - ufw
-  - nginx
-  - certbot
-  - python3-certbot-nginx
   - fail2ban
   - htop
   - unzip
@@ -42,7 +43,9 @@ runcmd:
   - ufw default deny incoming
   - ufw default allow outgoing
   - ufw allow OpenSSH
-  - ufw allow 'Nginx Full'
+  - ufw allow 80/tcp     # HTTP  (Caddy usa para ACME e redirecionamento)
+  - ufw allow 443/tcp    # HTTPS (Caddy termina TLS)
+  - ufw allow 443/udp    # HTTP/3 QUIC
   - ufw --force enable
 
   # ── Fail2Ban (proteção contra brute-force SSH) ──
@@ -74,12 +77,6 @@ runcmd:
   - swapon /swapfile
   - echo '/swapfile none swap sw 0 0' | tee -a /etc/fstab
 
-  # ── Limpar o Nginx default e preparar para o proxy reverso ──
-  - rm -f /etc/nginx/sites-enabled/default
-
-  # ── Reiniciar Nginx ──
-  - systemctl restart nginx
-
   # ── Log final ──
   - echo "=== AltDesk Cloud-Init finalizado em $(date) ===" >> /var/log/altdesk-init.log
 
@@ -94,5 +91,7 @@ final_message: |
    3. git clone https://github.com/Leobaiao/altdesk.git .
    4. cp deploy/.env.example .env && nano .env
    5. docker compose -f deploy/docker-compose.prod.yml up -d --build
-   6. sudo certbot --nginx -d app.seudominio.com -d admin.seudominio.com
+   
+   O Caddy irá gerar os certificados HTTPS automaticamente!
+   Verifique os logs: docker compose -f deploy/docker-compose.prod.yml logs -f caddy
   ═══════════════════════════════════════════════════

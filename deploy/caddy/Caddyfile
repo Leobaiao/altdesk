@@ -1,0 +1,41 @@
+# ═══════════════════════════════════════════════════
+# AltDesk — Caddyfile (Proxy Reverso com HTTPS Automático)
+#
+# O Caddy gerencia automaticamente os certificados
+# Let's Encrypt para todos os domínios listados abaixo.
+# Nenhuma configuração manual de SSL é necessária.
+# ═══════════════════════════════════════════════════
+
+# ─── FRONTEND (App Cliente) ───
+altdesk.com.br {
+	reverse_proxy frontend:80
+}
+
+www.altdesk.com.br {
+	redir https://altdesk.com.br{uri} permanent
+}
+
+# ─── FRONTEND (SuperAdmin) ───
+admin.altdesk.com.br {
+	reverse_proxy admin-frontend:80
+}
+
+# ─── BACKEND API (App API) ───
+api.altdesk.com.br {
+	reverse_proxy backend:3002
+
+	# Permitir uploads maiores (ex: imagens de perfil)
+	request_body {
+		max_size 50MB
+	}
+}
+
+# ─── ADMIN BACKEND API ───
+api-admin.altdesk.com.br {
+	reverse_proxy admin-backend:3002
+
+	# Permitir uploads maiores
+	request_body {
+		max_size 50MB
+	}
+}

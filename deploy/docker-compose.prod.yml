@@ -1,5 +1,5 @@
 services:
-  # Banco de Dados (Igual ao de desenvolvimento, mas sem mapear para fora da rede localhost)
+  # Banco de Dados (SQL Server)
   db:
     image: mcr.microsoft.com/mssql/server:2022-latest
     container_name: altdesk_db_prod
@@ -8,9 +8,6 @@ services:
       - ACCEPT_EULA=Y
     env_file:
       - ../.env
-    ports:
-      # Expõe a porta 1433 apenas para localhost (127.0.0.1) por segurança
-      - "127.0.0.1:14333:1433"
     volumes:
       - mssql_data_prod:/var/opt/mssql
       - ../backend/db:/docker-entrypoint-initdb.d
@@ -21,6 +18,8 @@ services:
       retries: 5
       start_period: 20s
     restart: always
+    networks:
+      - internal
 
   # Migrador do Banco (Apenas roda quando solicitado ou atualizado)
   db-migrate:
@@ -56,6 +55,29 @@ services:
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$MSSQL_SA_PASSWORD -C -d AltDeskDev -i /scripts/15-missing-features-fields.sql;
         echo 'Todas as migrations concluidas em PROD!';
       "
+    networks:
+      - internal
+
+  # ─── Caddy (Proxy Reverso + HTTPS Automático) ───
+  caddy:
+    image: caddy:2-alpine
+    container_name: altdesk_caddy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"   # HTTP/3 (QUIC)
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data        # Certificados Let's Encrypt
+      - caddy_config:/config    # Configuração interna do Caddy
+    depends_on:
+      - backend
+      - frontend
+      - admin-backend
+      - admin-frontend
+    networks:
+      - internal
 
   # Backend API
   backend:
@@ -71,10 +93,11 @@ services:
     environment:
       PORT: 3002
       DB_HOST: db
-    ports:
-      # Opcional, apenas para acesso local se o nginx host enviar para a web.
-      - "127.0.0.1:3002:3002"
+    expose:
+      - "3002"
     restart: always
+    networks:
+      - internal
 
   # Frontend Web Cliente (App)
   frontend:
@@ -86,10 +109,11 @@ services:
     container_name: altdesk_web_prod
     depends_on:
       - backend
-    ports:
-      # O Nginx no hospedeiro vai apontar para a 3000
-      - "127.0.0.1:3000:80"
+    expose:
+      - "80"
     restart: always
+    networks:
+      - internal
 
   # Admin Backend
   admin-backend:
@@ -105,9 +129,11 @@ services:
     environment:
       PORT: 3002
       DB_HOST: db
-    ports:
-      - "127.0.0.1:3003:3002"
+    expose:
+      - "3002"
     restart: always
+    networks:
+      - internal
 
   # Admin Frontend Web
   admin-frontend:
@@ -119,10 +145,17 @@ services:
     container_name: altdesk_admin_web_prod
     depends_on:
       - admin-backend
-    ports:
-      # O Nginx hospedeiro apontará para a 3001
-      - "127.0.0.1:3001:80"
+    expose:
+      - "80"
     restart: always
+    networks:
+      - internal
+
+networks:
+  internal:
+    driver: bridge
 
 volumes:
   mssql_data_prod:
+  caddy_data:
+  caddy_config:
