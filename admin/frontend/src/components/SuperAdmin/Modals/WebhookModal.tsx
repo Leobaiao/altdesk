@@ -7,7 +7,12 @@ interface WebhookModalProps {
 }
 
 export function WebhookModal({ connectorId, onClose }: WebhookModalProps) {
-    const [webhookBaseUrl, setWebhookBaseUrl] = useState("");
+    const [webhookBaseUrl, setWebhookBaseUrl] = useState(() => {
+        // Sugere a URL baseada no domínio da API principal
+        const currentOrigin = window.location.origin; // ex: https://admin.altdesk.com.br
+        const apiDomain = currentOrigin.replace("admin.", "api."); // ex: https://api.altdesk.com.br
+        return `${apiDomain}/api/webhooks/whatsapp/gti/${connectorId}`;
+    });
     const [webhookEvents, setWebhookEvents] = useState<string[]>([
         "connection", "history", "messages", "messages_update",
         "call", "contacts", "presence", "groups", "labels",
