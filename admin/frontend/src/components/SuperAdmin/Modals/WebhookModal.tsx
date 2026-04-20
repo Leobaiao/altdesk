@@ -45,14 +45,23 @@ export function WebhookModal({ connectorId, onClose }: WebhookModalProps) {
 
     const handleSetWebhook = async (e: React.FormEvent) => {
         e.preventDefault();
+        console.log("Tentando salvar webhook para:", connectorId);
+        console.log("URL:", webhookBaseUrl);
+        
+        if (!connectorId) {
+            console.error("Erro: connectorId está faltando!");
+            return;
+        }
+
         try {
-            await api.post(`/api/admin/instances/${connectorId}/set-webhook`, {
+            const response = await api.post(`/api/admin/instances/${connectorId}/set-webhook`, {
                 webhookBaseUrl: webhookBaseUrl,
                 events: webhookEvents,
                 excludeMessages: webhookExclusions,
                 addUrlEvents,
                 addUrlTypesMessages
             });
+            console.log("Resposta do servidor:", response.data);
             notify("Webhook configurado com sucesso!", "success");
             handleFetchWebhookStatus();
         } catch (err) {
