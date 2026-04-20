@@ -40,6 +40,7 @@ CREATE TABLE altdesk.[User] (
     IsActive BIT NOT NULL DEFAULT 1,
     CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
     LastLoginAt DATETIME2 NULL,
+    PermissionsJson NVARCHAR(MAX) NULL,
     DeletedAt DATETIME2 NULL,
     CONSTRAINT UQ_User_Tenant_Email UNIQUE (TenantId, Email),
     CONSTRAINT FK_User_Tenant FOREIGN KEY (TenantId) REFERENCES altdesk.Tenant(TenantId)

@@ -28,6 +28,7 @@ BEGIN
         Name NVARCHAR(100) NOT NULL,
         DefaultProvider NVARCHAR(50) NOT NULL DEFAULT 'GTI',
         IsActive BIT DEFAULT 1,
+        DeletedAt DATETIME2 NULL,
         CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME()
     );
 END
@@ -42,6 +43,7 @@ BEGIN
         IsActive BIT DEFAULT 1,
         AgentsSeatLimit INT DEFAULT 5,
         ExpiresAt DATETIME2 NOT NULL,
+        DeletedAt DATETIME2 NULL,
         CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME()
     );
 END
@@ -59,6 +61,7 @@ BEGIN
         CanClose BIT NOT NULL DEFAULT 0,
         CanComment BIT NOT NULL DEFAULT 1,
         HourlyValue DECIMAL(10,2) NULL,
+        DeletedAt DATETIME2 NULL,
         CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME(),
         CONSTRAINT UK_Role_Name UNIQUE (TenantId, Name)
     );
@@ -78,7 +81,10 @@ BEGIN
         DisplayName NVARCHAR(255) NULL,
         CPF NVARCHAR(14) NULL,
         Avatar NVARCHAR(MAX) NULL,
-        Position NVARCHAR(100) NULL,
+        Position NVARCHAR(200) NULL,
+        PermissionsJson NVARCHAR(MAX) NULL,
+        LastLoginAt DATETIME2 NULL,
+        DeletedAt DATETIME2 NULL,
         RoleId UNIQUEIDENTIFIER NULL FOREIGN KEY REFERENCES altdesk.Role(RoleId),
         HasLogAccess BIT NOT NULL DEFAULT 0,
         IsActive BIT DEFAULT 1,
@@ -98,6 +104,7 @@ BEGIN
         Kind NVARCHAR(50) NOT NULL, -- HUMAN, BOT
         Name NVARCHAR(100) NOT NULL,
         IsActive BIT DEFAULT 1,
+        DeletedAt DATETIME2 NULL,
         CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME()
     );
 END
@@ -112,6 +119,7 @@ BEGIN
         Name NVARCHAR(100) NOT NULL,
         Type NVARCHAR(50) NOT NULL DEFAULT 'MESSAGING',
         IsActive BIT DEFAULT 1,
+        DeletedAt DATETIME2 NULL,
         CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME()
     );
 END
@@ -141,6 +149,7 @@ BEGIN
         TenantId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES altdesk.Tenant(TenantId),
         Name NVARCHAR(100) NOT NULL,
         IsActive BIT DEFAULT 1,
+        DeletedAt DATETIME2 NULL,
         CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME()
     );
 END
@@ -163,6 +172,7 @@ BEGIN
         SourceChannel NVARCHAR(50) NULL, -- WHATSAPP, PLATFORM, CHATBOT, EMAIL, RCS, SMS
         InteractionSequence INT NOT NULL DEFAULT 0,
         LastMessageAt DATETIME2 DEFAULT SYSUTCDATETIME(),
+        DeletedAt DATETIME2 NULL,
         CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME()
     );
 END
@@ -199,6 +209,7 @@ BEGIN
         ExternalMessageId NVARCHAR(255) NULL,
         PayloadJson NVARCHAR(MAX) NULL,
         Status VARCHAR(20) DEFAULT 'SENT', -- SENT, DELIVERED, READ, FAILED
+        DeletedAt DATETIME2 NULL,
         CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME()
     );
 END

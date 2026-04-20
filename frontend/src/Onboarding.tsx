@@ -295,22 +295,21 @@ function Step4({ preloadModel, onEnter }: { preloadModel: PreloadModel; onEnter:
 // ─── Main Onboarding ───────────────────────────────
 export function Onboarding({ onLogin }: { onLogin: (token: string, role: string) => void }) {
   const [step, setStep] = useState(1);
-  const [isLightTheme, setIsLightTheme] = useState(() => {
-    return localStorage.getItem('onboarding-theme') === 'light';
-  });
+  const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "light");
   const [data, setData] = useState<OnboardingData>(initial);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (isLightTheme) {
-      document.body.classList.add('light-theme');
-      localStorage.setItem('onboarding-theme', 'light');
-    } else {
+    localStorage.setItem("theme", theme);
+    if (theme === "dark") {
+      document.documentElement.setAttribute("data-theme", "dark");
       document.body.classList.remove('light-theme');
-      localStorage.setItem('onboarding-theme', 'dark');
+    } else {
+      document.documentElement.removeAttribute("data-theme");
+      document.body.classList.add('light-theme');
     }
-  }, [isLightTheme]);
+  }, [theme]);
 
   function updateData(partial: Partial<OnboardingData>) {
     setData(prev => ({ ...prev, ...partial }));
@@ -383,14 +382,13 @@ export function Onboarding({ onLogin }: { onLogin: (token: string, role: string)
           <img src={LogoHorizontal} alt="AltDesk" style={{ height: "40px", width: "auto" }} />
         </div>
 
-        {/* Theme Toggle Button */}
         <button 
           className="theme-toggle-ob" 
-          onClick={() => setIsLightTheme(!isLightTheme)}
-          title={isLightTheme ? "Mudar para Dark Mode" : "Mudar para Light Mode"}
+          onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+          title={theme === "light" ? "Mudar para Modo Escuro" : "Mudar para Modo Claro"}
           type="button"
         >
-          {isLightTheme ? <Moon size={20} /> : <Sun size={20} />}
+          {theme === "light" ? <Moon size={20} /> : <Sun size={20} />}
         </button>
 
         {/* Progress Bar */}
