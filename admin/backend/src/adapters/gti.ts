@@ -121,7 +121,8 @@ export class GtiAdapter implements ChannelAdapter {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "token": cfg.token || cfg.apiKey
+        "token": cfg.token || cfg.apiKey,
+        "apikey": cfg.token || cfg.apiKey
       },
       body: JSON.stringify({
         instance: cfg.instance,
@@ -184,7 +185,8 @@ export class GtiAdapter implements ChannelAdapter {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "token": cfg.token || cfg.apiKey
+        "token": cfg.token || cfg.apiKey,
+        "apikey": cfg.token || cfg.apiKey
       },
       body: JSON.stringify(payload)
     });
@@ -203,7 +205,8 @@ export class GtiAdapter implements ChannelAdapter {
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        "token": cfg.token || cfg.apiKey
+        "token": cfg.token || cfg.apiKey,
+        "apikey": cfg.token || cfg.apiKey
       }
     });
 
@@ -229,7 +232,8 @@ export class GtiAdapter implements ChannelAdapter {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "token": cfg.token || cfg.apiKey
+        "token": cfg.token || cfg.apiKey,
+        "apikey": cfg.token || cfg.apiKey
       },
       body: JSON.stringify(payload)
     });
