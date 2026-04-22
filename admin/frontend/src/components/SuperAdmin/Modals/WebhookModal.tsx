@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNotification } from "../../../contexts/NotificationContext";
+import { api } from "../../../lib/api";
 
 interface WebhookModalProps {
     connectorId: string;
@@ -8,10 +9,10 @@ interface WebhookModalProps {
 
 export function WebhookModal({ connectorId, onClose }: WebhookModalProps) {
     const [webhookBaseUrl, setWebhookBaseUrl] = useState(() => {
-        // Sugere a URL baseada no domínio da API principal
+        // Sugere a URL base (sem path) — o backend adiciona /api/webhooks/... automaticamente
         const currentOrigin = window.location.origin; // ex: https://admin.altdesk.com.br
         const apiDomain = currentOrigin.replace("admin.", "api."); // ex: https://api.altdesk.com.br
-        return `${apiDomain}/api/webhooks/whatsapp/gti/${connectorId}`;
+        return apiDomain;
     });
     const [webhookEvents, setWebhookEvents] = useState<string[]>([
         "connection", "history", "messages", "messages_update",
@@ -64,9 +65,10 @@ export function WebhookModal({ connectorId, onClose }: WebhookModalProps) {
             console.log("Resposta do servidor:", response.data);
             notify("Webhook configurado com sucesso!", "success");
             handleFetchWebhookStatus();
-        } catch (err) {
-            console.error(err);
-            notify("Erro ao configurar webhook", "error");
+        } catch (err: any) {
+            const detail = err?.response?.data?.error || err?.response?.data?.message || err?.message || "";
+            console.error("Erro ao configurar webhook:", err);
+            notify(`Erro ao configurar webhook${detail ? ": " + detail : ""}`, "error");
         }
     };
 
@@ -139,8 +141,11 @@ export function WebhookModal({ connectorId, onClose }: WebhookModalProps) {
 
                 <form onSubmit={handleSetWebhook} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
                     <div className="field">
-                        <label style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 600, color: "var(--text-secondary)" }}>URL do Webhook</label>
-                        <input required value={webhookBaseUrl} onChange={e => setWebhookBaseUrl(e.target.value)} style={{ width: "100%", marginTop: 8, background: "var(--bg-primary)", padding: "12px 16px", borderRadius: 12, border: "1px solid var(--border)", color: "var(--text-primary)" }} placeholder="https://seu-dominio.com/webhook" />
+                        <label style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 600, color: "var(--text-secondary)" }}>URL Base da API</label>
+                        <input required value={webhookBaseUrl} onChange={e => setWebhookBaseUrl(e.target.value)} style={{ width: "100%", marginTop: 8, background: "var(--bg-primary)", padding: "12px 16px", borderRadius: 12, border: "1px solid var(--border)", color: "var(--text-primary)" }} placeholder="https://api.altdesk.com.br" />
+                        <p style={{ fontSize: "0.75rem", color: "var(--text-secondary)", margin: "6px 0 0", opacity: 0.7 }}>
+                            O path completo será gerado automaticamente: <code style={{ fontSize: "0.7rem" }}>{webhookBaseUrl}/api/webhooks/whatsapp/gti/{connectorId}</code>
+                        </p>
                     </div>
                     {/* Simplified event selection for brevity in this extraction, keeping original logic if possible */}
                     <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", marginTop: 12 }}>

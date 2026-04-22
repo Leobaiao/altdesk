@@ -607,6 +607,12 @@ router.post("/instances/:connectorId/set-webhook", validateBody(z.object({
             webhookBaseUrl = webhookBaseUrl.replace(':8080', ''); // Main API is usually behind nginx on port 80
         }
 
+        // Safety: if the user or frontend accidentally sends the full webhook path, strip it
+        const webhookPathIdx = webhookBaseUrl.indexOf('/api/webhooks');
+        if (webhookPathIdx > 0) {
+            webhookBaseUrl = webhookBaseUrl.substring(0, webhookPathIdx);
+        }
+
         const fullWebhookUrl = `${webhookBaseUrl}/api/webhooks/whatsapp/${connector.Provider}/${connectorId}`;
         logger.info({ connectorId, fullWebhookUrl }, "[Admin] Auto-generating webhook URL");
 
