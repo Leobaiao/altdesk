@@ -129,18 +129,57 @@ router.post("/whatsapp/:provider/:connectorId*", async (req, res, next) => {
         const conversationId = await resolveConversationForInbound(inbound, connector.ConnectorId, connector.ChannelId);
         const messageId = await saveInboundMessage(inbound, conversationId);
 
+        const io = req.app.get("io");
+
+        const emitMessageEvent = (msgData: any) => {
+            if (io) {
+                emitConversationEvent(io, inbound.tenantId, conversationId, "message:new", msgData);
+                emitConversationEvent(io, inbound.tenantId, conversationId, "conversation:updated", {
+                    conversationId,
+                    lastMessage: msgData.text,
+                    direction: msgData.direction,
+                    timestamp: msgData.CreatedAt
+                });
+            }
+        };
+
+        // Emite o evento da mensagem de entrada IMEDIATAMENTE (mesmo antes da checagem de horário/ticket)
+        // Isso garante que o agente veja o que o cliente mandou.
+        emitMessageEvent({
+            MessageId: messageId,
+            conversationId,
+            senderExternalId: inbound.externalUserId,
+            text: inbound.text ?? `[${inbound.mediaType}]`,
+            mediaType: inbound.mediaType,
+            mediaUrl: inbound.mediaUrl,
+            direction: "IN",
+            CreatedAt: new Date().toISOString()
+        });
+
+        const sendAndEmitBotMessage = async (text: string) => {
+            const fetchConn = { ConnectorId: connector.ConnectorId, Provider: connector.Provider, ConfigJson: connector.ConfigJson };
+            try {
+                await adapter.sendText(fetchConn, inbound.externalUserId, text);
+                await saveOutboundMessage(inbound.tenantId, conversationId, text);
+                emitMessageEvent({
+                    MessageId: "bot-" + Date.now().toString(),
+                    conversationId,
+                    senderExternalId: "system",
+                    text: text,
+                    direction: "OUT",
+                    CreatedAt: new Date().toISOString()
+                });
+            } catch (err) {
+                logger.error({ err, conversationId, tenantId: inbound.tenantId }, "[Bot Message] Error sending auto-reply");
+            }
+        };
+
         // --- Business Hours Check ---
         const withinHours = await isWithinBusinessHours(inbound.tenantId);
         if (!withinHours) {
             const offMsg = await getOffHoursMessage(inbound.tenantId);
             if (offMsg) {
-                try {
-                    const fetchConn = { ConnectorId: connector.ConnectorId, Provider: connector.Provider, ConfigJson: connector.ConfigJson };
-                    await adapter.sendText(fetchConn, inbound.externalUserId, offMsg);
-                    await saveOutboundMessage(inbound.tenantId, conversationId, offMsg);
-                } catch (err) {
-                    logger.error({ err, conversationId, tenantId: inbound.tenantId }, "[BusinessHours] Error sending off-hours message");
-                }
+                await sendAndEmitBotMessage(offMsg);
             }
         }
         // --- End Business Hours Check ---
@@ -175,13 +214,7 @@ router.post("/whatsapp/:provider/:connectorId*", async (req, res, next) => {
 
                     // Enviar resposta do fluxo de CPF via adapter
                     if (cpfResult.response) {
-                        const fetchConnector = { ConnectorId: connector.ConnectorId, Provider: connector.Provider, ConfigJson: connector.ConfigJson };
-                        try {
-                            await adapter.sendText(fetchConnector, inbound.externalUserId, cpfResult.response);
-                            await saveOutboundMessage(inbound.tenantId, conversationId, cpfResult.response);
-                        } catch (sendErr) {
-                            logger.error({ err: sendErr }, "[CPF Flow] Erro ao enviar resposta");
-                        }
+                        await sendAndEmitBotMessage(cpfResult.response);
                     }
 
                     if (!cpfResult.completed) {
@@ -193,9 +226,7 @@ router.post("/whatsapp/:provider/:connectorId*", async (req, res, next) => {
                         const ticketNumber = activeTicket.TicketId.split('-')[0].toUpperCase();
                         const ticketMsg = `ESTE É SEU TICKET ${ticketNumber}...\n\nPor favor, digite seu problema ou dúvida para que possamos ajudá-lo.`;
                         
-                        const fetchConnector = { ConnectorId: connector.ConnectorId, Provider: connector.Provider, ConfigJson: connector.ConfigJson };
-                        await adapter.sendText(fetchConnector, inbound.externalUserId, ticketMsg);
-                        await saveOutboundMessage(inbound.tenantId, conversationId, ticketMsg);
+                        await sendAndEmitBotMessage(ticketMsg);
                         
                         // Fim do fluxo para esta mensagem, a próxima MSG do usuário será o problema em si
                         return res.status(200).json({ ok: true, conversationId, ticketCreated: true });
@@ -209,41 +240,12 @@ router.post("/whatsapp/:provider/:connectorId*", async (req, res, next) => {
                 const ticketNumber = activeTicket.TicketId.split('-')[0].toUpperCase();
                 const ticketMsg = `Olá, ${contactCheck.recordset[0].Name}! ESTE É SEU TICKET ${ticketNumber}...\n\nPor favor, digite qual o seu problema hoje.`;
                 
-                const fetchConnector = { ConnectorId: connector.ConnectorId, Provider: connector.Provider, ConfigJson: connector.ConfigJson };
-                try {
-                    await adapter.sendText(fetchConnector, inbound.externalUserId, ticketMsg);
-                    await saveOutboundMessage(inbound.tenantId, conversationId, ticketMsg);
-                } catch (sendErr) {
-                    logger.error({ err: sendErr }, "[Ticket Flow] Erro ao enviar ticket id");
-                }
+                await sendAndEmitBotMessage(ticketMsg);
                 return res.status(200).json({ ok: true, conversationId, ticketCreated: true });
             }
         }
         // Se já tem ticket ativo, prossegue para salvar a mensagem normalmente e distribuir.
         // --- Fim do Fluxo de Ticket ---
-
-        const io = req.app.get("io");
-
-        // Emite evento de nova mensagem para o frontend
-        if (io) {
-            emitConversationEvent(io, inbound.tenantId, conversationId, "message:new", {
-                MessageId: messageId,
-                conversationId,
-                senderExternalId: inbound.externalUserId,
-                text: inbound.text ?? `[${inbound.mediaType}]`,
-                mediaType: inbound.mediaType,
-                mediaUrl: inbound.mediaUrl,
-                direction: "IN",
-                CreatedAt: new Date().toISOString()
-            });
-
-            emitConversationEvent(io, inbound.tenantId, conversationId, "conversation:updated", {
-                conversationId,
-                lastMessage: inbound.text ?? `[${inbound.mediaType}]`,
-                direction: "IN",
-                timestamp: new Date().toISOString()
-            });
-        }
 
         /* BOT DESATIVADO TEMPORARIAMENTE
         // Run AI orchestration in background
