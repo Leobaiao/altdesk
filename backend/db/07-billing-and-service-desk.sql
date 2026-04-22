@@ -138,6 +138,7 @@ BEGIN
         AssignedAgentId UNIQUEIDENTIFIER NULL,
         EscalationLevel INT NOT NULL DEFAULT 0,
         SLA_DueAt DATETIME2 NULL,
+        DeletedAt DATETIME2 NULL,
         CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
         UpdatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
         CONSTRAINT FK_Ticket_Tenant FOREIGN KEY (TenantId) REFERENCES altdesk.Tenant(TenantId),

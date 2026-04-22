@@ -97,6 +97,7 @@ BEGIN
         Content NVARCHAR(MAX) NOT NULL,
         Category NVARCHAR(50) NULL,
         IsPublic BIT NOT NULL DEFAULT 1,
+        DeletedAt DATETIME2 NULL,
         CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME(),
         UpdatedAt DATETIME2 DEFAULT SYSUTCDATETIME()
     );
@@ -113,6 +114,7 @@ BEGIN
         TenantId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES altdesk.Tenant(TenantId),
         Name NVARCHAR(50) NOT NULL,
         Color NVARCHAR(20) NOT NULL DEFAULT '#E2E8F0',
+        DeletedAt DATETIME2 NULL,
         CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME(),
         CONSTRAINT UK_Tag_Name UNIQUE (TenantId, Name)
     );

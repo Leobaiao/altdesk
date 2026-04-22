@@ -224,6 +224,7 @@ BEGIN
         Shortcut NVARCHAR(50) NOT NULL,
         Content NVARCHAR(MAX) NOT NULL,
         Title NVARCHAR(100) NOT NULL,
+        DeletedAt DATETIME2 NULL,
         CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME(),
         CONSTRAINT UK_CannedResponse_Shortcut UNIQUE (TenantId, Shortcut)
     );
@@ -242,6 +243,7 @@ BEGIN
         Email NVARCHAR(255) NULL,
         Tags NVARCHAR(MAX) NULL, -- JSON array
         Notes NVARCHAR(MAX) NULL,
+        DeletedAt DATETIME2 NULL,
         CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME()
     );
 END
@@ -256,6 +258,7 @@ BEGIN
         Name NVARCHAR(100) NOT NULL,
         Content NVARCHAR(MAX) NOT NULL,
         Variables NVARCHAR(MAX) NULL, -- JSON array
+        DeletedAt DATETIME2 NULL,
         CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME()
     );
 END
