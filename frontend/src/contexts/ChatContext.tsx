@@ -30,6 +30,12 @@ export function ChatProvider({ children, token, onLogout }: { children: ReactNod
     const [typingUsers, setTypingUsers] = useState<Record<string, string>>({});
     const [accountStatus, setAccountStatus] = useState<"TRIAL" | "ACTIVE" | null>(null);
 
+    // Ref to always have the latest selectedConversationId in socket listeners without re-subscribing
+    const selectedConvIdRef = React.useRef<string | null>(null);
+    useEffect(() => {
+        selectedConvIdRef.current = selectedConversationId;
+    }, [selectedConversationId]);
+
     const emitTyping = (conversationId: string, isTyping: boolean) => {
         if (!socket) return;
         socket.emit(isTyping ? "typing:start" : "typing:stop", { conversationId });
@@ -102,11 +108,95 @@ export function ChatProvider({ children, token, onLogout }: { children: ReactNod
         newSocket.on("typing:start", onTypingStart);
         newSocket.on("typing:stop", onTypingStop);
 
+        // --- Global Message Listeners ---
+        const onNew = (m: any) => {
+            const generateId = () => {
+                if (typeof window !== 'undefined' && window.crypto && window.crypto.randomUUID) {
+                    return window.crypto.randomUUID();
+                }
+                return `temp-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+            };
+
+            // 1. If message is for THE CURRENT OPEN conversation, append it
+            if (m.conversationId === selectedConvIdRef.current) {
+                setMessages((prev) => {
+                    const exists = prev.some(msg => 
+                        (m.MessageId && msg.MessageId === m.MessageId) || 
+                        (m.ExternalMessageId && msg.ExternalMessageId === m.ExternalMessageId)
+                    );
+                    if (exists) return prev;
+
+                    return [
+                        ...prev,
+                        {
+                            MessageId: m.MessageId || generateId(),
+                            ExternalMessageId: m.ExternalMessageId,
+                            Body: m.text || m.Body || `[${m.mediaType || 'media'}]`,
+                            Direction: m.direction || m.Direction || "IN",
+                            SenderExternalId: m.senderExternalId || m.SenderExternalId || "",
+                            MediaType: m.mediaType || m.MediaType,
+                            MediaUrl: m.mediaUrl || m.MediaUrl,
+                            CreatedAt: m.CreatedAt || new Date().toISOString(),
+                        },
+                    ];
+                });
+            }
+
+            // 2. Update Sidebar (Conversations List)
+            setConversations((prev) => {
+                const exists = prev.some(c => c.ConversationId === m.conversationId);
+                
+                // If it's a completely NEW conversation (new contact), trigger a refresh
+                if (!exists) {
+                    refreshConversations();
+                    return prev;
+                }
+
+                // If it exists, update it and move to the top
+                const updatedList = prev.map((c) => {
+                    if (c.ConversationId === m.conversationId) {
+                        return { 
+                            ...c, 
+                            LastMessageAt: m.CreatedAt || new Date().toISOString(),
+                            LastMessage: m.text || `[${m.mediaType || 'media'}]`,
+                            UnreadCount: (c.UnreadCount || 0) + (selectedConvIdRef.current === m.conversationId ? 0 : 1) 
+                        };
+                    }
+                    return c;
+                });
+
+                // Sort: Newest message at the top
+                return updatedList.sort((a, b) => {
+                    const dateA = new Date(a.LastMessageAt || 0).getTime();
+                    const dateB = new Date(b.LastMessageAt || 0).getTime();
+                    return dateB - dateA;
+                });
+            });
+        };
+
+        const onStatusUpdate = (data: any) => {
+            setMessages((prev) =>
+                prev.map((msg) => {
+                    const matchById = msg.MessageId === data.messageId;
+                    const matchByExternalId = !!(data.externalMessageId && msg.ExternalMessageId === data.externalMessageId);
+                    if (matchById || matchByExternalId) {
+                        return { ...msg, Status: data.status };
+                    }
+                    return msg;
+                })
+            );
+        };
+
+        newSocket.on("message:new", onNew);
+        newSocket.on("message:status", onStatusUpdate);
+
         return () => {
             newSocket.emit("tenant:leave", tenantId);
             newSocket.off("conversation:updated", onConvUpdated);
             newSocket.off("typing:start", onTypingStart);
             newSocket.off("typing:stop", onTypingStop);
+            newSocket.off("message:new", onNew);
+            newSocket.off("message:status", onStatusUpdate);
             newSocket.disconnect();
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -134,79 +224,8 @@ export function ChatProvider({ children, token, onLogout }: { children: ReactNod
         fetchMessages();
         socket.emit("conversation:join", selectedConversationId);
 
-        // De-duplication: track recent message fingerprints to avoid doubles
-        // (emitConversationEvent sends to both conversation room AND tenant room)
-        const recentMsgIds = new Set<string>();
-
-        const onNew = (m: any) => {
-            // Safe fallback for window.crypto.randomUUID in non-SSL environments
-            const generateId = () => {
-                if (typeof window !== 'undefined' && window.crypto && window.crypto.randomUUID) {
-                    return window.crypto.randomUUID();
-                }
-                return `temp-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-            };
-
-            // If message is for THIS conversation, append it
-            if (m.conversationId === selectedConversationId) {
-                setMessages((prev) => {
-                    if (!prev) return [];
-                    // Deduplication based on real MessageId or ExternalMessageId
-                    const exists = prev.some(msg => 
-                        (m.MessageId && msg.MessageId === m.MessageId) || 
-                        (m.ExternalMessageId && msg.ExternalMessageId === m.ExternalMessageId)
-                    );
-                    if (exists) return prev;
-
-                    return [
-                        ...prev,
-                        {
-                            MessageId: m.MessageId || generateId(),
-                            ExternalMessageId: m.ExternalMessageId,
-                            Body: m.text || m.Body || `[${m.mediaType || 'media'}]`,
-                            Direction: m.direction || m.Direction || "IN",
-                            SenderExternalId: m.senderExternalId || m.SenderExternalId || "",
-                            MediaType: m.mediaType || m.MediaType,
-                            MediaUrl: m.mediaUrl || m.MediaUrl,
-                            CreatedAt: m.CreatedAt || new Date().toISOString(),
-                        },
-                    ];
-                });
-            }
-
-            // Atualiza preview da sidebar
-            setConversations((prev) => {
-                if (!prev) return [];
-                return prev.map((c) =>
-                    c.ConversationId === m.conversationId
-                        ? { ...c, LastMessageAt: new Date().toISOString(), UnreadCount: (c.UnreadCount || 0) + (selectedConversationId === m.conversationId ? 0 : 1) }
-                        : c
-                );
-            });
-        };
-
-        const onStatusUpdate = (data: any) => {
-            if (data.conversationId !== selectedConversationId) return;
-            setMessages((prev) =>
-                prev.map((msg) => {
-                    const matchById = msg.MessageId === data.messageId;
-                    const matchByExternalId = !!(data.externalMessageId && msg.ExternalMessageId === data.externalMessageId);
-                    
-                    if (matchById || matchByExternalId) {
-                        return { ...msg, Status: data.status };
-                    }
-                    return msg;
-                })
-            );
-        };
-
-        socket.on("message:new", onNew);
-        socket.on("message:status", onStatusUpdate);
-
         return () => {
             socket.emit("conversation:leave", selectedConversationId);
-            socket.off("message:new", onNew);
-            socket.off("message:status", onStatusUpdate);
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedConversationId, socket]);

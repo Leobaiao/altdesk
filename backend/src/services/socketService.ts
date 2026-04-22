@@ -15,5 +15,7 @@ export function emitConversationEvent(
 
     // Emit to both conversation room and tenant room simultaneously.
     // By chaining .to(), Socket.IO automatically deduplicates the event for sockets joined to both rooms.
+    const { logger } = await import("../lib/logger.js");
+    logger.info({ tenantId, conversationId, event }, "[Socket] Emitting event");
     io.to(conversationId).to(`tenant:${tenantId}`).emit(event, data);
 }
