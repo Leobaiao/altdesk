@@ -10,7 +10,7 @@ export async function loadConnector(connectorId: string) {
       SELECT cc.ConnectorId, cc.Provider, cc.ConfigJson, cc.WebhookSecret, ch.ChannelId, ch.TenantId
       FROM altdesk.ChannelConnector cc
       JOIN altdesk.Channel ch ON ch.ChannelId = cc.ChannelId
-      WHERE cc.ConnectorId = @connectorId AND cc.IsActive=1 AND ch.IsActive=1
+      WHERE cc.ConnectorId = @connectorId AND cc.DeletedAt IS NULL AND ch.DeletedAt IS NULL
     `);
   if (r.recordset.length === 0) throw new Error("Connector not found/active");
   return r.recordset[0];
