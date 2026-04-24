@@ -63,7 +63,7 @@ export class OfficialAdapter implements ChannelAdapter {
     }
   }
 
-  async sendText(connector: any, toExternalUserId: string, text: string): Promise<string | undefined> {
+  async sendText(connector: any, toExternalUserId: string, text: string, options?: { inReplyTo?: string }): Promise<string | undefined> {
     const config = JSON.parse(connector.ConfigJson || "{}");
     const { phoneNumberId, accessToken } = config;
 

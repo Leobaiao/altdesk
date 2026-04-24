@@ -25,7 +25,7 @@ export class WebChatAdapter implements ChannelAdapter {
         };
     }
 
-    async sendText(connector: any, toExternalUserId: string, text: string): Promise<string | undefined> {
+    async sendText(connector: any, toExternalUserId: string, text: string, options?: { inReplyTo?: string }): Promise<string | undefined> {
         // No WebChat, a resposta é enviada via Socket.IO para o cliente conectado.
         // O backend já faz emit("message:new", ...) no index.ts.
         // Portanto, este método pode ser "no-op" ou usar um mecanismo de push específico se o widget não estiver conectado.

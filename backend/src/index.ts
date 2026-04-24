@@ -10,9 +10,7 @@ import { errorHandler } from "./middleware/errorHandler.js";
 import { apiLimiter } from "./middleware/rateLimiter.js";
 import { requestLogger } from "./middleware/requestLogger.js";
 import { globalAuditLogger } from "./middleware/auditLogger.js";
-import { GtiAdapter } from "./adapters/gti.js";
-import { OfficialAdapter } from "./adapters/official.js";
-import { WebChatAdapter } from "./adapters/webchat.js";
+import { adapters } from "./adapters/index.js";
 import { logger } from "./lib/logger.js";
 
 // Import Routers
@@ -38,6 +36,8 @@ import { startSlaWorker } from "./services/slaService.js";
 import reportsRouter from "./routes/reports.js";
 import billingRouter from "./modules/billing/billing.controller.js";
 import onboardingRouter from "./routes/onboarding.js";
+import emailChannelsRouter from "./routes/emailChannels.js";
+import { startEmailWorker, setIoInstance } from "./services/emailWorker.js";
 
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(",")
@@ -62,13 +62,6 @@ app.use(globalAuditLogger);
 
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: allowedOrigins } });
-
-const adapters = {
-  gti: new GtiAdapter(),
-  official: new OfficialAdapter(),
-  whatsapp: new OfficialAdapter(), // Map classic whatsapp to official
-  webchat: new WebChatAdapter()
-} as const;
 
 // Inject dependencies into Express so routers can pick them up without circular imports
 app.set("io", io);
@@ -177,6 +170,9 @@ app.use("/api/reports", reportsRouter);
 
 app.use("/api/public", publicRouter);
 
+// Email Channels (gestão de canais de email)
+app.use("/api/email-channels", emailChannelsRouter);
+
 // Billing (inclui webhook público + rotas autenticadas)
 app.use("/api/billing", billingRouter);
 
@@ -189,4 +185,8 @@ const PORT = Number(process.env.PORT) || 3001;
 server.listen(PORT, "0.0.0.0", () => {
   logger.info({ port: PORT }, `AltDesk API started`);
   startSlaWorker(); // Defaults to 60s
+
+  // Iniciar o worker de email polling (60s interval)
+  setIoInstance(io);
+  startEmailWorker(60_000);
 });

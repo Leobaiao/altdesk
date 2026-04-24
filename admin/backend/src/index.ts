@@ -11,6 +11,7 @@ import { requestLogger } from "./middleware/requestLogger.js";
 import { GtiAdapter } from "./adapters/gti.js";
 import { OfficialAdapter } from "./adapters/official.js";
 import { WebChatAdapter } from "./adapters/webchat.js";
+import { EmailAdapter } from "./adapters/email.js";
 import { logger } from "./lib/logger.js";
 
 // Import Routers
@@ -61,7 +62,9 @@ const adapters = {
   gti: new GtiAdapter(),
   official: new OfficialAdapter(),
   whatsapp: new OfficialAdapter(), // Map classic whatsapp to official
-  webchat: new WebChatAdapter()
+  webchat: new WebChatAdapter(),
+  smtp: new EmailAdapter(),
+  email: new EmailAdapter()
 } as const;
 
 // Inject dependencies into Express so routers can pick them up without circular imports

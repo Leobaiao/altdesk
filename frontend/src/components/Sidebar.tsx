@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, MessageSquare, Mail, Monitor } from "lucide-react";
 import { useChat } from "../contexts/ChatContext";
 import type { Conversation, Tag } from "../../../shared/types";
 import { TagPill } from "./TagPill";
@@ -31,7 +31,14 @@ function formatTime(iso: string) {
 
 function formatPhone(ext: string) {
     if (!ext) return "";
-    return ext.replace("@s.whatsapp.net", "");
+    return ext.replace("@s.whatsapp.net", "").replace("@c.us", "");
+}
+
+function getChannelIcon(source: string | undefined) {
+    const s = (source || "").toUpperCase();
+    if (s.includes("WHATSAPP")) return <MessageSquare size={14} style={{ color: "#25D366" }} />;
+    if (s.includes("EMAIL")) return <Mail size={14} style={{ color: "#EA4335" }} />;
+    return <Monitor size={14} style={{ color: "#8696a0" }} />;
 }
 
 // Helper para descobrir o UserId a partir do token
@@ -134,7 +141,12 @@ export function Sidebar({ setView }: { setView: (view: any) => void }) {
                         onClick={() => setSelectedConversationId(c.ConversationId)}
                     >
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <span className="title" style={{ fontWeight: 600 }}>{c.Title || formatPhone(c.ExternalUserId)}</span>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                                {getChannelIcon(c.SourceChannel)}
+                                <span className="title" style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                    {c.Title || formatPhone(c.ExternalUserId)}
+                                </span>
+                            </div>
                             <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
                                 {/* SLA Badge */}
                                 {c.SlaStatus === "VIOLATED" && (

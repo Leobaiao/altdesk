@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Smartphone, Globe } from "lucide-react";
+import { Smartphone, Globe, Mail, Server } from "lucide-react";
 import { api } from "../../../lib/api";
 import { useNotification } from "../../../contexts/NotificationContext";
 
@@ -7,19 +7,61 @@ interface InstanceModalProps {
     onClose: () => void;
     onSubmit: (data: any) => Promise<void>;
     tenants: any[];
+    initialData?: any;
 }
 
-export function InstanceModal({ onClose, onSubmit, tenants }: InstanceModalProps) {
+export function InstanceModal({ onClose, onSubmit, tenants, initialData }: InstanceModalProps) {
     const [instName, setInstName] = useState("");
     const [instProvider, setInstProvider] = useState("GTI");
     const [instConfig, setInstConfig] = useState("");
     const [tenantId, setTenantId] = useState(tenants[0]?.TenantId || "");
+    const [smtpSecure, setSmtpSecure] = useState(false);
     const { notify } = useNotification();
 
     // GTI Specific Form State
     const [gtiToken, setGtiToken] = useState("");
     const [gtiInstanceId, setGtiInstanceId] = useState("");
     const [gtiPhoneId, setGtiPhoneId] = useState("");
+
+    // SMTP (Email) Specific Form State
+    const [smtpHost, setSmtpHost] = useState("");
+    const [smtpPort, setSmtpPort] = useState("587");
+    const [smtpUser, setSmtpUser] = useState("");
+    const [smtpPass, setSmtpPass] = useState("");
+    const [smtpFrom, setSmtpFrom] = useState("");
+
+    React.useEffect(() => {
+        if (initialData) {
+            setInstName(initialData.ChannelName || "");
+            setInstProvider(initialData.Provider || "GTI");
+            setTenantId(initialData.TenantId || "");
+            
+            if (initialData.ConfigJson) {
+                try {
+                    const config = typeof initialData.ConfigJson === 'string' 
+                        ? JSON.parse(initialData.ConfigJson) 
+                        : initialData.ConfigJson;
+                    
+                    if (initialData.Provider === "GTI") {
+                        setGtiToken(config.apiKey || "");
+                        setGtiInstanceId(config.instanceId || "");
+                        setGtiPhoneId(config.phoneNumberId || "");
+                    } else if (initialData.Provider === "SMTP") {
+                        setSmtpHost(config.host || "");
+                        setSmtpPort(config.port?.toString() || "587");
+                        setSmtpUser(config.user || "");
+                        setSmtpPass(config.pass || "");
+                        setSmtpFrom(config.from || "");
+                        setSmtpSecure(!!config.secure);
+                    } else {
+                        setInstConfig(JSON.stringify(config, null, 2));
+                    }
+                } catch (e) {
+                    setInstConfig(initialData.ConfigJson);
+                }
+            }
+        }
+    }, [initialData, tenants]);
 
     const handleFetchGtiInfo = async () => {
         if (!gtiToken) return notify("Insira o token GTI", "info");
@@ -47,6 +89,15 @@ export function InstanceModal({ onClose, onSubmit, tenants }: InstanceModalProps
                 apiKey: gtiToken,
                 instanceId: gtiInstanceId,
                 phoneNumberId: gtiPhoneId
+            });
+        } else if (instProvider === "SMTP") {
+            finalConfig = JSON.stringify({
+                host: smtpHost,
+                port: parseInt(smtpPort) || 587,
+                secure: smtpSecure,
+                user: smtpUser,
+                pass: smtpPass,
+                from: smtpFrom || `"AltDesk" <${smtpUser}>`
             });
         }
 
@@ -77,11 +128,13 @@ export function InstanceModal({ onClose, onSubmit, tenants }: InstanceModalProps
                 boxShadow: "0 20px 40px rgba(0,0,0,0.4)"
             }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
-                    <Smartphone size={24} className="text-accent" />
-                    <h2 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 600 }}>Nova Instância</h2>
+                    {instProvider === "SMTP" ? <Mail size={24} className="text-accent" /> : <Smartphone size={24} className="text-accent" />}
+                    <h2 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 600 }}>
+                        {initialData ? "Editar Instância" : "Nova Instância"}
+                    </h2>
                 </div>
                 <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: 28 }}>
-                    Conecte um novo canal de comunicação ao sistema.
+                    {initialData ? `Editando configurações da instância ${initialData.ConnectorId.slice(0,8)}` : "Conecte um novo canal de comunicação ao sistema."}
                 </p>
 
                 <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -106,6 +159,7 @@ export function InstanceModal({ onClose, onSubmit, tenants }: InstanceModalProps
                             <option value="GTI">GTI (WhatsApp)</option>
                             <option value="WHATSAPP">WhatsApp Business API</option>
                             <option value="OFFICIAL">Official Cloud API</option>
+                            <option value="SMTP">✉️ Email (SMTP)</option>
                         </select>
                     </div>
 
@@ -159,6 +213,87 @@ export function InstanceModal({ onClose, onSubmit, tenants }: InstanceModalProps
                                 Os campos Instance ID e Phone são preenchidos ao validar o token.
                             </p>
                         </div>
+                    ) : instProvider === "SMTP" ? (
+                        <div style={{ background: "var(--bg-primary)", padding: 24, borderRadius: 16, border: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 16 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <Mail size={16} className="text-secondary" />
+                                <span style={{ fontSize: "0.80rem", fontWeight: 700, color: "var(--text-secondary)", textTransform: "uppercase" }}>Configuração SMTP</span>
+                            </div>
+
+                            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16 }}>
+                                <div className="field">
+                                    <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)" }}>Host SMTP*</label>
+                                    <input
+                                        required
+                                        value={smtpHost}
+                                        onChange={e => setSmtpHost(e.target.value)}
+                                        style={{ width: "100%", marginTop: 8, background: "var(--bg-secondary)", padding: "10px 14px", borderRadius: 10, border: "1px solid var(--border)", color: "var(--text-primary)" }}
+                                        placeholder="smtp.gmail.com"
+                                    />
+                                </div>
+                                <div className="field">
+                                    <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)" }}>Porta*</label>
+                                    <input
+                                        required
+                                        type="number"
+                                        value={smtpPort}
+                                        onChange={e => setSmtpPort(e.target.value)}
+                                        style={{ width: "100%", marginTop: 8, background: "var(--bg-secondary)", padding: "10px 14px", borderRadius: 10, border: "1px solid var(--border)", color: "var(--text-primary)" }}
+                                        placeholder="587"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="field">
+                                <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)" }}>Usuário (E-mail)*</label>
+                                <input
+                                    required
+                                    value={smtpUser}
+                                    onChange={e => setSmtpUser(e.target.value)}
+                                    style={{ width: "100%", marginTop: 8, background: "var(--bg-secondary)", padding: "10px 14px", borderRadius: 10, border: "1px solid var(--border)", color: "var(--text-primary)" }}
+                                    placeholder="suporte@empresa.com"
+                                />
+                            </div>
+
+                            <div className="field">
+                                <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)" }}>Senha*</label>
+                                <input
+                                    required
+                                    type="password"
+                                    value={smtpPass}
+                                    onChange={e => setSmtpPass(e.target.value)}
+                                    style={{ width: "100%", marginTop: 8, background: "var(--bg-secondary)", padding: "10px 14px", borderRadius: 10, border: "1px solid var(--border)", color: "var(--text-primary)" }}
+                                    placeholder="Senha ou App Password"
+                                />
+                            </div>
+
+                            <div className="field">
+                                <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)" }}>Remetente (From)</label>
+                                <input
+                                    value={smtpFrom}
+                                    onChange={e => setSmtpFrom(e.target.value)}
+                                    style={{ width: "100%", marginTop: 8, background: "var(--bg-secondary)", padding: "10px 14px", borderRadius: 10, border: "1px solid var(--border)", color: "var(--text-primary)" }}
+                                    placeholder='"AltDesk Suporte" <suporte@empresa.com>'
+                                />
+                                <p style={{ fontSize: "0.7rem", color: "var(--text-secondary)", margin: "6px 0 0 0", fontStyle: "italic" }}>
+                                    Deixe em branco para usar o e-mail do usuário como remetente.
+                                </p>
+                            </div>
+
+                            <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: "var(--bg-secondary)", borderRadius: 10, border: "1px solid var(--border)" }}>
+                                <input
+                                    type="checkbox"
+                                    checked={smtpSecure}
+                                    onChange={e => setSmtpSecure(e.target.checked)}
+                                    style={{ accentColor: "var(--accent)", width: 16, height: 16, cursor: "pointer" }}
+                                    id="smtp-secure"
+                                />
+                                <label htmlFor="smtp-secure" style={{ fontSize: "0.85rem", color: "var(--text-primary)", cursor: "pointer", fontWeight: 500 }}>
+                                    <Server size={14} style={{ verticalAlign: "middle", marginRight: 6 }} />
+                                    Conexão Segura (SSL/TLS)
+                                </label>
+                            </div>
+                        </div>
                     ) : (
                         <div className="field">
                             <label style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 600, color: "var(--text-secondary)" }}>Config JSON</label>
@@ -175,7 +310,9 @@ export function InstanceModal({ onClose, onSubmit, tenants }: InstanceModalProps
 
                     <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", marginTop: 12 }}>
                         <button type="button" onClick={onClose} className="btn btn-ghost" style={{ padding: "12px 24px", borderRadius: 12 }}>Cancelar</button>
-                        <button type="submit" className="btn btn-primary" style={{ padding: "12px 24px", borderRadius: 12 }}>Criar Instância</button>
+                        <button type="submit" className="btn btn-primary" style={{ padding: "12px 24px", borderRadius: 12 }}>
+                            {initialData ? "Salvar Alterações" : "Criar Instância"}
+                        </button>
                     </div>
                 </form>
             </div>

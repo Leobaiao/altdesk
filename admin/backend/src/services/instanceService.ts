@@ -134,3 +134,57 @@ export async function bulkDeleteInstances(connectorIds: string[]) {
         throw err;
     }
 }
+
+/**
+ * Atualiza uma instância existente
+ */
+export async function updateInstance(connectorId: string, data: {
+    tenantId: string,
+    provider: string,
+    name: string,
+    config: any
+}) {
+    const pool = await getPool();
+    const transaction = new sql.Transaction(pool);
+    await transaction.begin();
+
+    try {
+        // Atualiza a ChannelConnector (Provider e ConfigJson)
+        await transaction.request()
+            .input("connectorId", connectorId)
+            .input("provider", data.provider)
+            .input("config", typeof data.config === 'string' ? data.config : JSON.stringify(data.config))
+            .query(`
+                UPDATE altdesk.ChannelConnector
+                SET Provider = @provider, ConfigJson = @config
+                WHERE ConnectorId = @connectorId
+            `);
+
+        // Descobre o ChannelId vinculado a esse conector
+        const rConnector = await transaction.request()
+            .input("connectorId", connectorId)
+            .query(`SELECT ChannelId FROM altdesk.ChannelConnector WHERE ConnectorId = @connectorId`);
+        
+        if (rConnector.recordset.length > 0) {
+            const channelId = rConnector.recordset[0].ChannelId;
+            
+            // Atualiza o Channel (Nome, Type e TenantId)
+            await transaction.request()
+                .input("channelId", channelId)
+                .input("tenantId", data.tenantId)
+                .input("name", data.name)
+                .input("type", data.provider === "GTI" ? "WHATSAPP" : data.provider)
+                .query(`
+                    UPDATE altdesk.Channel
+                    SET Name = @name, Type = @type, TenantId = @tenantId
+                    WHERE ChannelId = @channelId
+                `);
+        }
+
+        await transaction.commit();
+        return { connectorId };
+    } catch (err) {
+        await transaction.rollback();
+        throw err;
+    }
+}

@@ -362,4 +362,46 @@ router.post("/external/webchat/message", async (req, res, next) => {
     }
 });
 
+router.post("/email/:connectorId", async (req, res, next) => {
+    try {
+        const { connectorId } = req.params;
+        const connector = await loadConnector(connectorId);
+        
+        const adapters = req.app.get("adapters");
+        const adapter = adapters.email;
+
+        // O corpo do e-mail (SendGrid Inbound Parse) pode vir como multipart.
+        // Se não tivermos multer configurado, assumimos que algum parser já lidou ou que é JSON simples.
+        const inbound = adapter.parseInbound(req.body, connector);
+        if (!inbound) return res.status(200).send("ignored");
+
+        const conversationId = await resolveConversationForInbound(inbound, connector.ConnectorId, connector.ChannelId);
+        const messageId = await saveInboundMessage(inbound, conversationId);
+
+        const io = req.app.get("io");
+        if (io) {
+            emitConversationEvent(io, inbound.tenantId, conversationId, "message:new", {
+                MessageId: messageId,
+                conversationId,
+                senderExternalId: inbound.externalUserId,
+                text: inbound.text,
+                direction: "IN",
+                CreatedAt: new Date().toISOString()
+            });
+            
+            emitConversationEvent(io, inbound.tenantId, conversationId, "conversation:updated", {
+                conversationId,
+                lastMessage: inbound.text,
+                direction: "IN",
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        res.status(200).json({ ok: true, conversationId });
+    } catch (error) {
+        logger.error({ err: error, connectorId: req.params.connectorId }, "[Webhook Email] Request failed");
+        next(error);
+    }
+});
+
 export default router;

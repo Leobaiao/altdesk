@@ -108,7 +108,7 @@ export class GtiAdapter implements ChannelAdapter {
     };
   }
 
-  async sendText(connector: any, to: string, text: string): Promise<string | undefined> {
+  async sendText(connector: any, to: string, text: string, options?: { inReplyTo?: string }): Promise<string | undefined> {
     if (!connector.ConfigJson) {
       throw new Error(`Configuração do conector GTI (${connector.ConnectorId}) está vazia.`);
     }

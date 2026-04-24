@@ -2,16 +2,20 @@ import React, { useEffect, useState } from "react";
 import { useNotification } from "../../../contexts/NotificationContext";
 import { api } from "../../../lib/api";
 
+import { Mail, Copy, CheckCircle } from "lucide-react";
+
 interface WebhookModalProps {
-    connectorId: string;
+    instance: any;
     onClose: () => void;
 }
 
-export function WebhookModal({ connectorId, onClose }: WebhookModalProps) {
+export function WebhookModal({ instance, onClose }: WebhookModalProps) {
+    const connectorId = instance?.ConnectorId;
+    const isEmail = instance?.Provider === "SMTP";
+
     const [webhookBaseUrl, setWebhookBaseUrl] = useState(() => {
-        // Sugere a URL base (sem path) — o backend adiciona /api/webhooks/... automaticamente
-        const currentOrigin = window.location.origin; // ex: https://admin.altdesk.com.br
-        const apiDomain = currentOrigin.replace("admin.", "api."); // ex: https://api.altdesk.com.br
+        const currentOrigin = window.location.origin;
+        const apiDomain = currentOrigin.replace("admin.", "api.");
         return apiDomain;
     });
     const [webhookEvents, setWebhookEvents] = useState<string[]>([
@@ -26,10 +30,13 @@ export function WebhookModal({ connectorId, onClose }: WebhookModalProps) {
     const [addUrlTypesMessages, setAddUrlTypesMessages] = useState(true);
     const [loadingWebhookStatus, setLoadingWebhookStatus] = useState(false);
     const [webhookStatus, setWebhookStatus] = useState<any>(null);
+    const [copied, setCopied] = useState(false);
     const { notify } = useNotification();
 
     useEffect(() => {
-        handleFetchWebhookStatus();
+        if (!isEmail && connectorId) {
+            handleFetchWebhookStatus();
+        }
     }, [connectorId]);
 
     const handleFetchWebhookStatus = async () => {
@@ -46,29 +53,19 @@ export function WebhookModal({ connectorId, onClose }: WebhookModalProps) {
 
     const handleSetWebhook = async (e: React.FormEvent) => {
         e.preventDefault();
-        console.log("Tentando salvar webhook para:", connectorId);
-        console.log("URL:", webhookBaseUrl);
-        
-        if (!connectorId) {
-            console.error("Erro: connectorId está faltando!");
-            return;
-        }
-
         try {
-            const response = await api.post(`/api/admin/instances/${connectorId}/set-webhook`, {
+            await api.post(`/api/admin/instances/${connectorId}/set-webhook`, {
                 webhookBaseUrl: webhookBaseUrl,
                 events: webhookEvents,
                 excludeMessages: webhookExclusions,
                 addUrlEvents,
                 addUrlTypesMessages
             });
-            console.log("Resposta do servidor:", response.data);
             notify("Webhook configurado com sucesso!", "success");
             handleFetchWebhookStatus();
         } catch (err: any) {
             const detail = err?.response?.data?.error || err?.response?.data?.message || err?.message || "";
-            console.error("Erro ao configurar webhook:", err);
-            notify(`Erro ao configurar webhook${detail ? ": " + detail : ""}`, "error");
+            notify(`Erro ao configurar webhook: ${detail}`, "error");
         }
     };
 
@@ -78,7 +75,6 @@ export function WebhookModal({ connectorId, onClose }: WebhookModalProps) {
             notify("Webhook removido", "success");
             handleFetchWebhookStatus();
         } catch (err) {
-            console.error(err);
             notify("Erro ao remover webhook", "error");
         }
     };
@@ -91,6 +87,16 @@ export function WebhookModal({ connectorId, onClose }: WebhookModalProps) {
             console.error(err);
         }
     };
+
+    const handleCopy = () => {
+        const fullUrl = `${webhookBaseUrl}/api/webhooks/email/${connectorId}`;
+        navigator.clipboard.writeText(fullUrl);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+        notify("URL copiada para a área de transferência", "success");
+    };
+
+    const emailWebhookUrl = `${webhookBaseUrl}/api/webhooks/email/${connectorId}`;
 
     return (
         <div style={{
@@ -110,50 +116,88 @@ export function WebhookModal({ connectorId, onClose }: WebhookModalProps) {
                 boxShadow: "0 20px 40px rgba(0,0,0,0.4)"
             }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
-                    <span style={{ fontSize: "1.8rem" }}>⚓</span>
-                    <h2 style={{ margin: 0, fontSize: "1.5rem", fontWeight: 600 }}>Configurar Webhook Avançado</h2>
+                    {isEmail ? <Mail size={24} className="text-accent" /> : <span style={{ fontSize: "1.8rem" }}>⚓</span>}
+                    <h2 style={{ margin: 0, fontSize: "1.5rem", fontWeight: 600 }}>
+                        {isEmail ? "Integração de E-mail (Recebimento)" : "Configurar Webhook Avançado"}
+                    </h2>
                 </div>
                 <p style={{ fontSize: "0.9rem", color: "var(--text-secondary)", marginBottom: 28 }}>
-                    Personalize quais eventos e filtros deseja aplicar à sua integração GTI.
+                    {isEmail 
+                        ? "Configure seu provedor de e-mail para encaminhar as mensagens recebidas para o AltDesk." 
+                        : "Personalize quais eventos e filtros deseja aplicar à sua integração GTI."}
                 </p>
 
-                {loadingWebhookStatus ? (
-                    <div style={{ background: "rgba(255, 255, 255, 0.05)", padding: 20, borderRadius: 16, border: "1px dashed var(--border)", marginBottom: 24, textAlign: "center" }}>
-                        <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", margin: 0 }}>Consultando status atual na GTI...</p>
-                    </div>
-                ) : (() => {
-                    const webhooks = Array.isArray(webhookStatus) ? webhookStatus : (webhookStatus?.webhooks || []);
-                    if (webhooks.length === 0) return <div style={{ background: "rgba(255, 255, 255, 0.02)", padding: 20, borderRadius: 16, border: "1px solid var(--border)", marginBottom: 24, textAlign: "center" }}><p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", margin: 0, fontStyle: "italic" }}>Nenhum webhook configurado nesta instância.</p></div>;
-                    return (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 24 }}>
-                            <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.5px" }}>Webhooks Conectados ({webhooks.length})</div>
-                            {webhooks.map((w: any) => (
-                                <div key={w.id} style={{ background: "rgba(255, 255, 255, 0.03)", padding: "12px 16px", borderRadius: 12, border: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div style={{ fontSize: "0.85rem", color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontWeight: 500 }}>{w.url}</div>
-                                    </div>
-                                    <button onClick={() => handleRemoveSpecificWebhook(w.id)} style={{ background: "none", border: "none", color: "var(--danger)", cursor: "pointer", fontSize: "0.8rem", fontWeight: 600 }}>Remover</button>
-                                </div>
-                            ))}
+                {isEmail ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+                        <div style={{ background: "var(--bg-primary)", padding: 24, borderRadius: 16, border: "1px solid var(--border)" }}>
+                            <label style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 700, color: "var(--text-secondary)" }}>URL de Recebimento (Webhook)</label>
+                            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                                <input 
+                                    readOnly 
+                                    value={emailWebhookUrl} 
+                                    style={{ flex: 1, background: "var(--bg-secondary)", padding: "12px 16px", borderRadius: 12, border: "1px solid var(--border)", color: "var(--text-primary)", fontSize: "0.85rem", fontFamily: "monospace" }} 
+                                />
+                                <button onClick={handleCopy} className="btn btn-primary" style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 20px", borderRadius: 12 }}>
+                                    {copied ? <CheckCircle size={18} /> : <Copy size={18} />}
+                                    {copied ? "Copiado" : "Copiar"}
+                                </button>
+                            </div>
                         </div>
-                    );
-                })()}
 
-                <form onSubmit={handleSetWebhook} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-                    <div className="field">
-                        <label style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 600, color: "var(--text-secondary)" }}>URL Base da API</label>
-                        <input required value={webhookBaseUrl} onChange={e => setWebhookBaseUrl(e.target.value)} style={{ width: "100%", marginTop: 8, background: "var(--bg-primary)", padding: "12px 16px", borderRadius: 12, border: "1px solid var(--border)", color: "var(--text-primary)" }} placeholder="https://api.altdesk.com.br" />
-                        <p style={{ fontSize: "0.75rem", color: "var(--text-secondary)", margin: "6px 0 0", opacity: 0.7 }}>
-                            O path completo será gerado automaticamente: <code style={{ fontSize: "0.7rem" }}>{webhookBaseUrl}/api/webhooks/whatsapp/gti/{connectorId}</code>
-                        </p>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                            <h4 style={{ margin: 0, fontSize: "1rem", fontWeight: 600 }}>Como configurar?</h4>
+                            <ul style={{ margin: 0, paddingLeft: 20, fontSize: "0.9rem", color: "var(--text-secondary)", lineHeight: "1.6" }}>
+                                <li>Acesse o painel do seu provedor (ex: <b>SendGrid, Mailgun, Postmark</b>).</li>
+                                <li>Procure por <b>"Inbound Parse"</b> ou <b>"Inbound Webhooks"</b>.</li>
+                                <li>Cole a URL acima no campo de destino.</li>
+                                <li>A partir de agora, todo e-mail que chegar no seu domínio será processado pelo AltDesk.</li>
+                            </ul>
+                        </div>
+
+                        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
+                            <button onClick={onClose} className="btn btn-ghost" style={{ padding: "12px 24px", borderRadius: 12 }}>Fechar</button>
+                        </div>
                     </div>
-                    {/* Simplified event selection for brevity in this extraction, keeping original logic if possible */}
-                    <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", marginTop: 12 }}>
-                        <button type="button" onClick={onClose} className="btn btn-ghost" style={{ padding: "12px 24px", borderRadius: 12 }}>Fechar</button>
-                        <button type="button" onClick={handleDeleteWebhook} className="btn" style={{ background: "rgba(255, 71, 87, 0.1)", color: "#ff4757", padding: "12px 24px", borderRadius: 12 }}>Limpar Tudo</button>
-                        <button type="submit" className="btn btn-primary" style={{ padding: "12px 24px", borderRadius: 12 }}>Salvar Webhook</button>
-                    </div>
-                </form>
+                ) : (
+                    <>
+                        {loadingWebhookStatus ? (
+                            <div style={{ background: "rgba(255, 255, 255, 0.05)", padding: 20, borderRadius: 16, border: "1px dashed var(--border)", marginBottom: 24, textAlign: "center" }}>
+                                <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", margin: 0 }}>Consultando status atual na GTI...</p>
+                            </div>
+                        ) : (() => {
+                            const webhooks = Array.isArray(webhookStatus) ? webhookStatus : (webhookStatus?.webhooks || []);
+                            if (webhooks.length === 0) return <div style={{ background: "rgba(255, 255, 255, 0.02)", padding: 20, borderRadius: 16, border: "1px solid var(--border)", marginBottom: 24, textAlign: "center" }}><p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", margin: 0, fontStyle: "italic" }}>Nenhum webhook configurado nesta instância.</p></div>;
+                            return (
+                                <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 24 }}>
+                                    <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.5px" }}>Webhooks Conectados ({webhooks.length})</div>
+                                    {webhooks.map((w: any) => (
+                                        <div key={w.id} style={{ background: "rgba(255, 255, 255, 0.03)", padding: "12px 16px", borderRadius: 12, border: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ fontSize: "0.85rem", color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontWeight: 500 }}>{w.url}</div>
+                                            </div>
+                                            <button onClick={() => handleRemoveSpecificWebhook(w.id)} style={{ background: "none", border: "none", color: "var(--danger)", cursor: "pointer", fontSize: "0.8rem", fontWeight: 600 }}>Remover</button>
+                                        </div>
+                                    ))}
+                                </div>
+                            );
+                        })()}
+
+                        <form onSubmit={handleSetWebhook} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                            <div className="field">
+                                <label style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 600, color: "var(--text-secondary)" }}>URL Base da API</label>
+                                <input required value={webhookBaseUrl} onChange={e => setWebhookBaseUrl(e.target.value)} style={{ width: "100%", marginTop: 8, background: "var(--bg-primary)", padding: "12px 16px", borderRadius: 12, border: "1px solid var(--border)", color: "var(--text-primary)" }} placeholder="https://api.altdesk.com.br" />
+                                <p style={{ fontSize: "0.75rem", color: "var(--text-secondary)", margin: "6px 0 0", opacity: 0.7 }}>
+                                    O path completo será gerado automaticamente: <code style={{ fontSize: "0.7rem" }}>{webhookBaseUrl}/api/webhooks/whatsapp/gti/{connectorId}</code>
+                                </p>
+                            </div>
+                            <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", marginTop: 12 }}>
+                                <button type="button" onClick={onClose} className="btn btn-ghost" style={{ padding: "12px 24px", borderRadius: 12 }}>Fechar</button>
+                                <button type="button" onClick={handleDeleteWebhook} className="btn" style={{ background: "rgba(255, 71, 87, 0.1)", color: "#ff4757", padding: "12px 24px", borderRadius: 12 }}>Limpar Tudo</button>
+                                <button type="submit" className="btn btn-primary" style={{ padding: "12px 24px", borderRadius: 12 }}>Salvar Webhook</button>
+                            </div>
+                        </form>
+                    </>
+                )}
             </div>
         </div>
     );

@@ -25,7 +25,7 @@ export interface Conversation {
     TenantId?: string;
     Title: string;
     Status: "OPEN" | "RESOLVED";
-    Kind: "WHATSAPP" | "WEBCHAT" | "INTERNAL";
+    Kind: "WHATSAPP" | "WEBCHAT" | "INTERNAL" | "EMAIL";
     SourceChannel?: string;
     CreatedAt?: string;
     LastMessageAt: string;

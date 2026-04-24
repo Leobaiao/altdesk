@@ -119,7 +119,10 @@ router.post("/:id/reply", validateBody(z.object({ text: z.string().min(1) })), (
 
         let externalMessageId: string | undefined;
         try {
-            externalMessageId = await adapter.sendText(metadata.connector, metadata.externalUserId, text);
+            externalMessageId = await adapter.sendText(metadata.connector, metadata.externalUserId, text, {
+                inReplyTo: metadata.lastExternalMessageId,
+                subject: metadata.subject
+            });
         } catch (adapterErr: any) {
             const { logger } = await import("../lib/logger.js");
             logger.error({ err: adapterErr, conversationId, provider: metadata.provider }, "[Reply] Adapter sendText failed");

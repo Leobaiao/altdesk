@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
-import { MessageCircleOff, ArrowLeft, Trash2, CheckCircle, RotateCcw, Users as UsersIcon, Zap, ChevronDown, Smile, FileText, Send, UserPlus, StickyNote } from "lucide-react";
+import { MessageCircleOff, ArrowLeft, Trash2, CheckCircle, RotateCcw, Users as UsersIcon, Zap, ChevronDown, Smile, FileText, Send, UserPlus, StickyNote, MessageSquare, Mail, Monitor } from "lucide-react";
 import { useChat } from "../contexts/ChatContext";
 import { AudioPlayer } from "./AudioPlayer";
 import { EmojiPicker } from "./EmojiPicker";
@@ -19,7 +19,14 @@ function formatTime(iso: string) {
 
 function formatPhone(ext: string) {
     if (!ext) return "";
-    return ext.replace("@s.whatsapp.net", "");
+    return ext.replace("@s.whatsapp.net", "").replace("@c.us", "");
+}
+
+function getChannelIcon(source: string | undefined) {
+    const s = (source || "").toUpperCase();
+    if (s.includes("WHATSAPP")) return <MessageSquare size={18} style={{ color: "#25D366" }} />;
+    if (s.includes("EMAIL")) return <Mail size={18} style={{ color: "#EA4335" }} />;
+    return <Monitor size={18} style={{ color: "#8696a0" }} />;
 }
 
 // Helper para descobrir o UserId a partir do token
@@ -241,8 +248,13 @@ export function ChatWindow({ setView, showToast }: { setView: (v: any) => void, 
                     <button className="mobile-back-btn" onClick={() => setSelectedConversationId(null)}>
                         <ArrowLeft size={24} />
                     </button>
-                    <div>
-                        <h2>{selectedConversation.Title || formatPhone(selectedConversation.ExternalUserId)}</h2>
+                    <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            {getChannelIcon(selectedConversation.SourceChannel)}
+                            <h2 style={{ margin: 0, fontSize: "1.1rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {selectedConversation.Title || formatPhone(selectedConversation.ExternalUserId)}
+                            </h2>
+                        </div>
                         <p>
                             {formatPhone(selectedConversation.ExternalUserId)} • {selectedConversation.Kind} • {selectedConversation.Status}
                             {selectedConversation.QueueName && ` • Fila: ${selectedConversation.QueueName}`}

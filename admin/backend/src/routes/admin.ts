@@ -21,7 +21,8 @@ import {
     listTenantInstances,
     createInstance,
     updateInstanceTenant,
-    bulkDeleteInstances
+    bulkDeleteInstances,
+    updateInstance
 } from "../services/instanceService.js";
 import {
     listAllUsers,
@@ -44,8 +45,15 @@ router.use(authMw as any, requireRole("SUPERADMIN") as any);
 function isValidGtiUrl(url: string): boolean {
     try {
         const parsed = new URL(url);
-        // Allow main and homologation GTI worker domains
-        const validHost = parsed.hostname === "api.gtiapi.workers.dev" || parsed.hostname.endsWith(".gtiapi.workers.dev");
+        const host = parsed.hostname;
+        // Allow official GTI/uazapi domains and known variants
+        const validHost = 
+            host === "api.gtiapi.workers.dev" || 
+            host.endsWith(".gtiapi.workers.dev") ||
+            host.endsWith(".uazapi.com") ||
+            host.endsWith(".gtiapi.com") ||
+            host.includes("altdesk.com.br"); // Local or proxy domains
+
         return validHost && parsed.protocol === "https:";
     } catch {
         return false;
@@ -375,6 +383,32 @@ router.post("/instances", validateBody(z.object({
     }
 }) as any);
 
+router.put("/instances/:connectorId", validateBody(z.object({
+    tenantId: z.string().uuid(),
+    provider: z.string(),
+    name: z.string().min(2),
+    config: z.any()
+})), (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const { connectorId } = req.params;
+        await updateInstance(connectorId, req.body);
+
+        // Audit Log
+        const reqInfo = extractRequestInfo(req);
+        writeAuditLog({
+            ...reqInfo,
+            action: 'UPDATE_INSTANCE',
+            targetTable: 'ChannelConnector',
+            targetId: connectorId,
+            afterValues: { tenantId: req.body.tenantId, provider: req.body.provider, name: req.body.name }
+        });
+
+        res.json({ ok: true, connectorId });
+    } catch (error) {
+        next(error);
+    }
+}) as any);
+
 router.put("/instances/:connectorId/tenant", validateBody(z.object({ tenantId: z.string().uuid() })), (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const { tenantId } = req.body;
@@ -429,6 +463,7 @@ router.post("/instances/:connectorId/connect", (async (req: AuthenticatedRequest
         const cfg = JSON.parse(connector.ConfigJson);
         const baseUrl = cfg.baseUrl ?? "https://api.gtiapi.workers.dev";
         if (!isValidGtiUrl(baseUrl)) {
+            logger.warn({ baseUrl, connectorId }, "Tentativa de acesso a URL do provedor GTI não autorizada");
             return res.status(400).json({ error: "URL do provedor não autorizada." });
         }
         const token = cfg.token || cfg.apiKey;
@@ -467,6 +502,7 @@ router.delete("/instances/:connectorId/disconnect", (async (req: AuthenticatedRe
         const cfg = JSON.parse(connector.ConfigJson);
         const baseUrl = cfg.baseUrl ?? "https://api.gtiapi.workers.dev";
         if (!isValidGtiUrl(baseUrl)) {
+            logger.warn({ baseUrl, connectorId }, "Tentativa de acesso a URL do provedor GTI não autorizada");
             return res.status(400).json({ error: "URL do provedor não autorizada." });
         }
         const token = cfg.token || cfg.apiKey;
@@ -501,6 +537,7 @@ router.get("/instances/:connectorId/status", (async (req: AuthenticatedRequest, 
         const cfg = JSON.parse(connector.ConfigJson);
         const baseUrl = cfg.baseUrl ?? "https://api.gtiapi.workers.dev";
         if (!isValidGtiUrl(baseUrl)) {
+            logger.warn({ baseUrl, connectorId }, "Tentativa de acesso a URL do provedor GTI não autorizada");
             return res.status(400).json({ error: "URL do provedor não autorizada." });
         }
         const token = cfg.token || cfg.apiKey;
@@ -776,10 +813,12 @@ router.get("/instances/gti-info", (async (req: AuthenticatedRequest, res: Respon
     try {
         const token = req.query.token as string;
         const rawBaseUrl = (req.query.baseUrl as string) || "https://api.gtiapi.workers.dev";
-        const ALLOWED_GTI_URLS: Record<string, string> = {
-            "https://api.gtiapi.workers.dev": "https://api.gtiapi.workers.dev"
-        };
-        const baseUrl = ALLOWED_GTI_URLS[rawBaseUrl] || "https://api.gtiapi.workers.dev";
+        // Use the common validator for consistency
+        if (!isValidGtiUrl(rawBaseUrl)) {
+            logger.warn({ rawBaseUrl }, "GTI Info: URL do provedor não autorizada");
+            return res.status(400).json({ error: "URL do provedor não autorizada." });
+        }
+        const baseUrl = rawBaseUrl;
         
         const url = `${baseUrl}/instance/status`;
         const response = await fetch(url, {

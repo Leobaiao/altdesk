@@ -1,12 +1,15 @@
 import { GtiAdapter } from "./gti.js";
 import { OfficialAdapter } from "./official.js";
 import { WebChatAdapter } from "./webchat.js";
+import { EmailAdapter } from "./email.js";
 import { ChannelAdapter } from "./types.js";
 
 const adapters: Record<string, ChannelAdapter> = {
     gti: new GtiAdapter(),
     official: new OfficialAdapter(),
-    webchat: new WebChatAdapter()
+    webchat: new WebChatAdapter(),
+    smtp: new EmailAdapter(),
+    email: new EmailAdapter()
 };
 
 /**

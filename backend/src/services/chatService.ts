@@ -96,7 +96,7 @@ export async function listConversations(user: UserContext, limit: number = 50, o
         GROUP BY ConversationId
       )
       SELECT c.ConversationId, c.Title, c.Status, c.Kind, c.LastMessageAt, c.QueueId, c.AssignedUserId,
-             c.SourceChannel, c.InteractionSequence, c.CreatedAt,
+             ch.Type AS SourceChannel, c.InteractionSequence, c.CreatedAt,
              etm.ExternalUserId,
              q.Name AS QueueName,
              assignedUser.DisplayName AS AssignedUserName,
@@ -120,6 +120,7 @@ export async function listConversations(user: UserContext, limit: number = 50, o
                   AND m.DeletedAt IS NULL
               ) AS UnreadCount
       FROM altdesk.Conversation c
+      LEFT JOIN altdesk.Channel ch ON ch.ChannelId = c.ChannelId
       LEFT JOIN altdesk.ExternalThreadMap etm ON etm.ConversationId = c.ConversationId
       LEFT JOIN altdesk.Queue q ON q.QueueId = c.QueueId
       LEFT JOIN altdesk.[User] assignedUser ON assignedUser.UserId = c.AssignedUserId
@@ -168,9 +169,17 @@ export async function getReplyMetadata(conversationId: string, tenantId: string 
         etm.ExternalUserId,
         etm.ConnectorId,
         cc.Provider,
-        cc.ConfigJson
+        cc.ConfigJson,
+        (SELECT TOP 1 m.ExternalMessageId 
+         FROM altdesk.Message m 
+         WHERE m.ConversationId = etm.ConversationId 
+           AND m.Direction = 'IN' 
+           AND m.ExternalMessageId IS NOT NULL
+         ORDER BY m.CreatedAt DESC) as LastExternalMessageId,
+        c.ContextData
       FROM altdesk.ExternalThreadMap etm
       JOIN altdesk.ChannelConnector cc ON cc.ConnectorId = etm.ConnectorId
+      JOIN altdesk.Conversation c ON c.ConversationId = etm.ConversationId
       WHERE etm.ConversationId = @conversationId
         AND etm.TenantId = @tenantId
     `);
@@ -178,8 +187,15 @@ export async function getReplyMetadata(conversationId: string, tenantId: string 
     if (r.recordset.length === 0) return null;
 
     const data = r.recordset[0];
+    let contextData: any = {};
+    try {
+        if (data.ContextData) contextData = JSON.parse(data.ContextData);
+    } catch (e) {}
+
     return {
         externalUserId: data.ExternalUserId,
+        lastExternalMessageId: data.LastExternalMessageId,
+        subject: contextData.subject || null,
         connector: {
             ConnectorId: data.ConnectorId,
             Provider: data.Provider,

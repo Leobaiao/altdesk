@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Smartphone, Copy, Anchor } from "lucide-react";
+import { Smartphone, Copy, Anchor, Settings, Pencil } from "lucide-react";
 import { api } from "../../lib/api";
 import { InstanceModal } from "./Modals/InstanceModal";
 import { WebhookModal } from "./Modals/WebhookModal";
@@ -12,12 +12,13 @@ export function InstancesTab() {
     const [loading, setLoading] = useState(false);
     const [showInstanceModal, setShowInstanceModal] = useState(false);
     const [showWebhookModal, setShowWebhookModal] = useState(false);
-    const [webhookConnectorId, setWebhookConnectorId] = useState("");
+    const [selectedInstance, setSelectedInstance] = useState<any | null>(null);
     const [showConnectModal, setShowConnectModal] = useState(false);
     const [connectConnectorId, setConnectConnectorId] = useState("");
     const [selectedInstanceIds, setSelectedInstanceIds] = useState<Set<string>>(new Set());
     const [search, setSearch] = useState("");
     const [reassigningId, setReassigningId] = useState<string | null>(null);
+    const [editingInstance, setEditingInstance] = useState<any | null>(null);
     const { notify } = useNotification();
 
     useEffect(() => {
@@ -63,10 +64,23 @@ export function InstancesTab() {
     const handleCreateInstance = async (data: any) => {
         try {
             await api.post("/api/admin/instances", data);
+            notify("Instância criada com sucesso", "success");
             loadData();
-        } catch (err) {
-            console.error(err);
-            notify("Erro ao criar instância", "error");
+        } catch (err: any) {
+            notify("Erro ao criar: " + (err.response?.data?.error || err.message), "error");
+        }
+    };
+
+    const handleUpdateInstance = async (data: any) => {
+        if (!editingInstance) return;
+        try {
+            await api.put(`/api/admin/instances/${editingInstance.ConnectorId}`, data);
+            notify("Instância atualizada com sucesso", "success");
+            setEditingInstance(null);
+            setShowInstanceModal(false);
+            loadData();
+        } catch (err: any) {
+            notify("Erro ao atualizar: " + (err.response?.data?.error || err.message), "error");
         }
     };
 
@@ -141,6 +155,7 @@ export function InstancesTab() {
             GTI: { bg: "rgba(0,168,132,0.15)", color: "#00a884" },
             OFFICIAL: { bg: "rgba(66,133,244,0.15)", color: "#4285f4" },
             WEBCHAT: { bg: "rgba(255,152,0,0.15)", color: "#ff9800" },
+            SMTP: { bg: "rgba(234,67,53,0.15)", color: "#ea4335" },
         };
         return map[provider] || { bg: "rgba(255,255,255,0.08)", color: "#aaa" };
     };
@@ -172,7 +187,7 @@ export function InstancesTab() {
                             🗑 Excluir ({selectedInstanceIds.size})
                         </button>
                     )}
-                    <button onClick={() => setShowInstanceModal(true)} className="btn btn-primary" style={{ borderRadius: 10 }}>
+                    <button onClick={() => { setEditingInstance(null); setShowInstanceModal(true); }} className="btn btn-primary" style={{ borderRadius: 10 }}>
                         + Nova Instância
                     </button>
                 </div>
@@ -282,7 +297,10 @@ export function InstancesTab() {
                                                 )}
                                             </>
                                         )}
-                                        <button onClick={() => { setWebhookConnectorId(i.ConnectorId); setShowWebhookModal(true); }} className="btn btn-ghost" style={{ padding: "7px 14px", borderRadius: 8, fontSize: "0.78rem", display: "inline-flex", alignItems: "center", gap: 5, height: "auto" }}>
+                                        <button onClick={() => { setEditingInstance(i); setShowInstanceModal(true); }} className="btn btn-ghost" style={{ padding: "7px 14px", borderRadius: 8, fontSize: "0.78rem", display: "inline-flex", alignItems: "center", gap: 5, height: "auto", marginRight: 8, color: "var(--text-secondary)", border: "1px solid var(--border)" }} title="Editar Configuração">
+                                            <Pencil size={13} /> Editar
+                                        </button>
+                                        <button onClick={() => { setSelectedInstance(i); setShowWebhookModal(true); }} className="btn btn-ghost" style={{ padding: "7px 14px", borderRadius: 8, fontSize: "0.78rem", display: "inline-flex", alignItems: "center", gap: 5, height: "auto" }}>
                                             <Anchor size={13} /> Webhook
                                         </button>
                                     </td>
@@ -293,8 +311,15 @@ export function InstancesTab() {
                 </table>
             </div>
 
-            {showInstanceModal && <InstanceModal tenants={tenants} onClose={() => setShowInstanceModal(false)} onSubmit={handleCreateInstance} />}
-            {showWebhookModal && <WebhookModal connectorId={webhookConnectorId} onClose={() => setShowWebhookModal(false)} />}
+            {showInstanceModal && (
+                <InstanceModal 
+                    tenants={tenants} 
+                    onClose={() => { setShowInstanceModal(false); setEditingInstance(null); }} 
+                    onSubmit={editingInstance ? handleUpdateInstance : handleCreateInstance} 
+                    initialData={editingInstance}
+                />
+            )}
+            {showWebhookModal && <WebhookModal instance={selectedInstance} onClose={() => setShowWebhookModal(false)} />}
             {showConnectModal && <ConnectModal connectorId={connectConnectorId} onClose={() => setShowConnectModal(false)} />}
         </>
     );

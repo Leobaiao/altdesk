@@ -48,7 +48,14 @@ router.put("/", validateBody(z.object({
     defaultProvider: z.string(),
     connectorId: z.string().uuid().optional(),
     instanceId: z.string().optional(),
-    token: z.string().optional()
+    token: z.string().optional(),
+    // SMTP-specific fields
+    smtpHost: z.string().optional(),
+    smtpPort: z.number().optional(),
+    smtpUser: z.string().optional(),
+    smtpPass: z.string().optional(),
+    smtpFrom: z.string().optional(),
+    smtpSecure: z.boolean().optional()
 })), async (req, res, next) => {
     try {
         const user = (req as any).user;
@@ -76,18 +83,29 @@ router.put("/", validateBody(z.object({
             if (current.recordset.length > 0) {
                 try {
                     const conf = JSON.parse(current.recordset[0].ConfigJson);
-                    if (body.instanceId) conf.instance = body.instanceId;
-                    if (body.token) conf.token = body.token;
 
-                    // Support different fields per provider dynamically
-                    if (body.defaultProvider === 'OFFICIAL') {
-                        if (body.token) conf.accessToken = body.token;
-                        if (body.instanceId) conf.phoneNumberId = body.instanceId;
-                    } else if (body.defaultProvider === 'WHATSAPP') {
-                        if (body.instanceId) conf.phoneNumberId = body.instanceId;
-                        if (body.token) conf.accessToken = body.token;
-                    } else if (body.defaultProvider === 'GTI' || body.defaultProvider === 'ZAPI') {
-                        if (body.token) conf.apiKey = body.token;
+                    if (body.defaultProvider === 'SMTP') {
+                        // SMTP provider: update SMTP-specific fields
+                        if (body.smtpHost !== undefined) conf.host = body.smtpHost;
+                        if (body.smtpPort !== undefined) conf.port = body.smtpPort;
+                        if (body.smtpUser !== undefined) conf.user = body.smtpUser;
+                        if (body.smtpPass !== undefined) conf.pass = body.smtpPass;
+                        if (body.smtpFrom !== undefined) conf.from = body.smtpFrom;
+                        if (body.smtpSecure !== undefined) conf.secure = body.smtpSecure;
+                    } else {
+                        // WhatsApp/GTI/Official providers
+                        if (body.instanceId) conf.instance = body.instanceId;
+                        if (body.token) conf.token = body.token;
+
+                        if (body.defaultProvider === 'OFFICIAL') {
+                            if (body.token) conf.accessToken = body.token;
+                            if (body.instanceId) conf.phoneNumberId = body.instanceId;
+                        } else if (body.defaultProvider === 'WHATSAPP') {
+                            if (body.instanceId) conf.phoneNumberId = body.instanceId;
+                            if (body.token) conf.accessToken = body.token;
+                        } else if (body.defaultProvider === 'GTI' || body.defaultProvider === 'ZAPI') {
+                            if (body.token) conf.apiKey = body.token;
+                        }
                     }
 
                     configJson = JSON.stringify(conf);

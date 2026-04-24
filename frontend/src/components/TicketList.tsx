@@ -7,7 +7,8 @@ import {
     Search,
     ArrowLeft,
     RefreshCw,
-    Ticket
+    Ticket,
+    MailIcon
 } from "lucide-react";
 import { PageHeader } from "./PageHeader";
 import { api } from "../lib/api";
@@ -37,6 +38,7 @@ function getChannelIcon(channel: string | null) {
     const ch = (channel || "").toUpperCase();
     if (ch.includes("WHATSAPP")) return <WhatsAppIcon size={16} />;
     if (ch.includes("CHATBOT") || ch.includes("BOT")) return <Bot size={16} />;
+    if (ch.includes("EMAIL")) return <MailIcon size={16} />;
     return <Monitor size={16} />;
 }
 

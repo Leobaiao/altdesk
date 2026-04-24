@@ -10,7 +10,23 @@ import { listUserAvailableInstances } from "./instanceService.js";
 export async function resolveConversationForInbound(inb: NormalizedInbound, connectorId: string, channelId: string) {
   const pool = await getPool();
 
-  // 1. Tenta achar pelo ExternalChatId + ConnectorId (match exato do webhook)
+  // 1. Threading de Email: Se tiver In-Reply-To, tenta achar a mensagem original e sua conversa
+  if (inb.channel === "EMAIL" && inb.inReplyTo) {
+    const threadFound = await pool.request()
+      .input("tenantId", inb.tenantId)
+      .input("inReplyTo", inb.inReplyTo)
+      .query(`
+        SELECT TOP 1 ConversationId
+        FROM altdesk.Message
+        WHERE TenantId = @tenantId AND ExternalMessageId = @inReplyTo
+      `);
+    
+    if (threadFound.recordset.length > 0) {
+        return threadFound.recordset[0].ConversationId;
+    }
+  }
+
+  // 2. Tenta achar pelo ExternalChatId + ConnectorId (match exato do webhook)
   const found = await pool.request()
     .input("tenantId", inb.tenantId)
     .input("connectorId", connectorId)
@@ -23,17 +39,39 @@ export async function resolveConversationForInbound(inb: NormalizedInbound, conn
 
   if (found.recordset.length > 0) {
     const cid = found.recordset[0].ConversationId;
-    // Atualiza título com o nome do WhatsApp se disponível
+    // Atualiza título se disponível e for canal genérico
     if (inb.senderName) {
       await pool.request()
         .input("cid", cid)
         .input("title", inb.senderName)
-        .query("UPDATE altdesk.Conversation SET Title = @title WHERE ConversationId = @cid AND Title LIKE 'WhatsApp%'");
+        .query("UPDATE altdesk.Conversation SET Title = @title WHERE ConversationId = @cid AND (Title LIKE 'WhatsApp%' OR Title LIKE 'Email%')");
     }
     return cid as string;
   }
 
-  // 2. Fallback: busca pelo ExternalUserId (evita duplicar com conversas criadas manualmente)
+  // 3. Fallback Email: Busca por conversas abertas do mesmo remetente com o mesmo assunto (ignora Re:)
+  if (inb.channel === "EMAIL" && inb.raw?.subject) {
+    const cleanSubject = String(inb.raw.subject).replace(/^(Re|Fwd|Enc):\s*/i, "").trim();
+    const subjectMatch = await pool.request()
+        .input("tenantId", inb.tenantId)
+        .input("email", inb.externalUserId)
+        .input("subject", `%${cleanSubject}%`)
+        .query(`
+            SELECT TOP 1 c.ConversationId
+            FROM altdesk.Conversation c
+            JOIN altdesk.ExternalThreadMap etm ON etm.ConversationId = c.ConversationId
+            WHERE c.TenantId = @tenantId 
+              AND etm.ExternalUserId = @email 
+              AND c.Status != 'RESOLVED'
+              AND (c.Title LIKE @subject OR c.Title = @subject)
+        `);
+    
+    if (subjectMatch.recordset.length > 0) {
+        return subjectMatch.recordset[0].ConversationId;
+    }
+  }
+
+  // 4. Fallback: busca pelo ExternalUserId (evita duplicar com conversas criadas manualmente)
   const byUser = await pool.request()
     .input("tenantId", inb.tenantId)
     .input("externalUserId", inb.externalUserId)
@@ -59,8 +97,8 @@ export async function resolveConversationForInbound(inb: NormalizedInbound, conn
     return existingCid as string;
   }
 
-  // 3. Cria conversa nova
-  const title = inb.senderName || `WhatsApp • ${inb.externalUserId}`;
+  // 5. Cria conversa nova
+  const title = inb.senderName || (inb.channel === "EMAIL" ? (inb.raw?.subject || `Email • ${inb.externalUserId}`) : `WhatsApp • ${inb.externalUserId}`);
   const created = await pool.request()
     .input("tenantId", inb.tenantId)
     .input("channelId", channelId)
@@ -104,6 +142,7 @@ export async function saveInboundMessage(inb: NormalizedInbound, conversationId:
     .input("mediaUrl", inb.mediaUrl ?? null)
     .input("externalMessageId", inb.externalMessageId ?? null)
     .input("payload", JSON.stringify(inb.raw))
+    .input("subject", inb.subject ?? null)
     .query(`
       INSERT INTO altdesk.Message (TenantId, ConversationId, SenderExternalId, Direction, Body, MediaType, MediaUrl, ExternalMessageId, PayloadJson)
       OUTPUT INSERTED.MessageId
@@ -114,7 +153,8 @@ export async function saveInboundMessage(inb: NormalizedInbound, conversationId:
           SlaDeadline = ISNULL(SlaDeadline, DATEADD(hour, 4, SYSUTCDATETIME())),
           SlaStatus = CASE WHEN SlaStatus IS NULL OR SlaStatus = 'MET' THEN 'PENDING' ELSE SlaStatus END,
           DeletedAt = NULL,
-          Status = CASE WHEN Status = 'RESOLVED' THEN 'OPEN' ELSE Status END
+          Status = CASE WHEN Status = 'RESOLVED' THEN 'OPEN' ELSE Status END,
+          ContextData = CASE WHEN @subject IS NOT NULL THEN JSON_MODIFY(ISNULL(ContextData, '{}'), '$.subject', CAST(@subject AS NVARCHAR(MAX))) ELSE ContextData END
       WHERE ConversationId=@conversationId;
     `);
 
