@@ -5,6 +5,9 @@
 --            threading por headers, e gestão de canais multi-empresa.
 -- ============================================================================
 
+SET QUOTED_IDENTIFIER ON;
+GO
+
 -- 1. EMAIL CHANNELS (Configuração principal de cada canal de e-mail)
 -- Cada tenant pode ter múltiplos canais (ex: suporte@empresa.com, faturacao@empresa.com)
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'EmailChannel' AND schema_id = SCHEMA_ID('altdesk'))
