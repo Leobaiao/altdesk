@@ -27,10 +27,10 @@ export function stripQuotedReply(text: string | null | undefined): string | null
         /^[_\-]{2,}\s*Mensagem encaminhada\s*[_\-]{2,}$/mi,
         /^[_\-]{2,}\s*Original Message\s*[_\-]{2,}$/mi,
         /^[_\-]{2,}\s*Mensagem Original\s*[_\-]{2,}$/mi,
-        /^On\s+.+?wrote:\s*$/mi,
-        /^Em\s+.+?escreveu:\s*$/mi,
-        /^\s*De:\s*.+?<.+?@.+?>/mi, // Outlook BR (De: Nome <email>)
-        /^\s*From:\s*.+?<.+?@.+?>/mi // Outlook EN (From: Name <email>)
+        /^On\s+.+?wrote:.*$/mi,
+        /^Em\s+.+?escreveu:.*$/mi,
+        /^\s*De:\s*.+?<.+?@.+?>/mi,
+        /^\s*From:\s*.+?<.+?@.+?>/mi
     ];
 
     let lines = text.split(/\r?\n/);

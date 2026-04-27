@@ -359,3 +359,18 @@ export async function deleteConversation(tenantId: string, conversationId: strin
     throw err;
   }
 }
+
+/**
+ * Apaga uma única mensagem (Soft delete).
+ */
+export async function deleteMessage(tenantId: string, messageId: string) {
+    const pool = await getPool();
+    await pool.request()
+        .input("tenantId", tenantId)
+        .input("messageId", messageId)
+        .query(`
+            UPDATE altdesk.Message
+            SET DeletedAt = SYSUTCDATETIME()
+            WHERE MessageId = @messageId AND TenantId = @tenantId
+        `);
+}

@@ -211,10 +211,10 @@ router.post("/", requireRole("ADMIN"), validateBody(createChannelSchema), (async
         if (inbound) {
             await upsertInboundSettings(channel.EmailChannelId, {
                 Protocol: "IMAP",
-                ImapHost: inbound.imapHost,
+                ImapHost: inbound.imapHost.trim(),
                 ImapPort: inbound.imapPort,
                 ImapSecure: inbound.imapSecure,
-                Username: inbound.username,
+                Username: inbound.username.trim(),
                 Password: inbound.password,
                 PollIntervalSeconds: inbound.pollIntervalSeconds,
             });
@@ -224,10 +224,10 @@ router.post("/", requireRole("ADMIN"), validateBody(createChannelSchema), (async
         if (outbound) {
             await upsertOutboundSettings(channel.EmailChannelId, {
                 Protocol: "SMTP",
-                SmtpHost: outbound.smtpHost,
+                SmtpHost: outbound.smtpHost.trim(),
                 SmtpPort: outbound.smtpPort,
                 SmtpSecure: outbound.smtpSecure,
-                Username: outbound.username,
+                Username: outbound.username.trim(),
                 Password: outbound.password,
                 FromName: outbound.fromName,
                 FromAddress: outbound.fromAddress || emailAddress,
@@ -271,11 +271,11 @@ router.put("/:id", requireRole("ADMIN"), validateBody(updateChannelSchema), (asy
         // Atualizar inbound settings
         if (inbound) {
             await upsertInboundSettings(channel.EmailChannelId, {
-                ...(inbound.imapHost !== undefined && { ImapHost: inbound.imapHost }),
+                ...(inbound.imapHost !== undefined && { ImapHost: inbound.imapHost.trim() }),
                 ...(inbound.imapPort !== undefined && { ImapPort: inbound.imapPort }),
                 ...(inbound.imapSecure !== undefined && { ImapSecure: inbound.imapSecure }),
-                ...(inbound.username !== undefined && { Username: inbound.username }),
-                ...(inbound.password !== undefined && { Password: inbound.password }),
+                ...(inbound.username !== undefined && { Username: inbound.username.trim() }),
+                ...(inbound.password && { Password: inbound.password }),
                 ...(inbound.pollIntervalSeconds !== undefined && { PollIntervalSeconds: inbound.pollIntervalSeconds }),
             });
         }
@@ -283,11 +283,11 @@ router.put("/:id", requireRole("ADMIN"), validateBody(updateChannelSchema), (asy
         // Atualizar outbound settings
         if (outbound) {
             await upsertOutboundSettings(channel.EmailChannelId, {
-                ...(outbound.smtpHost !== undefined && { SmtpHost: outbound.smtpHost }),
+                ...(outbound.smtpHost !== undefined && { SmtpHost: outbound.smtpHost.trim() }),
                 ...(outbound.smtpPort !== undefined && { SmtpPort: outbound.smtpPort }),
                 ...(outbound.smtpSecure !== undefined && { SmtpSecure: outbound.smtpSecure }),
-                ...(outbound.username !== undefined && { Username: outbound.username }),
-                ...(outbound.password !== undefined && { Password: outbound.password }),
+                ...(outbound.username !== undefined && { Username: outbound.username.trim() }),
+                ...(outbound.password && { Password: outbound.password }),
                 ...(outbound.fromName !== undefined && { FromName: outbound.fromName }),
                 ...(outbound.fromAddress !== undefined && { FromAddress: outbound.fromAddress }),
                 ...(outbound.replyToAddress !== undefined && { ReplyToAddress: outbound.replyToAddress }),

@@ -186,8 +186,10 @@ export function EmailChannelsTab() {
                                         <input type="text" value={editingChannel.inbound.username} onChange={e => setEditingChannel({...editingChannel, inbound: {...editingChannel.inbound, username: e.target.value}})} className="settings-input" style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-secondary)", color: "var(--text-primary)", transition: "all 0.2s" }} required />
                                     </div>
                                     <div>
-                                        <label style={{ display: "block", marginBottom: 8, fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 500 }}>Password IMAP</label>
-                                        <input type="password" value={editingChannel.inbound.password} onChange={e => setEditingChannel({...editingChannel, inbound: {...editingChannel.inbound, password: e.target.value}})} className="settings-input" style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-secondary)", color: "var(--text-primary)", transition: "all 0.2s" }} required />
+                                        <label style={{ display: "block", marginBottom: 8, fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 500 }}>
+                                            Password IMAP {editingChannel.EmailChannelId && "(deixe em branco para não alterar)"}
+                                        </label>
+                                        <input type="password" value={editingChannel.inbound.password || ""} onChange={e => setEditingChannel({...editingChannel, inbound: {...editingChannel.inbound, password: e.target.value}})} className="settings-input" style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-secondary)", color: "var(--text-primary)", transition: "all 0.2s" }} required={!editingChannel.EmailChannelId} />
                                     </div>
                                 </div>
 
@@ -215,8 +217,10 @@ export function EmailChannelsTab() {
                                         <input type="text" value={editingChannel.outbound.username} onChange={e => setEditingChannel({...editingChannel, outbound: {...editingChannel.outbound, username: e.target.value}})} className="settings-input" style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-secondary)", color: "var(--text-primary)", transition: "all 0.2s" }} required />
                                     </div>
                                     <div>
-                                        <label style={{ display: "block", marginBottom: 8, fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 500 }}>Password SMTP</label>
-                                        <input type="password" value={editingChannel.outbound.password} onChange={e => setEditingChannel({...editingChannel, outbound: {...editingChannel.outbound, password: e.target.value}})} className="settings-input" style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-secondary)", color: "var(--text-primary)", transition: "all 0.2s" }} required />
+                                        <label style={{ display: "block", marginBottom: 8, fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 500 }}>
+                                            Password SMTP {editingChannel.EmailChannelId && "(deixe em branco para não alterar)"}
+                                        </label>
+                                        <input type="password" value={editingChannel.outbound.password || ""} onChange={e => setEditingChannel({...editingChannel, outbound: {...editingChannel.outbound, password: e.target.value}})} className="settings-input" style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-secondary)", color: "var(--text-primary)", transition: "all 0.2s" }} required={!editingChannel.EmailChannelId} />
                                     </div>
                                 </div>
                             </div>
@@ -289,6 +293,20 @@ export function EmailChannelsTab() {
                                         {testResults[channel.EmailChannelId]?.loadingOut ? "A testar..." : "Testar SMTP"}
                                         {testResults[channel.EmailChannelId]?.outbound === true && <CheckCircle2 size={14} color="var(--accent)" />}
                                         {testResults[channel.EmailChannelId]?.outbound === false && <XCircle size={14} color="#ea4335" />}
+                                    </button>
+                                    <button 
+                                        onClick={() => setEditingChannel({
+                                            EmailChannelId: channel.EmailChannelId,
+                                            name: channel.Name,
+                                            emailAddress: channel.EmailAddress,
+                                            providerType: channel.ProviderType,
+                                            inbound: channel.inbound || { imapHost: "", imapPort: 993, imapSecure: true, username: "", password: "", pollIntervalSeconds: 60 },
+                                            outbound: channel.outbound || { smtpHost: "", smtpPort: 587, smtpSecure: false, username: "", password: "", fromName: "" }
+                                        })}
+                                        style={{ padding: "8px", borderRadius: 8, background: "var(--bg-secondary)", border: "1px solid var(--border)", cursor: "pointer", color: "var(--text-secondary)" }}
+                                        title="Editar Configurações"
+                                    >
+                                        <Settings2 size={18} />
                                     </button>
                                     <button onClick={() => handleDelete(channel.EmailChannelId)} style={{ padding: "8px", borderRadius: 8, background: "rgba(234, 67, 53, 0.05)", border: "1px solid rgba(234, 67, 53, 0.1)", cursor: "pointer", color: "#ea4335" }}>
                                         <Trash2 size={18} />

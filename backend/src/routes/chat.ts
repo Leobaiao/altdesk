@@ -3,7 +3,7 @@ import { z } from "zod";
 import { getPool } from "../db.js";
 import { authMw, requireRole, requirePermission } from "../mw.js";
 import { validateBody } from "../middleware/validateMw.js";
-import { resolveConversationForInbound, saveInboundMessage, saveOutboundMessage, findOrCreateConversation, deleteConversation } from "../services/conversation.js";
+import { resolveConversationForInbound, saveInboundMessage, saveOutboundMessage, findOrCreateConversation, deleteConversation, deleteMessage } from "../services/conversation.js";
 import { assignConversation } from "../services/queue.js";
 import { writeAuditLog, extractRequestInfo } from "../services/auditLog.js";
 import { recordConversationHistory, getConversationHistory } from "../services/conversationHistory.js";
@@ -67,6 +67,30 @@ router.delete("/:id", (async (req: AuthenticatedRequest, res: Response, next: Ne
         if (!allowed) return res.status(403).json({ error: "Access denied" });
 
         await deleteConversation(tenantId || "", conversationId);
+        res.json({ ok: true });
+    } catch (error) {
+        next(error);
+    }
+}) as any);
+
+router.delete("/:id/messages/:messageId", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const user = req.user;
+        const { id: conversationId, messageId } = req.params;
+
+        const { allowed, tenantId } = await checkConversationAccess(user, conversationId);
+        if (!allowed) return res.status(403).json({ error: "Access denied" });
+
+        await deleteMessage(tenantId || "", messageId);
+
+        const io = req.app.get("io");
+        if (io) {
+            emitConversationEvent(io, tenantId!, conversationId, "message:deleted", {
+                conversationId,
+                messageId
+            });
+        }
+
         res.json({ ok: true });
     } catch (error) {
         next(error);

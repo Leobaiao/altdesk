@@ -212,6 +212,16 @@ export function ChatWindow({ setView, showToast }: { setView: (v: any) => void, 
         refreshConversations();
     }
 
+    async function handleDeleteMessage(messageId: string) {
+        if (!confirm("Tem certeza que deseja apagar esta mensagem?")) return;
+        try {
+            await api.delete(`/api/conversations/${selectedConversationId}/messages/${messageId}`);
+            showToast("Mensagem apagada", "success");
+        } catch (e: any) {
+            showToast("Erro ao apagar mensagem", "error");
+        }
+    }
+
     async function openAssignModal() {
         try {
             const [uRes, qRes] = await Promise.all([
@@ -404,14 +414,37 @@ export function ChatWindow({ setView, showToast }: { setView: (v: any) => void, 
                                 <DocumentCard url={m.MediaUrl} name={m.Body || 'Documento'} direction={m.Direction as any} />
                             )}
 
-                            <div className="text" style={m.Direction === "INTERNAL" ? { color: "#78350f" } : undefined}>{m.Body}</div>
-                            <div className="timestamp">
-                                {formatTime(m.CreatedAt)}
-                                {m.Direction === "OUT" && (
-                                    <span style={{ marginLeft: 4, fontSize: '1.2em' }} title={m.Status || undefined}>
-                                        {m.Status === "READ" ? <span style={{ color: "#53bdeb" }}>✓✓</span> : m.Status === "DELIVERED" ? "✓✓" : m.Status === "SENT" ? "✓" : "🕒"}
-                                    </span>
+                            <div className="text" style={m.Direction === "INTERNAL" ? { color: "#78350f" } : undefined}>
+                                {selectedConversation.SourceChannel?.includes("EMAIL") && m.Direction === "IN" ? (
+                                    <div style={{ background: "#fff", padding: "12px", borderRadius: "8px", border: "1px solid #eee", fontSize: "0.9rem", color: "#444" }}>
+                                        {/* Simple formatting for email content: preserve whitespace and handle basic wrapping */}
+                                        <div style={{ whiteSpace: "pre-wrap", overflowWrap: "break-word" }}>
+                                            {m.Body}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    m.Body
                                 )}
+                            </div>
+                            <div className="timestamp" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+                                <div>
+                                    {formatTime(m.CreatedAt)}
+                                    {m.Direction === "OUT" && (
+                                        <span style={{ marginLeft: 4, fontSize: '1.2em' }} title={m.Status || undefined}>
+                                            {m.Status === "READ" ? <span style={{ color: "#53bdeb" }}>✓✓</span> : m.Status === "DELIVERED" ? "✓✓" : m.Status === "SENT" ? "✓" : "🕒"}
+                                        </span>
+                                    )}
+                                </div>
+                                <button 
+                                    onClick={() => handleDeleteMessage(m.MessageId)} 
+                                    className="msg-delete-btn"
+                                    style={{ background: "none", border: "none", color: "rgba(0,0,0,0.2)", cursor: "pointer", padding: 2, display: "flex", alignItems: "center", transition: "color 0.2s" }}
+                                    title="Apagar mensagem"
+                                    onMouseEnter={e => e.currentTarget.style.color = "#ea4335"}
+                                    onMouseLeave={e => e.currentTarget.style.color = "rgba(0,0,0,0.2)"}
+                                >
+                                    <Trash2 size={14} />
+                                </button>
                             </div>
                         </div>
                     </div>

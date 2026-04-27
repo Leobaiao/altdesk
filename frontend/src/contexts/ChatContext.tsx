@@ -187,8 +187,13 @@ export function ChatProvider({ children, token, onLogout }: { children: ReactNod
             );
         };
 
+        const onDeleted = (data: any) => {
+            setMessages((prev) => prev.filter(msg => msg.MessageId !== data.messageId));
+        };
+
         newSocket.on("message:new", onNew);
         newSocket.on("message:status", onStatusUpdate);
+        newSocket.on("message:deleted", onDeleted);
 
         return () => {
             newSocket.emit("tenant:leave", tenantId);
@@ -197,6 +202,7 @@ export function ChatProvider({ children, token, onLogout }: { children: ReactNod
             newSocket.off("typing:stop", onTypingStop);
             newSocket.off("message:new", onNew);
             newSocket.off("message:status", onStatusUpdate);
+            newSocket.off("message:deleted", onDeleted);
             newSocket.disconnect();
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps

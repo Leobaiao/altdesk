@@ -99,10 +99,27 @@ export async function sendTicketReply(params: {
         : `Re: ${originalSubject || "Atendimento"}`;
 
     // 6. Construir o payload
+    const brandColor = "#00a884";
+    const headerHtml = `
+        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 8px; overflow: hidden;">
+            <div style="background-color: ${brandColor}; padding: 20px; text-align: center;">
+                <h2 style="color: #ffffff; margin: 0; font-size: 20px;">Atendimento AltDesk</h2>
+            </div>
+            <div style="padding: 30px; background-color: #ffffff;">
+                ${bodyHtml}
+            </div>
+            <div style="background-color: #f9f9f9; padding: 20px; text-align: center; border-top: 1px solid #eee; font-size: 12px; color: #777;">
+                Este é um email automático enviado pelo sistema AltDesk.<br>
+                Por favor, responda a este email para continuar o atendimento.<br>
+                <strong>Ticket: [TCK-${ticketId?.split("-")[0].toUpperCase()}]</strong>
+            </div>
+        </div>
+    `;
+
     const payload: OutboundEmailPayload = {
         to: toAddress,
         subject,
-        html: bodyHtml,
+        html: headerHtml,
         text: bodyText,
         inReplyTo,
         references,
