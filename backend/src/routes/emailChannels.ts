@@ -87,9 +87,9 @@ const updateChannelSchema = z.object({
         smtpSecure: z.boolean().optional(),
         username: z.string().min(1).optional(),
         password: z.string().optional(),
-        fromName: z.string().optional(),
-        fromAddress: z.string().email().optional(),
-        replyToAddress: z.string().email().optional(),
+        fromName: z.string().nullable().optional(),
+        fromAddress: z.string().email().nullable().optional(),
+        replyToAddress: z.string().email().nullable().optional(),
     }).optional(),
 });
 

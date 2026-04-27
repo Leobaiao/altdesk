@@ -86,8 +86,10 @@ export function EmailChannelsTab() {
             }
             setEditingChannel(null);
             loadChannels();
-        } catch (err) {
-            alert("Erro ao salvar canal de email");
+        } catch (err: any) {
+            const errorMessage = err.response?.data?.error || err.response?.data?.details?.[0]?.message || "Erro desconhecido";
+            alert(`Erro ao salvar canal de email: ${errorMessage}`);
+            console.error("Save error:", err.response?.data);
         } finally {
             setLoading(false);
         }
