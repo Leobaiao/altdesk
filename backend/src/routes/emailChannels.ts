@@ -78,7 +78,7 @@ const updateChannelSchema = z.object({
         imapPort: z.number().int().min(1).max(65535).optional(),
         imapSecure: z.boolean().optional(),
         username: z.string().min(1).optional(),
-        password: z.string().min(1).optional(),
+        password: z.string().optional(),
         pollIntervalSeconds: z.number().int().min(30).max(300).optional(),
     }).optional(),
     outbound: z.object({
@@ -86,7 +86,7 @@ const updateChannelSchema = z.object({
         smtpPort: z.number().int().min(1).max(65535).optional(),
         smtpSecure: z.boolean().optional(),
         username: z.string().min(1).optional(),
-        password: z.string().min(1).optional(),
+        password: z.string().optional(),
         fromName: z.string().optional(),
         fromAddress: z.string().email().optional(),
         replyToAddress: z.string().email().optional(),
