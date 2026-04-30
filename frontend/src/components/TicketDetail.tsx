@@ -189,11 +189,21 @@ export function TicketDetail({ ticket, onBack, profile, onTicketUpdate }: Ticket
                             <span>·</span>
                             <span style={{
                                 padding: "2px 8px", borderRadius: 6, fontSize: "0.7rem", fontWeight: 700,
-                                background: ticket.Status === "OPEN" ? "rgba(0,168,132,0.12)" : "rgba(134,150,160,0.12)",
-                                color: ticket.Status === "OPEN" ? "#00a884" : "#8696a0"
+                                background: ["OPEN", "NEW", "TRIAGE", "IN_PROGRESS", "ESCALATED"].includes(ticket.Status) ? "rgba(0,168,132,0.12)" : ["WAITING_CUSTOMER", "WAITING_THIRD_PARTY"].includes(ticket.Status) ? "rgba(245,158,11,0.12)" : "rgba(134,150,160,0.12)",
+                                color: ["OPEN", "NEW", "TRIAGE", "IN_PROGRESS", "ESCALATED"].includes(ticket.Status) ? "#00a884" : ["WAITING_CUSTOMER", "WAITING_THIRD_PARTY"].includes(ticket.Status) ? "#d97706" : "#8696a0"
                             }}>
-                                {ticket.Status === "OPEN" ? "Aberto" : ticket.Status === "RESOLVED" ? "Fechado" : ticket.Status}
+                                {{ "NEW": "Novo", "OPEN": "Aberto", "TRIAGE": "Triagem", "IN_PROGRESS": "Em atendimento", "WAITING_CUSTOMER": "Aguard. cliente", "WAITING_THIRD_PARTY": "Aguard. terceiro", "ESCALATED": "Escalado", "RESOLVED": "Resolvido", "CLOSED": "Fechado" }[ticket.Status] || ticket.Status}
                             </span>
+                            {ticket.SlaStatus && (
+                                <span style={{
+                                    padding: "2px 8px", borderRadius: 6, fontSize: "0.7rem", fontWeight: 700,
+                                    background: ticket.SlaStatus === 'BREACHED' ? "rgba(239,68,68,0.12)" : ticket.SlaStatus === 'WARNING' ? "rgba(245,158,11,0.12)" : "rgba(16,185,129,0.12)",
+                                    color: ticket.SlaStatus === 'BREACHED' ? "#ef4444" : ticket.SlaStatus === 'WARNING' ? "#f59e0b" : "#10b981",
+                                    textTransform: 'uppercase'
+                                }}>
+                                    SLA: {ticket.SlaStatus}
+                                </span>
+                            )}
                         </div>
                     </div>
                 </div>

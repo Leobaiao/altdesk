@@ -147,6 +147,8 @@ io.on("connection", (socket) => {
   });
 });
 
+import ticketsRouter from "./routes/tickets.js";
+
 // --- API ROUTES ---
 app.use("/api/webhooks", webhooksRouter);
 app.use("/api/auth", authRouter);
@@ -155,6 +157,7 @@ app.use("/api/profile", profileRouter);
 app.use("/api/agents", agentsRouter);
 app.use("/api/users", usersRouter);
 app.use("/api/conversations", chatRouter);
+app.use("/api/tickets", ticketsRouter);
 app.use("/api/settings", settingsRouter);
 app.use("/api/queues", queuesRouter);
 app.use("/api/contacts", contactsRouter);

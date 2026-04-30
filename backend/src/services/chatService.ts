@@ -104,6 +104,7 @@ export async function listConversations(user: UserContext, limit: number = 50, o
              ct.Name AS ContactName,
              ct.CPF AS ContactCPF,
               ct.Phone AS ContactPhone,
+              t.Priority, t.SlaStatus, t.SLAFirstResponseDue, t.SLAResolutionDue, t.EscalationLevel,
               (
                 SELECT t.TagId, t.Name, t.Color
                 FROM altdesk.Tag t
@@ -126,6 +127,7 @@ export async function listConversations(user: UserContext, limit: number = 50, o
       LEFT JOIN altdesk.[User] assignedUser ON assignedUser.UserId = c.AssignedUserId
       LEFT JOIN altdesk.Contact ct ON ct.Phone = REPLACE(REPLACE(etm.ExternalUserId, '@s.whatsapp.net', ''), '@c.us', '') AND ct.TenantId = c.TenantId
       LEFT JOIN LastOutbound lo ON lo.ConversationId = c.ConversationId
+      LEFT JOIN altdesk.Ticket t ON t.ConversationId = c.ConversationId AND t.TenantId = c.TenantId AND t.DeletedAt IS NULL
       ${filterClause}
       ORDER BY COALESCE(c.LastMessageAt, c.CreatedAt) DESC
       OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY

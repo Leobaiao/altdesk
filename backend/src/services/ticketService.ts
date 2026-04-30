@@ -21,23 +21,56 @@ export async function createTicketForConversation(tenantId: string, conversation
         return existing.recordset[0];
     }
 
-    // Default SLA Due At (e.g. 24 hours from now)
-    const dueAt = new Date();
-    dueAt.setHours(dueAt.getHours() + 24);
+    // Fetch SLA Policy for the priority
+    const policyResult = await pool.request()
+        .input("tenantId", tenantId)
+        .input("priority", priority)
+        .query(`SELECT TOP 1 * FROM altdesk.SLAPolicy WHERE TenantId = @tenantId AND Priority = @priority`);
+        
+    let firstResponseMinutes = 120; // Default for MEDIUM
+    let resolutionMinutes = 720;
+    
+    if (policyResult.recordset.length > 0) {
+        firstResponseMinutes = policyResult.recordset[0].FirstResponseMinutes;
+        resolutionMinutes = policyResult.recordset[0].ResolutionMinutes;
+    } else {
+        // Fallbacks based on spec if policy doesn't exist
+        switch (priority) {
+            case "LOW": firstResponseMinutes = 240; resolutionMinutes = 1440; break;
+            case "HIGH": firstResponseMinutes = 60; resolutionMinutes = 240; break;
+            case "CRITICAL": firstResponseMinutes = 15; resolutionMinutes = 60; break;
+        }
+    }
+
+    const now = new Date();
+    const firstResponseDue = new Date(now.getTime() + firstResponseMinutes * 60000);
+    const resolutionDue = new Date(now.getTime() + resolutionMinutes * 60000);
 
     const result = await pool.request()
         .input("tenantId", tenantId)
         .input("conversationId", conversationId)
         .input("priority", priority)
-        .input("slaDueAt", dueAt)
+        .input("firstResponseDue", firstResponseDue)
+        .input("resolutionDue", resolutionDue)
         .query(`
-            INSERT INTO altdesk.Ticket (TenantId, ConversationId, Priority, Status, SLA_DueAt)
+            INSERT INTO altdesk.Ticket (TenantId, ConversationId, Priority, Status, SLAFirstResponseDue, SLAResolutionDue, SlaStatus)
             OUTPUT inserted.*
-            VALUES (@tenantId, @conversationId, @priority, 'OPEN', @slaDueAt)
+            VALUES (@tenantId, @conversationId, @priority, 'NEW', @firstResponseDue, @resolutionDue, 'ON_TIME')
         `);
 
     const newTicket = result.recordset[0];
-    logger.info({ tenantId, conversationId, ticketId: newTicket.TicketId }, "Ticket created");
+    
+    // Log the event
+    await pool.request()
+        .input("tenantId", tenantId)
+        .input("ticketId", newTicket.TicketId)
+        .input("eventType", "CREATED")
+        .query(`
+            INSERT INTO altdesk.TicketEvent (TenantId, TicketId, EventType, NewValue)
+            VALUES (@tenantId, @ticketId, @eventType, 'NEW')
+        `);
+
+    logger.info({ tenantId, conversationId, ticketId: newTicket.TicketId }, "Ticket created with SLA applied");
     return newTicket;
 }
 
