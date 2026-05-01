@@ -20,13 +20,44 @@ jobs:
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
+          # Injeta as variáveis para o script
+          MSSQL_SA_PASSWORD: ${{ secrets.MSSQL_SA_PASSWORD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          ASAAS_API_KEY: ${{ secrets.ASAAS_API_KEY }}
+          ASAAS_WEBHOOK_TOKEN: ${{ secrets.ASAAS_WEBHOOK_TOKEN }}
+          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
+          ALLOWED_ORIGINS: ${{ secrets.ALLOWED_ORIGINS }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
         run: |
-          ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST <<'EOF'
+          ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST <<EOF
             set -e
             cd /opt/altdesk
+            
             # Atualiza o código
             git pull origin main
-            # (Re)cria as variáveis de ambiente se necessário
-            # docker compose up -d --build
+            
+            # Gera o .env dinamicamente
+            echo "MSSQL_SA_PASSWORD=$MSSQL_SA_PASSWORD" > .env
+            echo "DB_USER=sa" >> .env
+            echo "DB_NAME=AltDeskDev" >> .env
+            echo "DB_HOST=db" >> .env
+            echo "JWT_SECRET=$JWT_SECRET" >> .env
+            echo "ASAAS_API_KEY=$ASAAS_API_KEY" >> .env
+            echo "ASAAS_ENV=production" >> .env
+            echo "ASAAS_WEBHOOK_TOKEN=$ASAAS_WEBHOOK_TOKEN" >> .env
+            echo "ALLOWED_ORIGINS=$ALLOWED_ORIGINS" >> .env
+            echo "ENCRYPTION_KEY=$ENCRYPTION_KEY" >> .env
+            echo "VITE_API_URL_APP=https://api.altdesk.com.br" >> .env
+            echo "VITE_API_URL_ADMIN=https://api-admin.altdesk.com.br" >> .env
+            echo "SMTP_HOST=$SMTP_HOST" >> .env
+            echo "SMTP_PORT=$SMTP_PORT" >> .env
+            echo "SMTP_USER=$SMTP_USER" >> .env
+            echo "SMTP_PASS=$SMTP_PASS" >> .env
+            echo "SMTP_SECURE=false" >> .env
+            
+            # Build e Restart
             docker compose -f deploy/docker-compose.prod.yml up -d --build
           EOF
