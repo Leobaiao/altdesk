@@ -100,6 +100,9 @@ services:
       - ../.env # Usar um .env central para produção
     environment:
       PORT: 3002
+      DB_USER: ${DB_USER:-sa}
+      DB_PASS: ${MSSQL_SA_PASSWORD}
+      DB_NAME: ${DB_NAME:-AltDeskDev}
       DB_HOST: db
     expose:
       - "3002"
@@ -136,6 +139,9 @@ services:
       - ../.env
     environment:
       PORT: 3002
+      DB_USER: ${DB_USER:-sa}
+      DB_PASS: ${MSSQL_SA_PASSWORD}
+      DB_NAME: ${DB_NAME:-AltDeskDev}
       DB_HOST: db
     expose:
       - "3002"

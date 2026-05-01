@@ -1,5 +1,5 @@
 import { getPool } from "../db.js";
-import { KnowledgeArticle } from "../../../shared/types/index.js";
+import { KnowledgeArticle } from "../../../../shared/types/index.js";
 
 /**
  * Lists all articles for a tenant.

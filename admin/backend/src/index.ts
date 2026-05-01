@@ -125,9 +125,26 @@ io.on("connection", (socket) => {
 });
 
 // --- API ROUTES ---
+app.get("/health", (req, res) => res.json({ status: "ok", timestamp: new Date().toISOString() }));
+
 app.use("/api/auth", authRouter);
+app.use("/api/profile", profileRouter);
 app.use("/api/admin", adminRouter);
+app.use("/api/agents", agentsRouter);
 app.use("/api/users", usersRouter);
+app.use("/api/chat", chatRouter);
+app.use("/api/webhooks", webhooksRouter);
+app.use("/api/settings", settingsRouter);
+app.use("/api/queues", queuesRouter);
+app.use("/api/contacts", contactsRouter);
+app.use("/api/templates", templatesRouter);
+app.use("/api/canned-responses", cannedResponsesRouter);
+app.use("/api/dashboard", dashboardRouter);
+app.use("/api/roles", rolesRouter);
+app.use("/api/tags", tagsRouter);
+app.use("/api/knowledge", knowledgeRouter);
+app.use("/api/business-hours", businessHoursRouter);
+app.use("/api/public", publicRouter);
 
 // Internal Demo Hook
 app.post("/api/demo/conversations/:id/messages", async (req, res, next) => {
