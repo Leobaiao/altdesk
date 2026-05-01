@@ -19,22 +19,22 @@ jobs:
       - name: Generate .env file locally
         run: |
           cat > .env.prod <<'ENVFILE'
-          MSSQL_SA_PASSWORD=Intamr17@
+          MSSQL_SA_PASSWORD=${{ secrets.MSSQL_SA_PASSWORD }}
           DB_USER=sa
           DB_NAME=AltDeskDev
           DB_HOST=db
-          JWT_SECRET=Intamr17@
-          ASAAS_API_KEY=$$aact_hmlg_000MzkwODA2MWY2OGM3MWRlMDU2NWM3MzJlNzZmNGZhZGY6OjZjNDE0NDhjLWIyZDItNDdmZS05NTFhLWU3M2RmNTY5NzM2MTo6$$aach_f14afb44-c289-4928-8763-9fd129714581
+          JWT_SECRET=${{ secrets.JWT_SECRET }}
+          ASAAS_API_KEY=${{ secrets.ASAAS_API_KEY }}
           ASAAS_ENV=production
-          ASAAS_WEBHOOK_TOKEN=whsec__cXurBkYmEnMdZ9CLaPXRshm__hGcsHsuB8p1Hlyr5w
-          ALLOWED_ORIGINS=https://altdesk.com.br,https://admin.altdesk.com.br
-          ENCRYPTION_KEY=0598f8ee7bda2b537fbefeceb01c2db8e18cd4a1f10c2b108b729f274824e4d2
+          ASAAS_WEBHOOK_TOKEN=${{ secrets.ASAAS_WEBHOOK_TOKEN }}
+          ALLOWED_ORIGINS=${{ secrets.ALLOWED_ORIGINS }}
+          ENCRYPTION_KEY=${{ secrets.ENCRYPTION_KEY }}
           VITE_API_URL_APP=https://api.altdesk.com.br
           VITE_API_URL_ADMIN=https://api-admin.altdesk.com.br
-          SMTP_HOST=
-          SMTP_PORT=
-          SMTP_USER=
-          SMTP_PASS=
+          SMTP_HOST=${{ secrets.SMTP_HOST }}
+          SMTP_PORT=${{ secrets.SMTP_PORT }}
+          SMTP_USER=${{ secrets.SMTP_USER }}
+          SMTP_PASS=${{ secrets.SMTP_PASS }}
           SMTP_SECURE=false
           ENVFILE
           sed -i 's/^          //' .env.prod
