@@ -99,6 +99,7 @@ services:
     env_file:
       - ../.env # Usar um .env central para produção
     environment:
+      NODE_ENV: production
       PORT: 3002
       DB_USER: ${DB_USER:-sa}
       DB_PASS: ${MSSQL_SA_PASSWORD}

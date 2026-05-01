@@ -7,8 +7,8 @@ import { writeAuditLog } from "./auditLog.js";
  * Flags them as VIOLATED and records in AuditLog for traceability.
  */
 export async function checkSlaViolations() {
-    const pool = await getPool();
     try {
+        const pool = await getPool();
         const result = await pool.request().query(`
       UPDATE altdesk.Conversation
       SET SlaStatus = 'VIOLATED'
