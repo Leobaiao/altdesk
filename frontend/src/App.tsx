@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useMemo } from "react";
-// import io from "socket.io-client"; // Redundant
+
 import { CannedResponses } from "./CannedResponses";
 import { QueueSettings } from "./QueueSettings";
 import { Contacts } from "./Contacts";
