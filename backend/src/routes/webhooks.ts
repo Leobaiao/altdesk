@@ -247,34 +247,7 @@ router.post("/whatsapp/:provider/:connectorId*", async (req, res, next) => {
         // Se já tem ticket ativo, prossegue para salvar a mensagem normalmente e distribuir.
         // --- Fim do Fluxo de Ticket ---
 
-        /* BOT DESATIVADO TEMPORARIAMENTE
-        // Run AI orchestration in background
-        orch.run("TriageBot", inbound.text ?? "[media]", {
-            tenantId: inbound.tenantId,
-            conversationId,
-            externalSenderId: inbound.externalUserId
-        }).then(async decisions => {
-            const escalation = decisions.find(d => d.type === "ESCALATE");
-            if (escalation) {
-                // If AI escalates, try to distribute to a human agent
-                const queues = await listQueues(inbound.tenantId);
-                const targetQueue = queues[0]?.QueueId; // Pick first queue as default for now
-                if (targetQueue) {
-                    const assignedTo = await distributeConversation(inbound.tenantId, conversationId, targetQueue);
-                    if (assignedTo && io) {
-                        emitConversationEvent(io, inbound.tenantId, conversationId, "conversation:updated", {
-                            conversationId,
-                            assignedUserId: assignedTo,
-                            status: "OPEN",
-                            timestamp: new Date().toISOString()
-                        });
-                    }
-                }
-            }
-        }).catch(err => {
-            console.error("Orchestrator background error:", err);
-        });
-        */
+
 
         // Distribuição automática para fila de atendimento humano (se conversa sem atendente)
         try {

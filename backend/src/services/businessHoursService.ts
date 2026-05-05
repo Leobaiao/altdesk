@@ -135,8 +135,14 @@ export async function addBusinessException(tenantId: string, data: any) {
         .input("start", data.startTime || null)
         .input("end", data.endTime || null)
         .query(`
-            INSERT INTO altdesk.BusinessDayException (TenantId, [Date], Description, IsOpen, StartTime, EndTime)
-            VALUES (@tenantId, @date, @desc, @isOpen, @start, @end)
+            MERGE altdesk.BusinessDayException AS target
+            USING (VALUES (@tenantId, @date)) AS source (TenantId, [Date])
+            ON target.TenantId = source.TenantId AND target.[Date] = source.[Date]
+            WHEN MATCHED THEN
+                UPDATE SET Description = @desc, IsOpen = @isOpen, StartTime = @start, EndTime = @end
+            WHEN NOT MATCHED THEN
+                INSERT (TenantId, [Date], Description, IsOpen, StartTime, EndTime)
+                VALUES (@tenantId, @date, @desc, @isOpen, @start, @end);
         `);
 }
 

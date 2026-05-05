@@ -3,6 +3,8 @@ import { Plus, Search, MessageSquare, Mail, Monitor } from "lucide-react";
 import { useChat } from "../contexts/ChatContext";
 import type { Conversation, Tag } from "../../../shared/types";
 import { TagPill } from "./TagPill";
+import { api } from "../lib/api";
+
 
 function TabButton({ label, active, onClick }: { label: string, active: boolean, onClick: () => void }) {
     return (
@@ -68,6 +70,31 @@ export function Sidebar({ setView }: { setView: (view: any) => void }) {
         (role === "ADMIN" || role === "SUPERADMIN") ? "ALL" : "MY"
     );
     const [search, setSearch] = useState("");
+    const [showNewChatModal, setShowNewChatModal] = useState(false);
+    const [contactSearch, setContactSearch] = useState("");
+    const [contacts, setContacts] = useState<any[]>([]);
+
+    const handleOpenNewChat = async () => {
+        try {
+            const res = await api.get("/api/contacts");
+            setContacts(Array.isArray(res.data) ? res.data : []);
+            setShowNewChatModal(true);
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    const handleStartChat = async (contact: any) => {
+        try {
+            const res = await api.post("/api/conversations", { phone: contact.Phone, name: contact.Name });
+            setSelectedConversationId(res.data.conversationId);
+            setShowNewChatModal(false);
+            setContactSearch("");
+            refreshConversations();
+        } catch (e: any) {
+            alert("Erro: " + (e.response?.data?.error || e.message));
+        }
+    };
 
     const userId = getUserIdFromToken();
     const myChats = conversations.filter(c => c.Status === "OPEN" && c.AssignedUserId === userId);
@@ -90,29 +117,50 @@ export function Sidebar({ setView }: { setView: (view: any) => void }) {
 
     return (
         <div className="conversation-list-panel">
-            <div className="sidebar-header" style={{ padding: "10px 15px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <h2 style={{ margin: 0 }}>Conversas</h2>
+            <div className="sidebar-header" style={{ height: "85px", padding: "0 20px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--bg-primary)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <h2 style={{ margin: 0, fontSize: "1.5rem", fontWeight: 700, color: "var(--text-primary)" }}>Conversas</h2>
                     {accountStatus === "TRIAL" && (
                         <span style={{ 
                             fontSize: "0.65rem", 
-                            background: "#ff9800", 
+                            background: "linear-gradient(135deg, #ff9800 0%, #f57c00 100%)", 
                             color: "white", 
-                            padding: "2px 6px", 
-                            borderRadius: 4, 
+                            padding: "3px 8px", 
+                            borderRadius: 6, 
                             fontWeight: 800,
-                            letterSpacing: "0.5px"
+                            letterSpacing: "0.5px",
+                            boxShadow: "0 2px 4px rgba(245,124,0,0.3)"
                         }}>
                             TRIAL
                         </span>
                     )}
                 </div>
                 <div style={{ display: "flex", gap: 10 }}>
-                    <button onClick={() => setView("CONTACTS")} title="Novo Chat" style={{ background: "none", border: "none", color: "var(--primary)", cursor: "pointer", display: "flex", alignItems: "center" }}>
-                        <Plus size={20} color="#00a884" />
+                    <button 
+                        onClick={handleOpenNewChat} 
+                        title="Nova Conversa" 
+                        style={{ 
+                            background: "rgba(0, 168, 132, 0.1)", 
+                            border: "none", 
+                            color: "#00a884", 
+                            cursor: "pointer", 
+                            width: 36, 
+                            height: 36, 
+                            borderRadius: 10, 
+                            display: "flex", 
+                            alignItems: "center", 
+                            justifyContent: "center",
+                            transition: "all 0.2s ease"
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.transform = "scale(1.05)"}
+                        onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
+                    >
+                        <Plus size={22} />
                     </button>
                 </div>
             </div>
+
+
 
             <div className="search-box" style={{ padding: 10, position: "relative" }}>
                 <Search size={16} color="#8696a0" style={{ position: "absolute", left: 20, top: 20 }} />
@@ -191,6 +239,61 @@ export function Sidebar({ setView }: { setView: (view: any) => void }) {
                     </div>
                 )}
             </div>
+
+            {showNewChatModal && (
+                <div className="modal-overlay" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 }}>
+                    <div style={{ background: "var(--bg-secondary)", padding: 30, borderRadius: 20, width: "100%", maxWidth: 480, maxHeight: "85vh", display: "flex", flexDirection: "column", boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)", border: "1px solid var(--border)", animation: "modalIn 0.3s ease-out" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 25 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                                <div style={{ width: 40, height: 40, borderRadius: 12, background: "rgba(0, 168, 132, 0.1)", display: "flex", alignItems: "center", justifyContent: "center", color: "#00a884" }}>
+                                    <MessageSquare size={22} />
+                                </div>
+                                <h3 style={{ margin: 0, fontSize: "1.4rem", fontWeight: 700 }}>Nova Conversa</h3>
+                            </div>
+                            <button onClick={() => setShowNewChatModal(false)} className="icon-btn" style={{ background: "var(--bg-hover)", border: "none", color: "var(--text-secondary)", cursor: "pointer", width: 32, height: 32, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                <Plus size={24} style={{ transform: "rotate(45deg)" }} />
+                            </button>
+                        </div>
+
+                        <div style={{ position: "relative", marginBottom: 20 }}>
+                            <Search size={18} color="#8696a0" style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)" }} />
+                            <input 
+                                placeholder="Buscar contato por nome ou telefone..." 
+                                value={contactSearch} 
+                                onChange={e => setContactSearch(e.target.value)}
+                                style={{ width: "100%", padding: "14px 14px 14px 48px", borderRadius: 12, border: "2px solid transparent", background: "var(--bg-primary)", color: "var(--text-primary)", boxSizing: "border-box", fontSize: "1rem", outline: "none", transition: "all 0.2s" }}
+                                onFocus={e => e.target.style.borderColor = "#00a884"}
+                                onBlur={e => e.target.style.borderColor = "transparent"}
+                                autoFocus
+                            />
+                        </div>
+
+                        <div className="custom-scrollbar" style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, paddingRight: 5 }}>
+                            {contacts.filter(c => (c.Name || "").toLowerCase().includes(contactSearch.toLowerCase()) || (c.Phone || "").includes(contactSearch)).map(contact => (
+                                <div key={contact.ContactId} onClick={() => handleStartChat(contact)} style={{ padding: "12px 16px", borderRadius: 12, cursor: "pointer", border: "1px solid transparent", display: "flex", alignItems: "center", gap: 12, transition: "all 0.2s" }} onMouseEnter={e => { e.currentTarget.style.background = "rgba(0, 168, 132, 0.05)"; e.currentTarget.style.borderColor = "rgba(0, 168, 132, 0.2)"; }} onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "transparent"; }}>
+                                    <div style={{ width: 40, height: 40, borderRadius: "50%", background: "var(--bg-hover)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "var(--text-secondary)", fontSize: "1.1rem" }}>
+                                        {(contact.Name || "?").charAt(0).toUpperCase()}
+                                    </div>
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontWeight: 600, color: "var(--text-primary)" }}>{contact.Name || "Sem Nome"}</div>
+                                        <div style={{ fontSize: "0.85rem", color: "#8696a0", marginTop: 2 }}>{contact.Phone}</div>
+                                    </div>
+                                    <Plus size={18} color="#00a884" opacity={0.5} />
+                                </div>
+                            ))}
+                            {contacts.length === 0 && <div style={{ textAlign: "center", color: "#8696a0", padding: 40 }}>Nenhum contato encontrado.</div>}
+                        </div>
+
+                        <div style={{ marginTop: 25, paddingTop: 20, borderTop: "1px solid var(--border)", textAlign: "center" }}>
+                            <button onClick={() => setView("CONTACTS")} className="btn btn-ghost" style={{ fontSize: "0.9rem", width: "100%", padding: "12px", borderRadius: 12 }}>
+                                Gerenciar Contatos
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
         </div>
     );
 }
+

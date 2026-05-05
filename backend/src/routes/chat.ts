@@ -389,4 +389,36 @@ router.get("/:id/history", async (req, res, next) => {
     }
 });
 
+router.get("/:id/ticket", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const user = req.user;
+        const conversationId = req.params.id;
+        const { allowed, tenantId } = await checkConversationAccess(user, conversationId);
+        if (!allowed) return res.status(403).json({ error: "Access denied" });
+        
+        const { getActiveTicketForConversation } = await import("../services/ticketService.js");
+        const ticket = await getActiveTicketForConversation(tenantId!, conversationId);
+        res.json(ticket);
+    } catch (error) {
+        next(error);
+    }
+}) as any);
+
+router.post("/:id/ticket", validateBody(z.object({ priority: z.string() })), (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const user = req.user;
+        const conversationId = req.params.id;
+        const { priority } = req.body;
+        const { allowed, tenantId } = await checkConversationAccess(user, conversationId);
+        if (!allowed) return res.status(403).json({ error: "Access denied" });
+        
+        const { createTicketForConversation } = await import("../services/ticketService.js");
+        const ticket = await createTicketForConversation(tenantId!, conversationId, priority);
+        res.json(ticket);
+    } catch (error) {
+        next(error);
+    }
+}) as any);
+
 export default router;
+

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Plus, Search, Trash2, Edit3, ArrowLeft, Eye, EyeOff, BookOpen, Book } from "lucide-react";
+import { Plus, Search, Trash2, Edit3, ArrowLeft, Eye, EyeOff, BookOpen, Book, Check, X } from "lucide-react";
 import DOMPurify from "dompurify";
 import { PageHeader } from "./components/PageHeader";
 import { api } from "./lib/api";
@@ -14,6 +14,8 @@ export function KnowledgeBase({ onBack }: Props) {
     const [articles, setArticles] = useState<KnowledgeArticle[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
+    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
 
     // Editor state
     const [editingArticle, setEditingArticle] = useState<Partial<KnowledgeArticle> | null>(null);
@@ -57,12 +59,13 @@ export function KnowledgeBase({ onBack }: Props) {
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm("Tem certeza que deseja excluir este artigo?")) return;
         try {
             await api.delete(`/api/knowledge/${id}`);
+            setConfirmDeleteId(null);
             loadArticles();
-        } catch (error) {
+        } catch (error: any) {
             console.error("Erro ao excluir artigo:", error);
+            alert("Erro ao excluir: " + (error.response?.data?.error || error.message));
         }
     };
 
@@ -73,7 +76,7 @@ export function KnowledgeBase({ onBack }: Props) {
 
     if (editingArticle) {
         return (
-            <div className="kb-editor" style={{ padding: 20 }}>
+            <div className="settings-page" style={{ height: "100%", overflowY: "auto", padding: "20px 40px" }}>
                 <div style={{ display: "flex", alignItems: "center", marginBottom: 30 }}>
                     <button onClick={() => setEditingArticle(null)} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", marginRight: 15 }}>
                         <ArrowLeft size={24} />
@@ -83,7 +86,7 @@ export function KnowledgeBase({ onBack }: Props) {
                     </h2>
                 </div>
 
-                <form onSubmit={handleSave} style={{ background: "var(--bg-secondary)", padding: 30, borderRadius: 12, border: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 20 }}>
+                <form onSubmit={handleSave} style={{ background: "var(--bg-secondary)", padding: 30, borderRadius: 12, border: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 20, maxWidth: 1000, margin: "0 auto" }}>
                     <div>
                         <label style={{ display: "block", marginBottom: 8, fontSize: "0.85rem", color: "#8696a0" }}>Título</label>
                         <input
@@ -129,17 +132,15 @@ export function KnowledgeBase({ onBack }: Props) {
                         />
                     </div>
 
-                    <div style={{ display: "flex", justifyContent: "flex-end", gap: 15, marginTop: 10 }}>
-                        <button type="button" onClick={() => setEditingArticle(null)} style={{ padding: "12px 24px", borderRadius: 8, border: "1px solid var(--border)", background: "none", color: "var(--text-primary)", cursor: "pointer" }}>
-                            Cancelar
-                        </button>
-                        <button type="submit" disabled={isSaving} className="btn btn-primary" style={{ padding: "12px 32px", borderRadius: 8, fontWeight: 600 }}>
-                            {isSaving ? "Salvando..." : "Salvar Artigo"}
-                        </button>
+                    <div style={{ display: "flex", gap: 12, marginTop: 20 }}>
+                        <button type="button" onClick={() => setEditingArticle(null)} className="btn" style={{ flex: 1, padding: 12, borderRadius: 8, background: "var(--bg-hover)", color: "var(--text-primary)", fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center" }}>Cancelar</button>
+                        <button type="submit" disabled={isSaving} className="btn btn-primary" style={{ flex: 1, padding: 12, borderRadius: 8, fontWeight: 700, opacity: isSaving ? 0.7 : 1, display: "flex", alignItems: "center", justifyContent: "center" }}>{isSaving ? "Salvando..." : "Salvar Artigo"}</button>
                     </div>
                 </form>
+                <div style={{ height: 40 }} /> {/* Spacer for bottom scroll */}
             </div>
         );
+
     }
 
     if (viewingArticle) {
@@ -227,16 +228,29 @@ export function KnowledgeBase({ onBack }: Props) {
                                     {article.Category || "Sem Categoria"}
                                 </span>
                             </div>
-                            <div style={{ display: "flex", gap: 10 }}>
-                                <button onClick={() => setViewingArticle(article)} style={{ background: "none", border: "none", color: "var(--primary)", cursor: "pointer" }} title="Visualizar">
-                                    <BookOpen size={18} />
-                                </button>
-                                <button onClick={() => setEditingArticle(article)} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer" }} title="Editar">
-                                    <Edit3 size={18} />
-                                </button>
-                                <button onClick={() => handleDelete(article.ArticleId)} style={{ background: "none", border: "none", color: "#ea4335", cursor: "pointer" }} title="Excluir">
-                                    <Trash2 size={18} />
-                                </button>
+                            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                                {confirmDeleteId === article.ArticleId ? (
+                                    <>
+                                        <button onClick={() => handleDelete(article.ArticleId)} style={{ background: "var(--danger)", border: "none", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", gap: 4, padding: "4px 8px", borderRadius: 4, fontSize: 12, fontWeight: 600 }} title="Confirmar">
+                                            <Check size={14} /> Confirmar
+                                        </button>
+                                        <button onClick={() => setConfirmDeleteId(null)} style={{ background: "var(--bg-hover)", border: "none", color: "var(--text-secondary)", cursor: "pointer", padding: "4px 8px", borderRadius: 4 }} title="Cancelar">
+                                            <X size={16} />
+                                        </button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <button onClick={() => setViewingArticle(article)} style={{ background: "none", border: "none", color: "var(--primary)", cursor: "pointer" }} title="Visualizar">
+                                            <BookOpen size={18} />
+                                        </button>
+                                        <button onClick={() => setEditingArticle(article)} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer" }} title="Editar">
+                                            <Edit3 size={18} />
+                                        </button>
+                                        <button onClick={() => setConfirmDeleteId(article.ArticleId)} style={{ background: "none", border: "none", color: "#ea4335", cursor: "pointer" }} title="Excluir">
+                                            <Trash2 size={18} />
+                                        </button>
+                                    </>
+                                )}
                             </div>
                         </div>
                         <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 600 }}>{article.Title}</h3>

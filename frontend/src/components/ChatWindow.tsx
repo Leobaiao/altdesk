@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
-import { MessageCircleOff, ArrowLeft, Trash2, CheckCircle, RotateCcw, Users as UsersIcon, Zap, ChevronDown, Smile, FileText, Send, UserPlus, StickyNote, MessageSquare, Mail, Monitor } from "lucide-react";
+import { MessageCircleOff, ArrowLeft, Trash2, CheckCircle, RotateCcw, Users as UsersIcon, Zap, ChevronDown, Smile, FileText, Send, UserPlus, StickyNote, MessageSquare, Mail, Monitor, BookOpen } from "lucide-react";
+
 import { useChat } from "../contexts/ChatContext";
 import { AudioPlayer } from "./AudioPlayer";
 import { EmojiPicker } from "./EmojiPicker";
@@ -79,6 +80,53 @@ export function ChatWindow({ setView, showToast }: { setView: (v: any) => void, 
     // Tag Management
     const [allTags, setAllTags] = useState<Tag[]>([]);
     const [showTagMenu, setShowTagMenu] = useState(false);
+
+    // Ticket & KB States
+    const [activeTicket, setActiveTicket] = useState<any>(null);
+    const [showTicketModal, setShowTicketModal] = useState(false);
+    const [ticketPriority, setTicketPriority] = useState("MEDIUM");
+    const [showKBModal, setShowKBModal] = useState(false);
+    const [kbArticles, setKbArticles] = useState<any[]>([]);
+    const [kbSearch, setKbSearch] = useState("");
+
+    useEffect(() => {
+        if (selectedConversationId) {
+            loadActiveTicket();
+        } else {
+            setActiveTicket(null);
+        }
+    }, [selectedConversationId]);
+
+    const loadActiveTicket = async () => {
+        try {
+            const res = await api.get(`/api/conversations/${selectedConversationId}/ticket`);
+            setActiveTicket(res.data);
+        } catch (e) {
+            console.error("Error loading ticket:", e);
+        }
+    };
+
+    const handleCreateTicket = async () => {
+        try {
+            const res = await api.post(`/api/conversations/${selectedConversationId}/ticket`, { priority: ticketPriority });
+            setActiveTicket(res.data);
+            setShowTicketModal(false);
+            showToast("Ticket criado com sucesso", "success");
+        } catch (e: any) {
+            showToast("Erro ao criar ticket: " + (e.response?.data?.error || e.message), "error");
+        }
+    };
+
+    const loadKbArticles = async () => {
+        try {
+            const res = await api.get("/api/knowledge");
+            setKbArticles(Array.isArray(res.data) ? res.data : []);
+            setShowKBModal(true);
+        } catch (e) {
+            console.error("Error loading KB:", e);
+        }
+    };
+
 
     const userId = getUserIdFromToken();
 
@@ -253,101 +301,93 @@ export function ChatWindow({ setView, showToast }: { setView: (v: any) => void, 
 
     return (
         <>
-            <div className="chat-header">
-                <div className="info" style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <button className="mobile-back-btn" onClick={() => setSelectedConversationId(null)}>
+            <div className="chat-header" style={{ height: "85px", background: "var(--bg-primary)", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 25px", flexShrink: 0 }}>
+                <div className="info" style={{ display: "flex", alignItems: "center", gap: 15, minWidth: 0 }}>
+                    <button className="mobile-back-btn" onClick={() => setSelectedConversationId(null)} style={{ marginRight: 10 }}>
                         <ArrowLeft size={24} />
                     </button>
-                    <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                    <div style={{ width: 44, height: 44, borderRadius: 12, background: "var(--bg-hover)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.2rem", fontWeight: 700, color: "var(--accent)", flexShrink: 0 }}>
+                        {(selectedConversation.Title || "?").charAt(0).toUpperCase()}
+                    </div>
+                    <div style={{ minWidth: 0 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                             {getChannelIcon(selectedConversation.SourceChannel)}
-                            <h2 style={{ margin: 0, fontSize: "1.1rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                 {selectedConversation.Title || formatPhone(selectedConversation.ExternalUserId)}
                             </h2>
                         </div>
-                        <p>
-                            {formatPhone(selectedConversation.ExternalUserId)} • {selectedConversation.Kind} • {selectedConversation.Status}
-                            {selectedConversation.QueueName && ` • Fila: ${selectedConversation.QueueName}`}
-                        </p>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 5 }}>
-                            {selectedConversation.Tags?.map(tag => (
-                                <TagPill key={tag.TagId} tag={tag} onRemove={() => handleRemoveTag(tag.TagId)} />
-                            ))}
-                            <div style={{ position: "relative" }}>
-                                <button
-                                    onClick={() => setShowTagMenu(!showTagMenu)}
-                                    style={{ background: "none", border: "1px dashed var(--border)", color: "var(--text-secondary)", cursor: "pointer", fontSize: "0.7rem", padding: "1px 6px", borderRadius: 10, display: "flex", alignItems: "center" }}
-                                >
-                                    + Tag
-                                </button>
-                                {showTagMenu && (
-                                    <div style={{ position: "absolute", top: 25, left: 0, background: "var(--bg-secondary)", border: "1px solid var(--border)", borderRadius: 8, zIndex: 100, width: 150, maxHeight: 150, overflowY: "auto", boxShadow: "0 4px 12px rgba(0,0,0,0.2)" }}>
-                                        {allTags.filter(t => !selectedConversation.Tags?.some(st => st.TagId === t.TagId)).map(t => (
-                                            <div
-                                                key={t.TagId}
-                                                onClick={() => handleAddTag(t.TagId)}
-                                                style={{ padding: "6px 10px", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, fontSize: "0.8rem", borderBottom: "1px solid var(--border)" }}
-                                                className="tag-menu-item"
-                                            >
-                                                <div style={{ width: 10, height: 10, borderRadius: "50%", background: t.Color }} />
-                                                {t.Name}
-                                            </div>
-                                        ))}
-                                        {allTags.filter(t => !selectedConversation.Tags?.some(st => st.TagId === t.TagId)).length === 0 && (
-                                            <div style={{ padding: 10, fontSize: "0.75rem", color: "#888" }}>Nenhuma tag disponível</div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+                            <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+                                {formatPhone(selectedConversation.ExternalUserId)}
+                            </span>
+                            <span style={{ width: 4, height: 4, borderRadius: "50%", background: "var(--border)" }} />
+                            <span style={{ fontSize: "0.8rem", textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 700, color: selectedConversation.Status === "OPEN" ? "#00a884" : "#8696a0" }}>
+                                {selectedConversation.Status}
+                            </span>
+                            {selectedConversation.QueueName && (
+                                <>
+                                    <span style={{ width: 4, height: 4, borderRadius: "50%", background: "var(--border)" }} />
+                                    <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>{selectedConversation.QueueName}</span>
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>
-                <div className="actions" style={{ display: "flex", gap: 10, flexShrink: 0 }}>
-                    <button
-                        onClick={async () => {
-                            if (!confirm("Tem certeza que deseja apagar esta conversa e todo o histórico?")) return;
-                            try {
-                                await api.delete(`/api/conversations/${selectedConversationId}`);
-                                showToast("Conversa apagada", "success");
-                                refreshConversations();
-                                setSelectedConversationId(null);
-                            } catch (e: any) {
-                                showToast("Erro: " + e.message, "error");
-                            }
-                        }}
-                        className="icon-btn"
-                        title="Apagar Conversa"
-                        style={{ color: "#ea4335" }}
-                    >
-                        <Trash2 size={18} />
-                    </button>
-                    {selectedConversation.Status === "OPEN" && (
-                        <button onClick={() => handleStatus("RESOLVED")} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", background: "#f0f2f5", border: "none", color: "green", borderRadius: 6, cursor: "pointer", fontWeight: 500 }} title="Resolver">
-                            <CheckCircle size={16} /> Resolver
+
+                <div className="actions" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginRight: 10 }}>
+                        {selectedConversation.Tags?.map(tag => (
+                            <TagPill key={tag.TagId} tag={tag} onRemove={() => handleRemoveTag(tag.TagId)} />
+                        ))}
+                        <div style={{ position: "relative" }}>
+                            <button
+                                onClick={() => setShowTagMenu(!showTagMenu)}
+                                style={{ background: "rgba(0,168,132,0.1)", border: "1px dashed #00a884", color: "#00a884", cursor: "pointer", fontSize: "0.7rem", padding: "2px 8px", borderRadius: 8, display: "flex", alignItems: "center", fontWeight: 600 }}
+                            >
+                                + TAG
+                            </button>
+                            {showTagMenu && (
+                                <div style={{ position: "absolute", top: 30, right: 0, background: "var(--bg-secondary)", border: "1px solid var(--border)", borderRadius: 10, zIndex: 100, width: 180, maxHeight: 200, overflowY: "auto", boxShadow: "0 10px 25px rgba(0,0,0,0.2)", padding: 5 }}>
+                                    {allTags.filter(t => !selectedConversation.Tags?.find(st => st.TagId === t.TagId)).map(tag => (
+                                        <div key={tag.TagId} onClick={() => { handleAddTag(tag.TagId); setShowTagMenu(false); }} style={{ padding: "8px 12px", cursor: "pointer", borderRadius: 6, fontSize: "0.85rem", transition: "all 0.2s" }} onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                                <div style={{ width: 8, height: 8, borderRadius: "50%", background: tag.Color || "#ccc" }} />
+                                                {tag.Name}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {!activeTicket ? (
+                        <button onClick={() => setShowTicketModal(true)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", background: "var(--accent)", border: "none", color: "white", borderRadius: 10, cursor: "pointer", fontWeight: 600, fontSize: "0.85rem", boxShadow: "0 4px 10px rgba(0, 168, 132, 0.2)" }} title="Abrir Ticket">
+                            <FileText size={16} /> Abrir Ticket
                         </button>
+                    ) : (
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", background: "rgba(0, 168, 132, 0.1)", color: "#00a884", borderRadius: 10, fontSize: "0.85rem", fontWeight: 700, border: "1px solid rgba(0, 168, 132, 0.2)" }}>
+                            TICKET #{activeTicket.TicketId?.substring(0, 5)}
+                        </div>
                     )}
-                    {selectedConversation.Status === "RESOLVED" && (
-                        <button onClick={() => handleStatus("OPEN")} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", background: "#f0f2f5", border: "none", color: "orange", borderRadius: 6, cursor: "pointer", fontWeight: 500 }} title="Reabrir">
-                            <RotateCcw size={16} /> Reabrir
-                        </button>
-                    )}
+
+                    <div style={{ width: 1, height: 24, background: "var(--border)", margin: "0 5px" }} />
 
                     {!selectedConversation.AssignedUserId && (
-                        <button onClick={() => handleAssign(selectedConversation.QueueId || null, userId)} style={{ padding: "5px 10px", background: "#00a884", border: "none", color: "white", borderRadius: 5, cursor: "pointer" }}>
-                            Pegar Atendimento
+                        <button onClick={() => handleAssign(selectedConversation.QueueId || null, userId)} style={{ background: "#00a884", border: "none", color: "white", padding: "8px 12px", borderRadius: 8, cursor: "pointer", fontSize: "0.8rem", fontWeight: 600 }}>
+                            Assumir
                         </button>
                     )}
+
                     {selectedConversation.AssignedUserId === userId && (
-                        <button onClick={() => {
-                            if (confirm("Devolver para a fila geral?")) handleAssign(null, null);
-                        }} style={{ padding: "5px 10px", background: "#f0f2f5", border: "none", color: "#54656f", borderRadius: 5, cursor: "pointer", marginLeft: 10 }}>
-                            Devolver
+                        <button onClick={() => handleAssign(null, null)} style={{ background: "var(--bg-hover)", border: "none", color: "var(--text-secondary)", width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }} title="Devolver para Fila">
+                            <RotateCcw size={18} />
                         </button>
                     )}
 
                     {selectedConversation.Status === "OPEN" && (
-                        <button onClick={openAssignModal} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 10px", background: "#f0f2f5", border: "none", color: "#54656f", borderRadius: 5, cursor: "pointer", marginLeft: 10 }}>
-                            <UsersIcon size={16} /> Transferir
+                        <button onClick={openAssignModal} style={{ background: "var(--bg-hover)", border: "none", color: "var(--text-secondary)", width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }} title="Transferir Atendimento">
+                            <UsersIcon size={18} />
                         </button>
                     )}
 
@@ -360,28 +400,54 @@ export function ChatWindow({ setView, showToast }: { setView: (v: any) => void, 
                                 setContactForm({ name, phone, email: "", company: "" });
                                 setShowContactModal(true);
                             }}
-                            style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", background: "#f0f2f5", border: "none", color: "#54656f", borderRadius: 6, cursor: "pointer", fontWeight: 500 }}
+                            style={{ background: "var(--bg-hover)", border: "none", color: "var(--text-secondary)", width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
                             title="Salvar Contato"
                         >
-                            <UserPlus size={16} /> Salvar Contato
+                            <UserPlus size={18} />
                         </button>
                     )}
 
                     <button
                         onClick={async () => {
-                            if (!confirm("Deseja re-conectar esta conversa ao Provider Padrão do sistema?")) return;
-                            try {
-                                const res = await api.post(`/api/conversations/${selectedConversationId}/reassign-connector`);
-                                alert("Conectado ao provider: " + res.data.provider);
-                            } catch (e: any) { alert("Erro: " + (e.response?.data?.error || e.message)); }
+                            if (!confirm("Deseja re-conectar esta conversa ao Provider Padrão?")) return;
+                            try { await api.post(`/api/conversations/${selectedConversationId}/reassign-connector`); showToast("Re-conectado ao provider padrão", "success"); } catch (e: any) { showToast("Erro ao re-conectar", "error"); }
                         }}
-                        style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "6px 12px", background: "#f0f2f5", border: "none", color: "#666", borderRadius: 6, cursor: "pointer", marginLeft: 10 }}
-                        title="Trocar para Provider Padrão"
+                        style={{ background: "var(--bg-hover)", border: "none", color: "var(--text-secondary)", width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+                        title="Trocar Provider"
                     >
-                        <Zap size={16} />
+                        <Zap size={18} />
+                    </button>
+
+                    <div style={{ width: 1, height: 24, background: "var(--border)", margin: "0 5px" }} />
+
+                    {selectedConversation.Status === "OPEN" ? (
+                        <button onClick={() => handleStatus("RESOLVED")} style={{ background: "rgba(0, 168, 132, 0.1)", border: "none", color: "#00a884", width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }} title="Resolver Conversa">
+                            <CheckCircle size={20} />
+                        </button>
+                    ) : (
+                        <button onClick={() => handleStatus("OPEN")} style={{ background: "rgba(255, 152, 0, 0.1)", border: "none", color: "#ff9800", width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }} title="Reabrir Conversa">
+                            <RotateCcw size={20} />
+                        </button>
+                    )}
+
+                    <button
+                        onClick={async () => {
+                            if (!confirm("Tem certeza que deseja apagar esta conversa?")) return;
+                            try {
+                                await api.delete(`/api/conversations/${selectedConversationId}`);
+                                showToast("Conversa apagada", "success");
+                                refreshConversations();
+                                setSelectedConversationId(null);
+                            } catch (e: any) { showToast("Erro: " + e.message, "error"); }
+                        }}
+                        style={{ background: "rgba(234, 67, 53, 0.1)", border: "none", color: "#ea4335", width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+                        title="Apagar Conversa"
+                    >
+                        <Trash2 size={20} />
                     </button>
                 </div>
             </div>
+
 
             <div className="chat-messages" ref={chatContainerRef} onScroll={handleScroll}>
                 {messages.map((m) => (
@@ -513,6 +579,12 @@ export function ChatWindow({ setView, showToast }: { setView: (v: any) => void, 
                 <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} style={{ background: "none", border: "none", cursor: "pointer", padding: "0 10px", color: "var(--text-secondary)" }} title="Emojis">
                     <Smile size={24} />
                 </button>
+                <button onClick={() => setShowCannedMenu(!showCannedMenu)} style={{ background: "none", border: "none", cursor: "pointer", padding: "0 10px", color: "var(--text-secondary)" }} title="Respostas Rápidas">
+                    <Zap size={24} />
+                </button>
+                <button onClick={loadKbArticles} style={{ background: "none", border: "none", cursor: "pointer", padding: "0 10px", color: "var(--text-secondary)" }} title="Base de Conhecimento">
+                    <BookOpen size={24} />
+                </button>
                 <button onClick={() => setShowTemplateModal(true)} style={{ background: "none", border: "none", cursor: "pointer", padding: "0 10px", color: "var(--text-secondary)" }} title="Modelos (HSM)">
                     <FileText size={24} />
                 </button>
@@ -523,6 +595,7 @@ export function ChatWindow({ setView, showToast }: { setView: (v: any) => void, 
                 >
                     <StickyNote size={24} />
                 </button>
+
                 <input
                     ref={inputRef}
                     placeholder={noteMode ? "📌 Escreva uma nota interna..." : "Digite uma mensagem (ou / para respostas rápidas)"}
@@ -542,6 +615,70 @@ export function ChatWindow({ setView, showToast }: { setView: (v: any) => void, 
                     onSend={(txt) => sendReply(txt)}
                 />
             )}
+
+            {showTicketModal && (
+                <div className="modal-overlay" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 }}>
+                    <div style={{ background: "var(--bg-secondary)", padding: 25, borderRadius: 10, width: 400 }}>
+                        <h3 style={{ marginTop: 0 }}>Abrir Ticket</h3>
+                        <p style={{ color: "var(--text-secondary)", marginBottom: 20 }}>Deseja transformar esta conversa em um ticket com SLA?</p>
+                        
+                        <div style={{ marginBottom: 15 }}>
+                            <label style={{ display: "block", marginBottom: 6, fontSize: "0.85rem", color: "#8696a0" }}>Prioridade</label>
+                            <select value={ticketPriority} onChange={e => setTicketPriority(e.target.value)} style={{ width: "100%", padding: 10, borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)" }}>
+                                <option value="LOW">Baixa</option>
+                                <option value="MEDIUM">Média</option>
+                                <option value="HIGH">Alta</option>
+                                <option value="CRITICAL">Crítica</option>
+                            </select>
+                        </div>
+
+                        <div style={{ display: "flex", gap: 10, marginTop: 25 }}>
+                            <button onClick={() => setShowTicketModal(false)} className="btn btn-ghost" style={{ flex: 1 }}>Cancelar</button>
+                            <button onClick={handleCreateTicket} className="btn btn-primary" style={{ flex: 1 }}>Criar Ticket</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showKBModal && (
+                <div className="modal-overlay" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 }}>
+                    <div style={{ background: "var(--bg-secondary)", padding: 25, borderRadius: 10, width: 700, maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                            <h3 style={{ margin: 0 }}>Base de Conhecimento</h3>
+                            <button onClick={() => setShowKBModal(false)} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer" }}>
+                                <RotateCcw size={18} />
+                            </button>
+                        </div>
+
+                        <input 
+                            placeholder="Buscar artigos..." 
+                            value={kbSearch} 
+                            onChange={e => setKbSearch(e.target.value)}
+                            style={{ width: "100%", padding: 12, borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", marginBottom: 15, boxSizing: "border-box" }}
+                        />
+
+                        <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 10 }}>
+                            {kbArticles.filter(a => a.Title.toLowerCase().includes(kbSearch.toLowerCase()) || a.Category?.toLowerCase().includes(kbSearch.toLowerCase())).map(article => (
+                                <div key={article.ArticleId} style={{ padding: 15, border: "1px solid var(--border)", borderRadius: 10, cursor: "pointer", transition: "background 0.2s" }} 
+                                    onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
+                                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                                    onClick={() => {
+                                        setText(text + article.Content.replace(/<[^>]*>?/gm, ''));
+                                        setShowKBModal(false);
+                                    }}>
+                                    <div style={{ fontWeight: 600, color: "var(--accent)", fontSize: "0.8rem" }}>{article.Category || "Geral"}</div>
+                                    <div style={{ fontWeight: 700, fontSize: "1.05rem", margin: "4px 0" }}>{article.Title}</div>
+                                    <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                                        {article.Content.replace(/<[^>]*>?/gm, '')}
+                                    </div>
+                                </div>
+                            ))}
+                            {kbArticles.length === 0 && <div style={{ textAlign: "center", color: "#8696a0", padding: 20 }}>Nenhum artigo encontrado.</div>}
+                        </div>
+                    </div>
+                </div>
+            )}
+
 
             {viewingImage && (
                 <ImageViewerModal

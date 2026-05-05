@@ -40,7 +40,27 @@ export async function deleteCannedResponse(tenantId: string, id: string) {
         .input("tenantId", tenantId)
         .input("id", id)
         .query(`
-      UPDATE altdesk.CannedResponse SET DeletedAt = SYSUTCDATETIME()
-      WHERE TenantId = @tenantId AND CannedResponseId = @id
+      UPDATE altdesk.CannedResponse 
+      SET DeletedAt = SYSUTCDATETIME()
+      WHERE TenantId = @tenantId AND CannedResponseId = CAST(@id AS UNIQUEIDENTIFIER)
     `);
 }
+
+
+export async function updateCannedResponse(tenantId: string, id: string, shortcut: string, content: string, title: string) {
+    const pool = await getPool();
+    await pool.request()
+
+        .input("tenantId", tenantId)
+        .input("id", id)
+        .input("shortcut", shortcut)
+        .input("content", content)
+        .input("title", title)
+        .query(`
+      UPDATE altdesk.CannedResponse
+      SET Shortcut = @shortcut, Content = @content, Title = @title
+      WHERE TenantId = @tenantId AND CannedResponseId = CAST(@id AS UNIQUEIDENTIFIER)
+    `);
+}
+
+
