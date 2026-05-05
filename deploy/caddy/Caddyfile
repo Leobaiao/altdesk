@@ -6,6 +6,11 @@
 # Nenhuma configuração manual de SSL é necessária.
 # ═══════════════════════════════════════════════════
 
+{
+	email admin@altdesk.com.br
+	acme_ca https://acme.zerossl.com/v2/DV90
+}
+
 # ─── FRONTEND (App Cliente) ───
 altdesk.com.br {
 	reverse_proxy frontend:80
