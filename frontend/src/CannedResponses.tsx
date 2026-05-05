@@ -1,5 +1,7 @@
-import { useState, useEffect } from "react";
-import { Plus, Trash2, ArrowLeft, MessageSquare, Zap, BookOpen } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Plus, Search, MessageSquare, Zap, Trash2, ArrowLeft, Pencil, Check, X } from "lucide-react";
+
+
 import { PageHeader } from "./components/PageHeader";
 
 import type { CannedResponse } from "../../shared/types";
@@ -8,61 +10,94 @@ import { api } from "./lib/api";
 
 export function CannedResponses({ onBack }: { onBack: () => void }) {
     const [items, setItems] = useState<CannedResponse[]>([]);
-    const [view, setView] = useState<"LIST" | "NEW">("LIST");
+    const [view, setView] = useState<"LIST" | "FORM">("LIST");
+    const [editingItem, setEditingItem] = useState<CannedResponse | null>(null);
     const [newShortcut, setNewShortcut] = useState("");
     const [newContent, setNewContent] = useState("");
     const [newTitle, setNewTitle] = useState("");
+    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
 
     useEffect(() => {
-        api.get<CannedResponse[]>("/api/canned-responses")
-            .then((res) => {
-                if (Array.isArray(res.data)) {
-                    setItems(res.data);
-                } else {
-                    console.error("API returned non-array for canned responses:", res.data);
-                    setItems([]);
-                }
-            })
-            .catch(console.error);
+        loadItems();
     }, []);
+
+    const loadItems = async () => {
+        try {
+            const res = await api.get<CannedResponse[]>("/api/canned-responses");
+            if (Array.isArray(res.data)) {
+                setItems(res.data);
+            } else {
+                setItems([]);
+            }
+        } catch (e) {
+            console.error(e);
+            setItems([]);
+        }
+    };
 
     const handleSave = async () => {
         if (!newShortcut || !newContent || !newTitle) return alert("Preencha todos os campos");
 
         try {
-            await api.post("/api/canned-responses", { shortcut: newShortcut, content: newContent, title: newTitle });
-
-            // reload
-            const listRes = await api.get<CannedResponse[]>("/api/canned-responses");
-            if (Array.isArray(listRes.data)) {
-                setItems(listRes.data);
+            if (editingItem) {
+                await api.put(`/api/canned-responses/${editingItem.CannedResponseId}`, {
+                    shortcut: newShortcut,
+                    content: newContent,
+                    title: newTitle
+                });
+            } else {
+                await api.post("/api/canned-responses", {
+                    shortcut: newShortcut,
+                    content: newContent,
+                    title: newTitle
+                });
             }
+
+            await loadItems();
             setView("LIST");
-            setNewShortcut("");
-            setNewContent("");
-            setNewTitle("");
+            resetForm();
         } catch (error: any) {
             const err = error.response?.data || {};
             alert("Erro ao salvar: " + (err.error || error.message));
         }
     };
 
+    const resetForm = () => {
+        setEditingItem(null);
+        setNewShortcut("");
+        setNewContent("");
+        setNewTitle("");
+    };
+
+    const handleEdit = (item: CannedResponse) => {
+        setEditingItem(item);
+        setNewShortcut(item.Shortcut);
+        setNewContent(item.Content);
+        setNewTitle(item.Title);
+        setView("FORM");
+    };
+
     const handleDelete = async (id: string) => {
-        if (!confirm("Deletar?")) return;
         try {
             await api.delete(`/api/canned-responses/${id}`);
-            setItems(items.filter((i) => i.CannedResponseId !== id));
-        } catch (e) {
-            console.error(e);
+            setItems(prev => prev.filter(i => i.CannedResponseId !== id));
+            setConfirmDeleteId(null);
+        } catch (e: any) {
+            console.error("Delete failed:", e);
+            alert("Erro ao excluir: " + (e.response?.data?.error || e.message));
         }
     };
+
+
+
 
     return (
         <div className="settings-page" style={{ flex: 1, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
             <PageHeader
-                title={view === "LIST" ? "Respostas Rápidas" : "Nova Resposta Rápida"}
+                title={view === "LIST" ? "Respostas Rápidas" : (editingItem ? "Editar Resposta Rápida" : "Nova Resposta Rápida")}
                 icon={BookOpen}
-                onBack={view === "LIST" ? onBack : () => setView("LIST")}
+                onBack={view === "LIST" ? onBack : () => { setView("LIST"); resetForm(); }}
                 helpText={
                     <div>
                         <p>Respostas rápidas são modelos de texto pré-configurados para agilizar o atendimento.</p>
@@ -74,7 +109,7 @@ export function CannedResponses({ onBack }: { onBack: () => void }) {
                     </div>
                 }
                 actionNode={view === "LIST" ? (
-                    <button className="btn btn-primary" onClick={() => setView("NEW")} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 20px", borderRadius: 12 }}>
+                    <button className="btn btn-primary" onClick={() => { setView("FORM"); resetForm(); }} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 20px", borderRadius: 12 }}>
                         <Plus size={18} /> Nova
                     </button>
                 ) : undefined}
@@ -103,20 +138,37 @@ export function CannedResponses({ onBack }: { onBack: () => void }) {
                                             <div style={{ fontSize: "13px", color: "var(--text-secondary)", marginTop: 4, whiteSpace: "pre-wrap" }}>{item.Content}</div>
                                         </div>
                                     </div>
-                                    <div>
-                                        <button onClick={() => handleDelete(item.CannedResponseId)} className="icon-btn" style={{ padding: 8, color: "var(--danger)" }} title="Excluir">
-                                            <Trash2 size={18} />
-                                        </button>
+                                    <div style={{ display: "flex", gap: 8 }}>
+                                        {confirmDeleteId === item.CannedResponseId ? (
+                                            <>
+                                                <button onClick={() => handleDelete(item.CannedResponseId)} className="icon-btn" style={{ padding: "10px 16px", background: "var(--danger)", borderRadius: 8, color: "#fff", display: "flex", alignItems: "center", gap: 6, fontWeight: 600, fontSize: 13 }}>
+                                                    <Check size={16} /> Confirmar
+                                                </button>
+                                                <button onClick={() => setConfirmDeleteId(null)} className="icon-btn" style={{ padding: 10, background: "var(--bg-hover)", borderRadius: 8, color: "var(--text-secondary)" }}>
+                                                    <X size={18} />
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <button onClick={() => handleEdit(item)} className="icon-btn" style={{ padding: 10, background: "rgba(0,168,132,0.1)", borderRadius: 8, color: "var(--accent)" }} title="Editar">
+                                                    <Pencil size={18} />
+                                                </button>
+                                                <button onClick={() => setConfirmDeleteId(item.CannedResponseId)} className="icon-btn" style={{ padding: 10, background: "rgba(234,67,53,0.1)", borderRadius: 8, color: "var(--danger)" }} title="Excluir">
+                                                    <Trash2 size={18} />
+                                                </button>
+                                            </>
+                                        )}
                                     </div>
+
                                 </div>
                             ))}
                         </div>
                     </div>
                 )}
 
-                {view === "NEW" && (
+                {view === "FORM" && (
                     <div className="login-card" style={{ margin: "40px auto", width: "100%", maxWidth: 500 }}>
-                        <h1 style={{ marginBottom: 20 }}>Nova Resposta Rápida</h1>
+                        <h1 style={{ marginBottom: 20 }}>{editingItem ? "Editar Resposta" : "Nova Resposta Rápida"}</h1>
                         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                             <div className="field">
                                 <label>Título (ex: Saudação)</label>
@@ -139,10 +191,13 @@ export function CannedResponses({ onBack }: { onBack: () => void }) {
                                 />
                             </div>
 
-                            <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
-                                <button onClick={() => setView("LIST")} className="btn btn-ghost" style={{ flex: 1 }}>Cancelar</button>
-                                <button onClick={handleSave} className="btn btn-primary" style={{ flex: 1 }}>Salvar Resposta Rápida</button>
+                            <div style={{ display: "flex", gap: 12, marginTop: 20 }}>
+                                <button type="button" onClick={() => { setView("LIST"); resetForm(); }} className="btn" style={{ flex: 1, height: "48px", borderRadius: 12, background: "var(--bg-hover)", color: "var(--text-primary)", fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center" }}>Cancelar</button>
+                                <button type="button" onClick={handleSave} className="btn btn-primary" style={{ flex: 1, height: "48px", borderRadius: 12, fontWeight: 700, boxShadow: "0 4px 12px rgba(0, 168, 132, 0.2)", display: "flex", alignItems: "center", justifyContent: "center" }}>{editingItem ? "Atualizar" : "Salvar"} Resposta</button>
                             </div>
+
+
+
                         </div>
                     </div>
                 )}

@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { authMw, requirePermission } from "../mw.js";
 import { validateBody } from "../middleware/validateMw.js";
-import { listCannedResponses, createCannedResponse, deleteCannedResponse } from "../services/canned-response.js";
+import { listCannedResponses, createCannedResponse, deleteCannedResponse, updateCannedResponse } from "../services/canned-response.js";
 
 const router = Router();
 router.use(authMw, requirePermission('settings'));
@@ -41,5 +41,21 @@ router.delete("/:id", async (req, res, next) => {
         next(error);
     }
 });
+
+router.put("/:id", validateBody(z.object({
+    shortcut: z.string().min(1),
+    content: z.string().min(1),
+    title: z.string().min(1)
+})), async (req, res, next) => {
+    try {
+        const user = (req as any).user;
+        const { shortcut, content, title } = req.body;
+        await updateCannedResponse(user.tenantId, req.params.id, shortcut, content, title);
+        res.json({ ok: true });
+    } catch (error) {
+        next(error);
+    }
+});
+
 
 export default router;

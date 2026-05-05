@@ -236,18 +236,21 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
   const isMobileDetailOpen = isChat && !!selectedConversationId;
 
   const ProfileHeader = () => (
-    <div className="global-header" style={{ padding: "12px 20px", display: "flex", justifyContent: "flex-end", alignItems: "center", borderBottom: "1px solid var(--border)", background: "var(--bg-primary)" }}>
-       <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", marginRight: 15 }}>
-           <span style={{ fontWeight: 600, fontSize: "0.9rem" }}>{profile?.Name || "Usuário"}</span>
-           <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>{profile?.TenantName || "Empresa"}</span>
-       </div>
+    <div className="global-header" style={{ padding: "6px 20px", display: "flex", justifyContent: "flex-end", alignItems: "center", borderBottom: "1px solid var(--border)", background: "var(--bg-primary)" }}>
+
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", marginRight: 12 }}>
+            <span style={{ fontWeight: 600, fontSize: "0.85rem", lineHeight: 1 }}>{profile?.Name || "Usuário"}</span>
+            <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", marginTop: 2 }}>{profile?.TenantName || "Empresa"}</span>
+        </div>
+
        {profile?.Avatar ? (
-           <img src={profile.Avatar} alt="Profile" style={{ width: 36, height: 36, borderRadius: 10, objectFit: "cover" }} />
+           <img src={profile.Avatar} alt="Profile" style={{ width: 30, height: 30, borderRadius: 8, objectFit: "cover" }} />
        ) : (
-           <div style={{ width: 36, height: 36, borderRadius: 10, background: "var(--accent)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>
+           <div style={{ width: 30, height: 30, borderRadius: 8, background: "var(--accent)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: "0.8rem" }}>
                {profile?.Name ? profile.Name.charAt(0).toUpperCase() : role.charAt(0)}
            </div>
        )}
+
     </div>
   );
 
@@ -297,40 +300,45 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
         </div>
       </div>
 
-      {/* Painel Secundário de Lista de Conversas (Disponível apenas no CHAT) */}
-      {isChat && <Sidebar setView={(v) => navigate(`/${v.toLowerCase()}`)} />}
-
-      {/* Área Principal Dinâmica (Chat window, ou outra tela de config) */}
-      <div className="chat-area" style={{ display: "flex", flexDirection: "column" }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
         <ProfileHeader />
-        <div style={{ flex: 1, overflow: "hidden", position: "relative", display: "flex", flexDirection: "column" }}>
-          <Routes>
-            <Route path="/" element={<Navigate to="/chat" replace />} />
-            <Route path="/chat" element={<ChatWindow setView={(v) => navigate(`/${v.toLowerCase()}`)} showToast={showToast} />} />
-            <Route path="/contacts" element={<Contacts onBack={() => navigate("/chat")} onStartChat={handleStartChat} />} />
-            <Route path="/canned" element={<CannedResponses onBack={() => navigate("/settings")} />} />
-            <Route path="/dashboard" element={<DashboardView token={token} onBack={() => navigate("/chat")} />} />
+        <div style={{ flex: 1, display: "flex", minWidth: 0, overflow: "hidden" }}>
+          {/* Painel Secundário de Lista de Conversas (Disponível apenas no CHAT) */}
+          {isChat && <Sidebar setView={(v) => navigate(`/${v.toLowerCase()}`)} />}
 
-            <Route path="/users" element={<Users token={token} onBack={() => navigate("/chat")} role={role || 'AGENT'} />} />
+          {/* Área Principal Dinâmica (Chat window, ou outra tela de config) */}
+          <div className="chat-area" style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+            <div style={{ flex: 1, overflow: "hidden", position: "relative", display: "flex", flexDirection: "column" }}>
+              <Routes>
+                <Route path="/" element={<Navigate to="/chat" replace />} />
+                <Route path="/chat" element={<ChatWindow setView={(v) => navigate(`/${v.toLowerCase()}`)} showToast={showToast} />} />
+                <Route path="/contacts" element={<Contacts onBack={() => navigate("/chat")} onStartChat={handleStartChat} />} />
+                <Route path="/canned" element={<CannedResponses onBack={() => navigate("/settings")} />} />
+                <Route path="/dashboard" element={<DashboardView token={token} onBack={() => navigate("/chat")} />} />
 
-            <Route path="/settings" element={
-              (role === 'SUPERADMIN' || role === 'ADMIN' || livePermissions?.settings !== false) 
-                ? <Settings token={token} onBack={() => navigate("/chat")} role={role || 'AGENT'} livePermissions={livePermissions} />
-                : <Navigate to="/chat" replace />
-            } />
-            <Route path="/queues" element={<QueueSettings onBack={() => navigate("/settings")} />} />
-            <Route path="/tags" element={<TagsSettings onBack={() => navigate("/settings")} />} />
-            <Route path="/knowledge" element={<KnowledgeBase onBack={() => navigate("/settings")} />} />
-            <Route path="/business-hours" element={<BusinessHours onBack={() => navigate("/settings")} />} />
-            <Route path="/tickets" element={<Tickets token={token} onBack={() => navigate("/chat")} role={role || 'AGENT'} />} />
-            <Route path="/reports" element={<Reports onBack={() => navigate("/chat")} />} />
-            <Route path="/billing" element={<Billing onBack={() => navigate("/settings")} />} />
-            <Route path="/audit" element={<AuditLogs onBack={() => navigate("/settings")} />} />
+                <Route path="/users" element={<Users token={token} onBack={() => navigate("/chat")} role={role || 'AGENT'} />} />
 
-            <Route path="*" element={<Navigate to="/chat" replace />} />
-          </Routes>
+                <Route path="/settings" element={
+                  (role === 'SUPERADMIN' || role === 'ADMIN' || livePermissions?.settings !== false) 
+                    ? <Settings token={token} onBack={() => navigate("/chat")} role={role || 'AGENT'} livePermissions={livePermissions} />
+                    : <Navigate to="/chat" replace />
+                } />
+                <Route path="/queues" element={<QueueSettings onBack={() => navigate("/settings")} />} />
+                <Route path="/tags" element={<TagsSettings onBack={() => navigate("/settings")} />} />
+                <Route path="/knowledge" element={<KnowledgeBase onBack={() => navigate("/settings")} />} />
+                <Route path="/business-hours" element={<BusinessHours onBack={() => navigate("/settings")} />} />
+                <Route path="/tickets" element={<Tickets token={token} onBack={() => navigate("/chat")} role={role || 'AGENT'} />} />
+                <Route path="/reports" element={<Reports onBack={() => navigate("/chat")} />} />
+                <Route path="/billing" element={<Billing onBack={() => navigate("/settings")} />} />
+                <Route path="/audit" element={<AuditLogs onBack={() => navigate("/settings")} />} />
+
+                <Route path="*" element={<Navigate to="/chat" replace />} />
+              </Routes>
+            </div>
+          </div>
         </div>
       </div>
+
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     </div>
