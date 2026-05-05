@@ -61,6 +61,8 @@ services:
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P ${MSSQL_SA_PASSWORD} -C -d AltDeskDev -i /scripts/19-email-integration.sql;
         echo 'Executando migration 20 (add contextdata)...';
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P ${MSSQL_SA_PASSWORD} -C -d AltDeskDev -i /scripts/20-add-contextdata.sql;
+        echo 'Executando migration 21 (kanban sla)...';
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P ${MSSQL_SA_PASSWORD} -C -d AltDeskDev -i /scripts/21-kanban-sla.sql;
         echo 'Todas as migrations concluidas em PROD!';
       "
     networks:
