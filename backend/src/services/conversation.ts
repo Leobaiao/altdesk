@@ -374,3 +374,66 @@ export async function deleteMessage(tenantId: string, messageId: string) {
             WHERE MessageId = @messageId AND TenantId = @tenantId
         `);
 }
+
+/**
+ * Busca ou cria uma conversa direta entre dois usuários internos.
+ */
+export async function findOrCreateInternalConversation(tenantId: string, initiatorId: string, targetId: string) {
+  const pool = await getPool();
+
+  // Tenta achar conversa direta existente entre os dois (independente de quem iniciou)
+  const found = await pool.request()
+    .input("tenantId", tenantId)
+    .input("u1", initiatorId)
+    .input("u2", targetId)
+    .query(`
+      SELECT ConversationId
+      FROM altdesk.Conversation
+      WHERE TenantId = @tenantId 
+        AND Kind = 'DIRECT'
+        AND (
+          (RequesterUserId = @u1 AND AssignedUserId = @u2)
+          OR (RequesterUserId = @u2 AND AssignedUserId = @u1)
+        )
+        AND Status != 'RESOLVED'
+    `);
+
+  if (found.recordset.length > 0) {
+    return found.recordset[0].ConversationId as string;
+  }
+
+  // Cria nova conversa interna
+  const targetUser = await pool.request().input("uid", targetId).query("SELECT DisplayName FROM altdesk.[User] WHERE UserId = @uid");
+  const title = `Chat: ${targetUser.recordset[0]?.DisplayName || 'Usuário'}`;
+
+  // Buscar primeiro canal ativo para vincular (requisito do banco)
+  const channelRes = await pool.request()
+    .input("tenantId", tenantId)
+    .query("SELECT TOP 1 ChannelId FROM altdesk.Channel WHERE TenantId = @tenantId AND IsActive = 1");
+  
+  const channelId = channelRes.recordset[0]?.ChannelId;
+
+  const created = await pool.request()
+    .input("tenantId", tenantId)
+    .input("initiatorId", initiatorId)
+    .input("targetId", targetId)
+    .input("title", title)
+    .input("channelId", channelId)
+    .query(`
+      DECLARE @cid UNIQUEIDENTIFIER = NEWID();
+      INSERT INTO altdesk.Conversation (ConversationId, TenantId, ChannelId, Title, Kind, Status, RequesterUserId, AssignedUserId)
+      VALUES (@cid, @tenantId, @channelId, @title, 'DIRECT', 'OPEN', @initiatorId, @targetId);
+      SELECT @cid AS ConversationId;
+    `);
+
+  const cid = created.recordset[0].ConversationId;
+
+  await recordConversationHistory({
+    tenantId,
+    conversationId: cid,
+    action: "OPENED",
+    metadata: { source: "INTERNAL", initiatorId, targetId }
+  });
+
+  return cid as string;
+}

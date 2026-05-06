@@ -10,13 +10,136 @@ import { assignConversation } from "../services/queue.js";
 const router = Router();
 router.use(authMw);
 
+// Portal do Solicitante: Abrir Novo Chamado
+router.post("/portal/new", validateBody(z.object({
+    title: z.string().min(3),
+    description: z.string().min(5),
+    priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).default("MEDIUM")
+})), (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const { tenantId, userId, email, displayName } = req.user;
+        const { title, description, priority } = req.body;
+        const pool = await getPool();
+
+        // 1. Garantir que o usuário tenha um Contact vinculado
+        let contactId: string;
+        const contactCheck = await pool.request()
+            .input("tenantId", tenantId)
+            .input("email", email)
+            .query("SELECT ContactId FROM altdesk.Contact WHERE TenantId=@tenantId AND Email=@email AND DeletedAt IS NULL");
+
+        if (contactCheck.recordset.length > 0) {
+            contactId = contactCheck.recordset[0].ContactId;
+        } else {
+            const newContact = await pool.request()
+                .input("tenantId", tenantId)
+                .input("name", displayName || email)
+                .input("email", email)
+                .input("phone", "") // Opcional para portal
+                .query("INSERT INTO altdesk.Contact (TenantId, Name, Email, Phone) OUTPUT inserted.ContactId VALUES (@tenantId, @name, @email, @phone)");
+            contactId = newContact.recordset[0].ContactId;
+        }
+
+        // 1.5 Buscar um Canal padrão (ou o primeiro disponível) para vincular à conversa
+        const channelResult = await pool.request()
+            .input("tenantId", tenantId)
+            .query("SELECT TOP 1 ChannelId FROM altdesk.Channel WHERE TenantId=@tenantId AND IsActive=1");
+        
+        const channelId = channelResult.recordset[0]?.ChannelId;
+        if (!channelId) {
+            return res.status(400).json({ error: "Nenhum canal de atendimento ativo encontrado para sua conta." });
+        }
+
+        // 2. Buscar o nome do colaborador para usar como título da conversa
+        const userRes = await pool.request()
+            .input("uid", userId)
+            .query("SELECT DisplayName FROM altdesk.[User] WHERE UserId = @uid");
+        const collaboratorName = userRes.recordset[0]?.DisplayName || "Colaborador";
+
+        // 3. Criar a Conversa (Conversation)
+        const convResult = await pool.request()
+            .input("tenantId", tenantId)
+            .input("channelId", channelId)
+            .input("title", collaboratorName)
+            .input("requesterUserId", userId)
+            .query(`
+                INSERT INTO altdesk.Conversation (TenantId, ChannelId, Title, Kind, Status, RequesterUserId)
+                OUTPUT inserted.ConversationId
+                VALUES (@tenantId, @channelId, @title, 'DIRECT', 'OPEN', @requesterUserId)
+            `);
+        const conversationId = convResult.recordset[0].ConversationId;
+
+        // 3. Criar o Ticket
+        const ticketResult = await pool.request()
+            .input("tenantId", tenantId)
+            .input("conversationId", conversationId)
+            .input("status", 'NEW')
+            .input("priority", priority)
+            .query(`
+                INSERT INTO altdesk.Ticket (TenantId, ConversationId, Status, Priority)
+                OUTPUT inserted.TicketId
+                VALUES (@tenantId, @conversationId, @status, @priority)
+            `);
+        const ticketId = ticketResult.recordset[0].TicketId;
+
+        // 4. Salvar a descrição como primeira mensagem (IN) - vindo do solicitante
+        const { saveInboundMessage } = await import("../services/conversation.js");
+        const { emitConversationEvent } = await import("../services/socketService.js");
+
+        const messageId = await saveInboundMessage({
+            tenantId: tenantId!,
+            externalUserId: userId,
+            externalChatId: conversationId,
+            provider: "INTERNAL",
+            channel: "PORTAL",
+            timestamp: Date.now(),
+            text: description,
+            raw: {}
+        }, conversationId);
+
+        // 5. Emitir eventos Socket.IO para atualização em tempo real
+        const io = req.app.get("io");
+        if (io) {
+            // Notificar novo ticket/conversa
+            emitConversationEvent(io, tenantId!, conversationId, "conversation:new", {
+                ConversationId: conversationId,
+                Title: collaboratorName,
+                Status: 'OPEN',
+                Kind: 'DIRECT',
+                RequesterUserId: userId,
+                CreatedAt: new Date().toISOString()
+            });
+
+            // Notificar primeira mensagem
+            emitConversationEvent(io, tenantId!, conversationId, "message:new", {
+                conversationId,
+                MessageId: messageId,
+                senderExternalId: userId,
+                text: description,
+                direction: "IN"
+            });
+        }
+
+        res.json({ ok: true, conversationId, ticketId });
+    } catch (error) {
+        next(error);
+    }
+}) as any);
+
 // Kanban List
 router.get("/kanban", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-        const tenantId = req.user.tenantId;
+        const { tenantId, role, userId } = req.user;
         const pool = await getPool();
+
+        let whereClause = "WHERE c.TenantId = @tenantId AND c.DeletedAt IS NULL AND ISNULL(t.Status, 'NEW') != 'CLOSED'";
+        if (role === 'END_USER') {
+            whereClause += " AND c.RequesterUserId = @userId";
+        }
+
         const result = await pool.request()
             .input("tenantId", tenantId)
+            .input("userId", userId)
             .query(`
                 SELECT 
                     ISNULL(t.TicketId, c.ConversationId) as TicketId,
@@ -48,7 +171,7 @@ router.get("/kanban", (async (req: AuthenticatedRequest, res: Response, next: Ne
                         (TRY_CAST(extMap.ExternalUserId AS UNIQUEIDENTIFIER) IS NOT NULL AND req.ContactId = CAST(extMap.ExternalUserId AS UNIQUEIDENTIFIER))
                     )
                 ) reqContact
-                WHERE c.TenantId = @tenantId AND c.DeletedAt IS NULL AND ISNULL(t.Status, 'NEW') != 'CLOSED'
+                ${whereClause}
                 ORDER BY ISNULL(t.KanbanOrder, 0) ASC, c.LastMessageAt DESC
             `);
             

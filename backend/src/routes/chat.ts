@@ -39,13 +39,26 @@ router.get("/", requirePermission('chat', 'tickets'), (async (req: Authenticated
 }) as any);
 
 router.post("/", validateBody(z.object({
-    phone: z.string().min(10),
+    phone: z.string().optional(),
+    userId: z.string().optional(),
     name: z.string().optional()
 })), (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const user = req.user;
-        const { phone, name } = req.body;
-        const conversationId = await findOrCreateConversation(user.tenantId || "", phone, name, user.userId);
+        const { phone, userId, name } = req.body;
+        
+        let conversationId: string;
+        
+        if (userId) {
+            // Conversa interna entre usuários
+            const { findOrCreateInternalConversation } = await import("../services/conversation.js");
+            conversationId = await findOrCreateInternalConversation(user.tenantId || "", user.userId, userId);
+        } else if (phone) {
+            // Conversa externa (WhatsApp/Webchat)
+            conversationId = await findOrCreateConversation(user.tenantId || "", phone, name, user.userId);
+        } else {
+            return res.status(400).json({ error: "Informe o telefone ou o ID do usuário." });
+        }
         
         const { allowed } = await checkConversationAccess(user, conversationId);
         if (!allowed) {
@@ -130,32 +143,58 @@ router.post("/:id/reply", validateBody(z.object({ text: z.string().min(1) })), (
         }
         
         const metadata = await getReplyMetadata(conversationId, tenantId);
-        if (!metadata) {
-            return res.status(404).json({ error: "Conversa não encontrada ou sem canal externo" });
-        }
-
-        const adapters = req.app.get("adapters");
-        const adapter = adapters[metadata.provider];
-
-        if (!adapter) {
-            return res.status(400).json({ error: `Provider "${metadata.connector.Provider}" não suportado` });
-        }
-
         let externalMessageId: string | undefined;
-        try {
-            externalMessageId = await adapter.sendText(metadata.connector, metadata.externalUserId, text, {
-                inReplyTo: metadata.lastExternalMessageId,
-                subject: metadata.subject
-            });
-        } catch (adapterErr: any) {
-            const { logger } = await import("../lib/logger.js");
-            logger.error({ err: adapterErr, conversationId, provider: metadata.provider }, "[Reply] Adapter sendText failed");
-            return res.status(502).json({ 
-                error: `Erro ao enviar mensagem: falha na comunicação com o provedor (${metadata.provider}). Verifique as configurações de conexão ou a disponibilidade do serviço externo.` 
-            });
+
+        if (metadata) {
+            const adapters = req.app.get("adapters");
+            const adapter = adapters[metadata.provider];
+
+            if (!adapter) {
+                return res.status(400).json({ error: `Provider "${metadata.connector.Provider}" não suportado` });
+            }
+
+            try {
+                externalMessageId = await adapter.sendText(metadata.connector, metadata.externalUserId, text, {
+                    inReplyTo: metadata.lastExternalMessageId,
+                    subject: metadata.subject
+                });
+            } catch (adapterErr: any) {
+                const { logger } = await import("../lib/logger.js");
+                logger.error({ err: adapterErr, conversationId, provider: metadata.provider }, "[Reply] Adapter sendText failed");
+                return res.status(502).json({ 
+                    error: `Erro ao enviar mensagem: falha na comunicação com o provedor (${metadata.provider}). Verifique as configurações de conexão ou a disponibilidade do serviço externo.` 
+                });
+            }
         }
 
-        const messageId = await saveOutboundMessage(user.tenantId || "", conversationId, text, externalMessageId);
+        let messageId: string;
+        let direction = user.role === 'END_USER' ? 'IN' : 'OUT';
+
+        if (user.role === 'END_USER') {
+            messageId = await saveInboundMessage({
+                tenantId: user.tenantId || "",
+                externalUserId: user.userId,
+                externalChatId: conversationId,
+                provider: "INTERNAL",
+                channel: "PORTAL",
+                timestamp: Date.now(),
+                text: text,
+                raw: {}
+            }, conversationId);
+        } else {
+            messageId = await saveOutboundMessage(user.tenantId || "", conversationId, text, externalMessageId);
+        }
+
+        // Audit log
+        const reqInfo = extractRequestInfo(req);
+        writeAuditLog({
+            ...reqInfo,
+            action: 'SEND_MESSAGE',
+            targetTable: 'Message',
+            targetId: messageId,
+            messageId,
+            afterValues: { conversationId, text, externalMessageId, direction }
+        });
 
         const io = req.app.get("io");
         if (io) {
@@ -163,14 +202,14 @@ router.post("/:id/reply", validateBody(z.object({ text: z.string().min(1) })), (
                 conversationId,
                 MessageId: messageId,
                 ExternalMessageId: externalMessageId,
-                senderExternalId: "agent",
+                senderExternalId: user.role === 'END_USER' ? user.userId : "agent",
                 text,
-                direction: "OUT"
+                direction
             });
             emitConversationEvent(io, tenantId!, conversationId, "conversation:updated", {
                 conversationId,
                 lastMessage: text,
-                direction: "OUT",
+                direction,
                 timestamp: new Date().toISOString()
             });
         }

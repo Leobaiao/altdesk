@@ -14,12 +14,13 @@ export async function checkConversationAccess(user: UserContext, conversationId:
     const pool = await getPool();
     const r = await pool.request()
         .input("conversationId", conversationId)
-        .query("SELECT TenantId, AssignedUserId FROM altdesk.Conversation WHERE ConversationId = @conversationId");
+        .query("SELECT TenantId, AssignedUserId, RequesterUserId FROM altdesk.Conversation WHERE ConversationId = @conversationId");
 
     if (r.recordset.length === 0) return { allowed: false, tenantId: null };
 
     const conv = r.recordset[0];
     const ownerId = conv.AssignedUserId;
+    const requesterId = conv.RequesterUserId;
     const convTenantId = conv.TenantId;
 
     if (user.role === 'ADMIN' || user.role === 'SUPERADMIN') {
@@ -30,6 +31,11 @@ export async function checkConversationAccess(user: UserContext, conversationId:
     }
 
     if (convTenantId !== user.tenantId) return { allowed: false, tenantId: null };
+
+    // END_USER access check: only their own requested conversations
+    if (user.role === 'END_USER') {
+        return { allowed: requesterId === user.userId, tenantId: convTenantId };
+    }
 
     // AGENT access check
     if (ownerId === user.userId) return { allowed: true, tenantId: convTenantId };
@@ -77,6 +83,8 @@ export async function listConversations(user: UserContext, limit: number = 50, o
                 )
             )
         )`;
+    } else if (user.role === 'END_USER') {
+        filterClause += " AND c.RequesterUserId = @userId";
     } else if (user.role === 'SUPERADMIN') {
         // SUPERADMIN vê todas as conversas de todos os tenants
         filterClause = "WHERE c.DeletedAt IS NULL";
@@ -96,6 +104,7 @@ export async function listConversations(user: UserContext, limit: number = 50, o
         GROUP BY ConversationId
       )
       SELECT c.ConversationId, c.Title, c.Status, c.Kind, c.LastMessageAt, c.QueueId, c.AssignedUserId,
+             c.RequesterUserId,
              ch.Type AS SourceChannel, c.InteractionSequence, c.CreatedAt,
              etm.ExternalUserId,
              q.Name AS QueueName,

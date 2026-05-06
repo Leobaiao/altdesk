@@ -11,6 +11,7 @@ import { TagPill } from "./TagPill";
 import type { Tag } from "../../../shared/types";
 
 import { api } from "../lib/api";
+import { getUserRoleFromToken, getUserIdFromToken } from "../lib/auth";
 
 function formatTime(iso: string) {
     if (!iso) return "";
@@ -30,17 +31,6 @@ function getChannelIcon(source: string | undefined) {
     return <Monitor size={18} style={{ color: "#8696a0" }} />;
 }
 
-// Helper para descobrir o UserId a partir do token
-function getUserIdFromToken() {
-    const token = localStorage.getItem("token");
-    if (!token) return null;
-    try {
-        const payload = JSON.parse(atob(token.split(".")[1]));
-        return payload.userId;
-    } catch {
-        return null;
-    }
-}
 
 
 export function ChatWindow({ setView, showToast }: { setView: (v: any) => void, showToast: (m: string, t: "success" | "error" | "info") => void }) {
@@ -129,6 +119,7 @@ export function ChatWindow({ setView, showToast }: { setView: (v: any) => void, 
 
 
     const userId = getUserIdFromToken();
+    const role = getUserRoleFromToken();
 
     const selectedConversation = conversations.find((c) => c.ConversationId === selectedConversationId);
 
@@ -273,7 +264,7 @@ export function ChatWindow({ setView, showToast }: { setView: (v: any) => void, 
     async function openAssignModal() {
         try {
             const [uRes, qRes] = await Promise.all([
-                api.get<any[]>("/api/users"),
+                api.get<any[]>("/api/users", { params: { agentsOnly: true } }),
                 api.get<any[]>("/api/queues")
             ]);
             setUsersToAssign(Array.isArray(uRes.data) ? uRes.data : []);
@@ -335,122 +326,142 @@ export function ChatWindow({ setView, showToast }: { setView: (v: any) => void, 
                 </div>
 
                 <div className="actions" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginRight: 10 }}>
-                        {selectedConversation.Tags?.map(tag => (
-                            <TagPill key={tag.TagId} tag={tag} onRemove={() => handleRemoveTag(tag.TagId)} />
-                        ))}
-                        <div style={{ position: "relative" }}>
-                            <button
-                                onClick={() => setShowTagMenu(!showTagMenu)}
-                                style={{ background: "rgba(0,168,132,0.1)", border: "1px dashed #00a884", color: "#00a884", cursor: "pointer", fontSize: "0.7rem", padding: "2px 8px", borderRadius: 8, display: "flex", alignItems: "center", fontWeight: 600 }}
-                            >
-                                + TAG
-                            </button>
-                            {showTagMenu && (
-                                <div style={{ position: "absolute", top: 30, right: 0, background: "var(--bg-secondary)", border: "1px solid var(--border)", borderRadius: 10, zIndex: 100, width: 180, maxHeight: 200, overflowY: "auto", boxShadow: "0 10px 25px rgba(0,0,0,0.2)", padding: 5 }}>
-                                    {allTags.filter(t => !selectedConversation.Tags?.find(st => st.TagId === t.TagId)).map(tag => (
-                                        <div key={tag.TagId} onClick={() => { handleAddTag(tag.TagId); setShowTagMenu(false); }} style={{ padding: "8px 12px", cursor: "pointer", borderRadius: 6, fontSize: "0.85rem", transition: "all 0.2s" }} onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                                <div style={{ width: 8, height: 8, borderRadius: "50%", background: tag.Color || "#ccc" }} />
-                                                {tag.Name}
+                    {role !== 'END_USER' && (
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginRight: 10 }}>
+                            {selectedConversation.Tags?.map(tag => (
+                                <TagPill key={tag.TagId} tag={tag} onRemove={() => handleRemoveTag(tag.TagId)} />
+                            ))}
+                            <div style={{ position: "relative" }}>
+                                <button
+                                    onClick={() => setShowTagMenu(!showTagMenu)}
+                                    style={{ background: "rgba(0,168,132,0.1)", border: "1px dashed #00a884", color: "#00a884", cursor: "pointer", fontSize: "0.7rem", padding: "2px 8px", borderRadius: 8, display: "flex", alignItems: "center", fontWeight: 600 }}
+                                >
+                                    + TAG
+                                </button>
+                                {showTagMenu && (
+                                    <div style={{ position: "absolute", top: 30, right: 0, background: "var(--bg-secondary)", border: "1px solid var(--border)", borderRadius: 10, zIndex: 100, width: 180, maxHeight: 200, overflowY: "auto", boxShadow: "0 10px 25px rgba(0,0,0,0.2)", padding: 5 }}>
+                                        {allTags.filter(t => !selectedConversation.Tags?.find(st => st.TagId === t.TagId)).map(tag => (
+                                            <div key={tag.TagId} onClick={() => { handleAddTag(tag.TagId); setShowTagMenu(false); }} style={{ padding: "8px 12px", cursor: "pointer", borderRadius: 6, fontSize: "0.85rem", transition: "all 0.2s" }} onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                                                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: tag.Color || "#ccc" }} />
+                                                    {tag.Name}
+                                                </div>
                                             </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     {!activeTicket ? (
-                        <button onClick={() => setShowTicketModal(true)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", background: "var(--accent)", border: "none", color: "white", borderRadius: 10, cursor: "pointer", fontWeight: 600, fontSize: "0.85rem", boxShadow: "0 4px 10px rgba(0, 168, 132, 0.2)" }} title="Abrir Ticket">
-                            <FileText size={16} /> Abrir Ticket
-                        </button>
+                        role !== 'END_USER' && (
+                            <button onClick={() => setShowTicketModal(true)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", background: "var(--accent)", border: "none", color: "white", borderRadius: 10, cursor: "pointer", fontWeight: 600, fontSize: "0.85rem", boxShadow: "0 4px 10px rgba(0, 168, 132, 0.2)" }} title="Abrir Ticket">
+                                <FileText size={16} /> Abrir Ticket
+                            </button>
+                        )
                     ) : (
                         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", background: "rgba(0, 168, 132, 0.1)", color: "#00a884", borderRadius: 10, fontSize: "0.85rem", fontWeight: 700, border: "1px solid rgba(0, 168, 132, 0.2)" }}>
                             TICKET #{activeTicket.TicketId?.substring(0, 5)}
                         </div>
                     )}
 
-                    <div style={{ width: 1, height: 24, background: "var(--border)", margin: "0 5px" }} />
+                    {role !== 'END_USER' && (
+                        <>
+                            <div style={{ width: 1, height: 24, background: "var(--border)", margin: "0 5px" }} />
 
-                    {!selectedConversation.AssignedUserId && (
-                        <button onClick={() => handleAssign(selectedConversation.QueueId || null, userId)} style={{ background: "#00a884", border: "none", color: "white", padding: "8px 12px", borderRadius: 8, cursor: "pointer", fontSize: "0.8rem", fontWeight: 600 }}>
-                            Assumir
-                        </button>
+                            {!selectedConversation.AssignedUserId && (
+                                <button onClick={() => handleAssign(selectedConversation.QueueId || null, userId)} style={{ background: "#00a884", border: "none", color: "white", padding: "8px 12px", borderRadius: 8, cursor: "pointer", fontSize: "0.8rem", fontWeight: 600 }}>
+                                    Assumir
+                                </button>
+                            )}
+
+                            {selectedConversation.AssignedUserId === userId && (
+                                <button onClick={() => handleAssign(null, null)} style={{ background: "var(--bg-hover)", border: "none", color: "var(--text-secondary)", width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }} title="Devolver para Fila">
+                                    <RotateCcw size={18} />
+                                </button>
+                            )}
+
+                            {selectedConversation.Status === "OPEN" && (
+                                <button onClick={openAssignModal} style={{ background: "var(--bg-hover)", border: "none", color: "var(--text-secondary)", width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }} title="Transferir Atendimento">
+                                    <UsersIcon size={18} />
+                                </button>
+                            )}
+
+                            {!contactExists && (
+                                <button
+                                    onClick={() => {
+                                        const phone = selectedConversation.ExternalUserId?.replace("@s.whatsapp.net", "") || "";
+                                        const title = selectedConversation.Title || "";
+                                        const name = title.startsWith("WhatsApp") ? phone : title;
+                                        setContactForm({ name, phone, email: "", company: "" });
+                                        setShowContactModal(true);
+                                    }}
+                                    style={{ background: "var(--bg-hover)", border: "none", color: "var(--text-secondary)", width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+                                    title="Salvar Contato"
+                                >
+                                    <UserPlus size={18} />
+                                </button>
+                            )}
+
+                            <button
+                                onClick={async () => {
+                                    if (!confirm("Deseja re-conectar esta conversa ao Provider Padrão?")) return;
+                                    try { await api.post(`/api/conversations/${selectedConversationId}/reassign-connector`); showToast("Re-conectado ao provider padrão", "success"); } catch (e: any) { showToast("Erro ao re-conectar", "error"); }
+                                }}
+                                style={{ background: "var(--bg-hover)", border: "none", color: "var(--text-secondary)", width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+                                title="Trocar Provider"
+                            >
+                                <Zap size={18} />
+                            </button>
+
+                            <div style={{ width: 1, height: 24, background: "var(--border)", margin: "0 5px" }} />
+                        </>
                     )}
 
-                    {selectedConversation.AssignedUserId === userId && (
-                        <button onClick={() => handleAssign(null, null)} style={{ background: "var(--bg-hover)", border: "none", color: "var(--text-secondary)", width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }} title="Devolver para Fila">
-                            <RotateCcw size={18} />
-                        </button>
+                    {role !== 'END_USER' && (
+                        <>
+                            {selectedConversation.Status === "OPEN" ? (
+                                <button onClick={() => handleStatus("RESOLVED")} style={{ background: "rgba(0, 168, 132, 0.1)", border: "none", color: "#00a884", width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }} title="Resolver Conversa">
+                                    <CheckCircle size={20} />
+                                </button>
+                            ) : (
+                                <button onClick={() => handleStatus("OPEN")} style={{ background: "rgba(255, 152, 0, 0.1)", border: "none", color: "#ff9800", width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }} title="Reabrir Conversa">
+                                    <RotateCcw size={20} />
+                                </button>
+                            )}
+                        </>
                     )}
 
-                    {selectedConversation.Status === "OPEN" && (
-                        <button onClick={openAssignModal} style={{ background: "var(--bg-hover)", border: "none", color: "var(--text-secondary)", width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }} title="Transferir Atendimento">
-                            <UsersIcon size={18} />
-                        </button>
-                    )}
-
-                    {!contactExists && (
+                    {role !== 'END_USER' && (
                         <button
-                            onClick={() => {
-                                const phone = selectedConversation.ExternalUserId?.replace("@s.whatsapp.net", "") || "";
-                                const title = selectedConversation.Title || "";
-                                const name = title.startsWith("WhatsApp") ? phone : title;
-                                setContactForm({ name, phone, email: "", company: "" });
-                                setShowContactModal(true);
+                            onClick={async () => {
+                                if (!confirm("Tem certeza que deseja apagar esta conversa?")) return;
+                                try {
+                                    await api.delete(`/api/conversations/${selectedConversationId}`);
+                                    showToast("Conversa apagada", "success");
+                                    refreshConversations();
+                                    setSelectedConversationId(null);
+                                } catch (e: any) { showToast("Erro: " + e.message, "error"); }
                             }}
-                            style={{ background: "var(--bg-hover)", border: "none", color: "var(--text-secondary)", width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
-                            title="Salvar Contato"
+                            style={{ background: "rgba(234, 67, 53, 0.1)", border: "none", color: "#ea4335", width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+                            title="Apagar Conversa"
                         >
-                            <UserPlus size={18} />
+                            <Trash2 size={20} />
                         </button>
                     )}
-
-                    <button
-                        onClick={async () => {
-                            if (!confirm("Deseja re-conectar esta conversa ao Provider Padrão?")) return;
-                            try { await api.post(`/api/conversations/${selectedConversationId}/reassign-connector`); showToast("Re-conectado ao provider padrão", "success"); } catch (e: any) { showToast("Erro ao re-conectar", "error"); }
-                        }}
-                        style={{ background: "var(--bg-hover)", border: "none", color: "var(--text-secondary)", width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
-                        title="Trocar Provider"
-                    >
-                        <Zap size={18} />
-                    </button>
-
-                    <div style={{ width: 1, height: 24, background: "var(--border)", margin: "0 5px" }} />
-
-                    {selectedConversation.Status === "OPEN" ? (
-                        <button onClick={() => handleStatus("RESOLVED")} style={{ background: "rgba(0, 168, 132, 0.1)", border: "none", color: "#00a884", width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }} title="Resolver Conversa">
-                            <CheckCircle size={20} />
-                        </button>
-                    ) : (
-                        <button onClick={() => handleStatus("OPEN")} style={{ background: "rgba(255, 152, 0, 0.1)", border: "none", color: "#ff9800", width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }} title="Reabrir Conversa">
-                            <RotateCcw size={20} />
-                        </button>
-                    )}
-
-                    <button
-                        onClick={async () => {
-                            if (!confirm("Tem certeza que deseja apagar esta conversa?")) return;
-                            try {
-                                await api.delete(`/api/conversations/${selectedConversationId}`);
-                                showToast("Conversa apagada", "success");
-                                refreshConversations();
-                                setSelectedConversationId(null);
-                            } catch (e: any) { showToast("Erro: " + e.message, "error"); }
-                        }}
-                        style={{ background: "rgba(234, 67, 53, 0.1)", border: "none", color: "#ea4335", width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
-                        title="Apagar Conversa"
-                    >
-                        <Trash2 size={20} />
-                    </button>
                 </div>
             </div>
 
 
             <div className="chat-messages" ref={chatContainerRef} onScroll={handleScroll}>
-                {messages.map((m) => (
+                {messages.filter(m => {
+                    if (m.Direction !== "INTERNAL") return true;
+                    if (role === 'END_USER') return false;
+                    // Somente agentes atribuídos ou admins vêem notas
+                    if (role === 'ADMIN' || role === 'SUPERADMIN') return true;
+                    return selectedConversation?.AssignedUserId === userId;
+                }).map((m) => (
                     <div key={m.MessageId} className={`bubble-row ${m.Direction === "INTERNAL" ? "internal" : m.Direction === "OUT" ? "out" : "in"}`}>
                         <div className="bubble" style={m.Direction === "INTERNAL" ? { background: "#fef3c7", border: "1px solid #fbbf24" } : undefined}>
                             {m.Direction === "INTERNAL" && (
@@ -501,16 +512,18 @@ export function ChatWindow({ setView, showToast }: { setView: (v: any) => void, 
                                         </span>
                                     )}
                                 </div>
-                                <button 
-                                    onClick={() => handleDeleteMessage(m.MessageId)} 
-                                    className="msg-delete-btn"
-                                    style={{ background: "none", border: "none", color: "rgba(0,0,0,0.2)", cursor: "pointer", padding: 2, display: "flex", alignItems: "center", transition: "color 0.2s" }}
-                                    title="Apagar mensagem"
-                                    onMouseEnter={e => e.currentTarget.style.color = "#ea4335"}
-                                    onMouseLeave={e => e.currentTarget.style.color = "rgba(0,0,0,0.2)"}
-                                >
-                                    <Trash2 size={14} />
-                                </button>
+                                {role !== 'END_USER' && (
+                                    <button 
+                                        onClick={() => handleDeleteMessage(m.MessageId)} 
+                                        className="msg-delete-btn"
+                                        style={{ background: "none", border: "none", color: "rgba(0,0,0,0.2)", cursor: "pointer", padding: 2, display: "flex", alignItems: "center", transition: "color 0.2s" }}
+                                        title="Apagar mensagem"
+                                        onMouseEnter={e => e.currentTarget.style.color = "#ea4335"}
+                                        onMouseLeave={e => e.currentTarget.style.color = "rgba(0,0,0,0.2)"}
+                                    >
+                                        <Trash2 size={14} />
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -579,22 +592,26 @@ export function ChatWindow({ setView, showToast }: { setView: (v: any) => void, 
                 <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} style={{ background: "none", border: "none", cursor: "pointer", padding: "0 10px", color: "var(--text-secondary)" }} title="Emojis">
                     <Smile size={24} />
                 </button>
-                <button onClick={() => setShowCannedMenu(!showCannedMenu)} style={{ background: "none", border: "none", cursor: "pointer", padding: "0 10px", color: "var(--text-secondary)" }} title="Respostas Rápidas">
-                    <Zap size={24} />
-                </button>
-                <button onClick={loadKbArticles} style={{ background: "none", border: "none", cursor: "pointer", padding: "0 10px", color: "var(--text-secondary)" }} title="Base de Conhecimento">
-                    <BookOpen size={24} />
-                </button>
-                <button onClick={() => setShowTemplateModal(true)} style={{ background: "none", border: "none", cursor: "pointer", padding: "0 10px", color: "var(--text-secondary)" }} title="Modelos (HSM)">
-                    <FileText size={24} />
-                </button>
-                <button
-                    onClick={() => setNoteMode(!noteMode)}
-                    style={{ background: "none", border: "none", cursor: "pointer", padding: "0 10px", color: noteMode ? "#f59e0b" : "var(--text-secondary)" }}
-                    title={noteMode ? "Modo Nota (clique para voltar)" : "Nota Interna"}
-                >
-                    <StickyNote size={24} />
-                </button>
+                {role !== 'END_USER' && (
+                    <>
+                        <button onClick={() => setShowCannedMenu(!showCannedMenu)} style={{ background: "none", border: "none", cursor: "pointer", padding: "0 10px", color: "var(--text-secondary)" }} title="Respostas Rápidas">
+                            <Zap size={24} />
+                        </button>
+                        <button onClick={loadKbArticles} style={{ background: "none", border: "none", cursor: "pointer", padding: "0 10px", color: "var(--text-secondary)" }} title="Base de Conhecimento">
+                            <BookOpen size={24} />
+                        </button>
+                        <button onClick={() => setShowTemplateModal(true)} style={{ background: "none", border: "none", cursor: "pointer", padding: "0 10px", color: "var(--text-secondary)" }} title="Modelos (HSM)">
+                            <FileText size={24} />
+                        </button>
+                        <button
+                            onClick={() => setNoteMode(!noteMode)}
+                            style={{ background: "none", border: "none", cursor: "pointer", padding: "0 10px", color: noteMode ? "#f59e0b" : "var(--text-secondary)" }}
+                            title={noteMode ? "Modo Nota (clique para voltar)" : "Nota Interna"}
+                        >
+                            <StickyNote size={24} />
+                        </button>
+                    </>
+                )}
 
                 <input
                     ref={inputRef}

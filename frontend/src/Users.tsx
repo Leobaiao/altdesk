@@ -166,7 +166,7 @@ export function Users({ token, onBack, role }: Props) {
     return (
         <div className="settings-page" style={{ height: "100%", overflowY: "auto" }}>
             <PageHeader
-                title="Minha Equipe"
+                title="Colaboradores"
                 subtitle={isAdmin ? "Gerencie os membros da sua empresa e suas permissões." : "Conheça seus colegas de equipe."}
                 icon={UsersIcon}
                 onBack={onBack}
@@ -198,7 +198,9 @@ export function Users({ token, onBack, role }: Props) {
                     marginBottom: 24,
                     borderRadius: 12,
                     border: "1px solid currentColor",
-                    fontWeight: 600
+                    fontWeight: 600,
+                    zIndex: 1001, // Corrigindo z-index para visibilidade
+                    position: "relative"
                 }}>
                     {msg}
                 </div>
@@ -253,7 +255,7 @@ export function Users({ token, onBack, role }: Props) {
                                             background: u.Role === "ADMIN" ? "rgba(217, 66, 245, 0.15)" : "rgba(0, 168, 132, 0.15)",
                                             color: u.Role === "ADMIN" ? "#d942f5" : "#00a884"
                                         }}>
-                                            {u.Role}
+                                            {u.Role === 'END_USER' ? 'COLABORADOR' : u.Role}
                                         </span>
                                     </div>
                                 </td>
@@ -391,14 +393,25 @@ export function Users({ token, onBack, role }: Props) {
                                     onChange={e => {
                                         const newRole = e.target.value;
                                         setUserRole(newRole);
-                                        if (newRole === 'AGENT') {
+                                        if (newRole === 'END_USER') {
+                                            setPermissions({
+                                                dashboard: false, chat: false, tickets: true, contacts: false, 
+                                                reports: false, billing: false, users: false, settings: false
+                                            });
+                                        } else if (newRole === 'AGENT') {
                                             setPermissions(p => ({ ...p, billing: false, users: false }));
+                                        } else if (newRole === 'ADMIN') {
+                                            setPermissions({
+                                                dashboard: true, chat: true, tickets: true, contacts: true, 
+                                                reports: true, billing: true, users: true, settings: true
+                                            });
                                         }
                                     }}
                                     style={{ width: "100%", marginTop: 8, background: "var(--bg-primary)", padding: "12px 16px", borderRadius: 12, border: "1px solid var(--border)", color: "var(--text-primary)", cursor: "pointer" }}
                                 >
-                                    <option value="AGENT">Agente (Atendimento)</option>
-                                    <option value="ADMIN">Administrador (Gestão)</option>
+                                    <option value="ADMIN">Administrador/Supervisor (Acesso Total)</option>
+                                    <option value="AGENT">Agente/Técnico (Atendimento)</option>
+                                    <option value="END_USER">Colaborador (Solicitante - Apenas Portal)</option>
                                 </select>
                             </div>
 

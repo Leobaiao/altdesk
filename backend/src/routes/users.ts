@@ -14,6 +14,7 @@ router.use(authMw);
 router.get("/", requirePermission('users'), async (req, res, next) => {
     try {
         const u = (req as any).user;
+        const agentsOnly = req.query.agentsOnly === 'true';
         const pool = await getPool();
         const r = await pool.request()
             .input("tenantId", u.tenantId)
@@ -21,7 +22,10 @@ router.get("/", requirePermission('users'), async (req, res, next) => {
         SELECT u.UserId, u.Email, u.Role, u.IsActive, u.Position, u.PermissionsJson, u.DisplayName AS Name, a.Name as AgentName
         FROM altdesk.[User] u
         LEFT JOIN altdesk.Agent a ON a.UserId = u.UserId
-        WHERE u.TenantId = @tenantId AND u.Role != 'SUPERADMIN' AND u.DeletedAt IS NULL
+        WHERE u.TenantId = @tenantId 
+          AND u.Role != 'SUPERADMIN'
+          ${agentsOnly ? "AND u.Role IN ('ADMIN', 'AGENT')" : ""}
+          AND u.DeletedAt IS NULL
         ORDER BY u.CreatedAt DESC
       `);
         res.json(r.recordset);
@@ -35,7 +39,7 @@ router.post("/", requirePermission('users'), requireRole("ADMIN"), validateBody(
     name: z.string().min(2),
     email: z.string().email(),
     password: z.string().min(6),
-    role: z.enum(["ADMIN", "AGENT"]).default("AGENT"),
+    role: z.enum(["ADMIN", "AGENT", "END_USER"]).default("AGENT"),
     position: z.string().optional(),
     permissions: z.record(z.boolean()).optional()
 })), async (req, res, next) => {
@@ -104,7 +108,7 @@ router.put("/:id", requirePermission('users'), requireRole("ADMIN"), validateBod
     name: z.string().min(2),
     email: z.string().email(),
     password: z.string().optional(),
-    role: z.enum(["ADMIN", "AGENT"]),
+    role: z.enum(["ADMIN", "AGENT", "END_USER"]),
     position: z.string().optional(),
     permissions: z.record(z.boolean()).optional()
 })), async (req, res, next) => {
@@ -195,7 +199,7 @@ router.put("/:id", requirePermission('users'), requireRole("ADMIN"), validateBod
     }
 });
 
-router.put("/:id/status", requireRole("ADMIN"), validateBody(z.object({ isActive: z.boolean() })), async (req, res, next) => {
+router.put("/:id/status", requirePermission('users'), requireRole("ADMIN"), validateBody(z.object({ isActive: z.boolean() })), async (req, res, next) => {
     try {
         const u = (req as any).user;
         const userId = req.params.id;
