@@ -128,6 +128,7 @@ export async function getBusinessExceptions(tenantId: string) {
 export async function addBusinessException(tenantId: string, data: any) {
     const pool = await getPool();
     await pool.request()
+        .input("id", data.exceptionId || null)
         .input("tenantId", tenantId)
         .input("date", data.date)
         .input("desc", data.description)
@@ -136,10 +137,11 @@ export async function addBusinessException(tenantId: string, data: any) {
         .input("end", data.endTime || null)
         .query(`
             MERGE altdesk.BusinessDayException AS target
-            USING (VALUES (@tenantId, @date)) AS source (TenantId, [Date])
-            ON target.TenantId = source.TenantId AND target.[Date] = source.[Date]
+            USING (VALUES (@id, @tenantId, @date)) AS source (ExceptionId, TenantId, [Date])
+            ON (source.ExceptionId IS NOT NULL AND target.ExceptionId = source.ExceptionId)
+               OR (source.ExceptionId IS NULL AND target.TenantId = source.TenantId AND target.[Date] = source.[Date])
             WHEN MATCHED THEN
-                UPDATE SET Description = @desc, IsOpen = @isOpen, StartTime = @start, EndTime = @end
+                UPDATE SET [Date] = @date, Description = @desc, IsOpen = @isOpen, StartTime = @start, EndTime = @end
             WHEN NOT MATCHED THEN
                 INSERT (TenantId, [Date], Description, IsOpen, StartTime, EndTime)
                 VALUES (@tenantId, @date, @desc, @isOpen, @start, @end);

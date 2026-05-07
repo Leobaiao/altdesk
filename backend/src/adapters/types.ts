@@ -2,8 +2,8 @@ import { Connector } from "../types/index.js";
 
 export type NormalizedInbound = {
   tenantId: string;
-  channel: "WHATSAPP" | "WEBCHAT" | "EMAIL";
-  provider: "GTI" | "ZAPI" | "OFFICIAL" | "WEBCHAT" | "SMTP";
+  channel: "WHATSAPP" | "WEBCHAT" | "EMAIL" | "PORTAL";
+  provider: "GTI" | "ZAPI" | "OFFICIAL" | "WEBCHAT" | "SMTP" | "INTERNAL";
   externalChatId: string;
   externalUserId: string;
   externalMessageId?: string;

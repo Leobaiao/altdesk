@@ -149,4 +149,24 @@ router.post("/login", authLimiter, validateBody(LoginSchema), async (req, res, n
     }
 });
 
+// POST /api/auth/logout
+router.post("/logout", async (req, res) => {
+    const ip = req.ip || req.socket?.remoteAddress;
+    const userAgent = req.headers["user-agent"]?.substring(0, 200);
+    
+    // If the user was authenticated, log who it was
+    const user = (req as any).user;
+    if (user) {
+        await writeAuditLog({
+            tenantId: user.tenantId,
+            userId: user.userId,
+            action: "LOGOUT",
+            ipAddress: ip,
+            userAgent
+        });
+    }
+    
+    res.json({ ok: true });
+});
+
 export default router;

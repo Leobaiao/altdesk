@@ -130,7 +130,7 @@ export async function resolveConversationForInbound(inb: NormalizedInbound, conn
   return cid;
 }
 
-export async function saveInboundMessage(inb: NormalizedInbound, conversationId: string) {
+export async function saveInboundMessage(inb: NormalizedInbound, conversationId: string, senderUserId?: string) {
   const pool = await getPool();
     const result = await pool.request()
     .input("tenantId", inb.tenantId)
@@ -143,10 +143,11 @@ export async function saveInboundMessage(inb: NormalizedInbound, conversationId:
     .input("externalMessageId", inb.externalMessageId ?? null)
     .input("payload", JSON.stringify(inb.raw))
     .input("subject", inb.subject ?? null)
+    .input("senderUserId", senderUserId || null)
     .query(`
-      INSERT INTO altdesk.Message (TenantId, ConversationId, SenderExternalId, Direction, Body, MediaType, MediaUrl, ExternalMessageId, PayloadJson)
+      INSERT INTO altdesk.Message (TenantId, ConversationId, SenderExternalId, Direction, Body, MediaType, MediaUrl, ExternalMessageId, PayloadJson, SenderUserId)
       OUTPUT INSERTED.MessageId
-      VALUES (@tenantId, @conversationId, @senderExternalId, @direction, @body, @mediaType, @mediaUrl, @externalMessageId, @payload);
+      VALUES (@tenantId, @conversationId, @senderExternalId, @direction, @body, @mediaType, @mediaUrl, @externalMessageId, @payload, @senderUserId);
 
       UPDATE altdesk.Conversation 
       SET LastMessageAt = SYSUTCDATETIME(),
@@ -165,7 +166,7 @@ export async function saveInboundMessage(inb: NormalizedInbound, conversationId:
     tenantId: inb.tenantId,
     conversationId,
     action: "REPLIED",
-    metadata: { direction: "IN", mediaType: inb.mediaType || "text" }
+    metadata: { direction: "IN", mediaType: inb.mediaType || "text", text: inb.text ?? (inb.mediaType ? `[${inb.mediaType}]` : "") }
   });
 
   return messageId;
@@ -197,7 +198,7 @@ export async function updateMessageStatus(tenantId: string, externalMessageId: s
   return r.recordset.length > 0 ? r.recordset[0].ConversationId : null;
 }
 
-export async function saveOutboundMessage(tenantId: string, conversationId: string, body: string, externalMessageId?: string) {
+export async function saveOutboundMessage(tenantId: string, conversationId: string, body: string, externalMessageId?: string, senderUserId?: string) {
   const pool = await getPool();
   const created = await pool.request()
     .input("tenantId", tenantId)
@@ -205,10 +206,11 @@ export async function saveOutboundMessage(tenantId: string, conversationId: stri
     .input("direction", "OUT")
     .input("body", body)
     .input("externalMessageId", externalMessageId || null)
+    .input("senderUserId", senderUserId || null)
     .query(`
       DECLARE @msgId UNIQUEIDENTIFIER = NEWID();
-      INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, ExternalMessageId)
-      VALUES (@msgId, @tenantId, @conversationId, @direction, @body, @externalMessageId);
+      INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, ExternalMessageId, SenderUserId)
+      VALUES (@msgId, @tenantId, @conversationId, @direction, @body, @externalMessageId, @senderUserId);
 
       UPDATE altdesk.Conversation 
       SET LastMessageAt = SYSUTCDATETIME(),
@@ -228,7 +230,7 @@ export async function saveOutboundMessage(tenantId: string, conversationId: stri
     tenantId,
     conversationId,
     action: "REPLIED",
-    metadata: { direction: "OUT" }
+    metadata: { direction: "OUT", text: body }
   });
 
   return created.recordset[0].MessageId as string;
@@ -373,4 +375,67 @@ export async function deleteMessage(tenantId: string, messageId: string) {
             SET DeletedAt = SYSUTCDATETIME()
             WHERE MessageId = @messageId AND TenantId = @tenantId
         `);
+}
+
+/**
+ * Busca ou cria uma conversa direta entre dois usuários internos.
+ */
+export async function findOrCreateInternalConversation(tenantId: string, initiatorId: string, targetId: string) {
+  const pool = await getPool();
+
+  // Tenta achar conversa direta existente entre os dois (independente de quem iniciou)
+  const found = await pool.request()
+    .input("tenantId", tenantId)
+    .input("u1", initiatorId)
+    .input("u2", targetId)
+    .query(`
+      SELECT ConversationId
+      FROM altdesk.Conversation
+      WHERE TenantId = @tenantId 
+        AND Kind = 'INTERNAL'
+        AND (
+          (RequesterUserId = @u1 AND AssignedUserId = @u2)
+          OR (RequesterUserId = @u2 AND AssignedUserId = @u1)
+        )
+        AND Status != 'RESOLVED'
+    `);
+
+  if (found.recordset.length > 0) {
+    return found.recordset[0].ConversationId as string;
+  }
+
+  // Cria nova conversa interna
+  const targetUser = await pool.request().input("uid", targetId).query("SELECT DisplayName FROM altdesk.[User] WHERE UserId = @uid");
+  const title = `Chat: ${targetUser.recordset[0]?.DisplayName || 'Usuário'}`;
+
+  // Buscar primeiro canal ativo para vincular (requisito do banco)
+  const channelRes = await pool.request()
+    .input("tenantId", tenantId)
+    .query("SELECT TOP 1 ChannelId FROM altdesk.Channel WHERE TenantId = @tenantId AND IsActive = 1");
+  
+  const channelId = channelRes.recordset[0]?.ChannelId;
+
+  const created = await pool.request()
+    .input("tenantId", tenantId)
+    .input("initiatorId", initiatorId)
+    .input("targetId", targetId)
+    .input("title", title)
+    .input("channelId", channelId)
+    .query(`
+      DECLARE @cid UNIQUEIDENTIFIER = NEWID();
+      INSERT INTO altdesk.Conversation (ConversationId, TenantId, ChannelId, Title, Kind, Status, RequesterUserId, AssignedUserId)
+      VALUES (@cid, @tenantId, @channelId, @title, 'INTERNAL', 'OPEN', @initiatorId, @targetId);
+      SELECT @cid AS ConversationId;
+    `);
+
+  const cid = created.recordset[0].ConversationId;
+
+  await recordConversationHistory({
+    tenantId,
+    conversationId: cid,
+    action: "OPENED",
+    metadata: { source: "INTERNAL", initiatorId, targetId }
+  });
+
+  return cid as string;
 }

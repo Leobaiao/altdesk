@@ -170,6 +170,7 @@ export function Settings({ token, onBack, role, livePermissions }: Props) {
         { label: "Logs de Auditoria", path: "/audit", desc: "Histórico de ações", perm: "users" } // Audit usually for user managers
     ].filter(item => {
         if (role === 'SUPERADMIN') return true;
+        if (role === 'END_USER' && (item.path === '/canned' || item.path === '/knowledge')) return true;
         return userPermissions[item.perm] !== false;
     });
 

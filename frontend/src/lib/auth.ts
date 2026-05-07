@@ -10,3 +10,17 @@ export function parseJwt(token: string) {
         return null;
     }
 }
+
+export function getUserIdFromToken() {
+    const token = localStorage.getItem("token");
+    if (!token) return null;
+    const payload = parseJwt(token);
+    return payload ? payload.userId : null;
+}
+
+export function getUserRoleFromToken() {
+    const token = localStorage.getItem("token");
+    if (!token) return null;
+    const payload = parseJwt(token);
+    return payload ? payload.role : null;
+}

@@ -13,6 +13,7 @@ type TemplateModalProps = {
 };
 
 import { api } from "../lib/api";
+import { ConfirmModal } from "./Modal";
 
 export function TemplateModal({ onClose, onSend }: TemplateModalProps) {
     const [templates, setTemplates] = useState<Template[]>([]);
@@ -27,6 +28,7 @@ export function TemplateModal({ onClose, onSend }: TemplateModalProps) {
     // Select State
     const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
     const [varValues, setVarValues] = useState<string[]>([]);
+    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
     useEffect(() => {
         fetchTemplates();
@@ -66,10 +68,16 @@ export function TemplateModal({ onClose, onSend }: TemplateModalProps) {
         }
     }
 
-    async function handleDelete(id: string) {
-        if (!confirm("Tem certeza?")) return;
-        await api.delete(`/api/templates/${id}`);
-        fetchTemplates();
+    async function handleDelete() {
+        if (!confirmDeleteId) return;
+        try {
+            await api.delete(`/api/templates/${confirmDeleteId}`);
+            fetchTemplates();
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setConfirmDeleteId(null);
+        }
     }
 
     function handleSelect(t: Template) {
@@ -188,7 +196,7 @@ export function TemplateModal({ onClose, onSend }: TemplateModalProps) {
                                             <div style={{ fontWeight: "bold", color: "var(--text-primary)" }}>{t.Name}</div>
                                             <div style={{ fontSize: "0.8em", color: "var(--text-secondary)" }}>{t.Variables.length} variáveis</div>
                                         </div>
-                                        <button onClick={() => handleDelete(t.TemplateId)} style={{ padding: "5px 10px", background: "#ea4335", border: "none", color: "white", borderRadius: "4px", cursor: "pointer" }}>🗑️</button>
+                                        <button onClick={() => setConfirmDeleteId(t.TemplateId)} style={{ padding: "5px 10px", background: "#ea4335", border: "none", color: "white", borderRadius: "4px", cursor: "pointer" }}>🗑️</button>
                                     </div>
                                 ))}
                             </div>
@@ -196,6 +204,17 @@ export function TemplateModal({ onClose, onSend }: TemplateModalProps) {
                     )}
                 </div>
             </div>
+
+            {confirmDeleteId && (
+                <ConfirmModal 
+                    title="Excluir Modelo"
+                    description="Tem certeza que deseja excluir este modelo de mensagem? Esta ação não pode ser desfeita."
+                    confirmLabel="Excluir"
+                    isDanger={true}
+                    onConfirm={handleDelete}
+                    onCancel={() => setConfirmDeleteId(null)}
+                />
+            )}
         </div>
     );
 }

@@ -12,8 +12,10 @@ type Contact = {
 };
 
 import { api } from "./lib/api";
+import { useChat } from "./contexts/ChatContext";
 
 export function Contacts({ onBack, onStartChat }: { onBack: () => void, onStartChat: (c: any) => void }) {
+    const { showToast } = useChat();
     const [items, setItems] = useState<Contact[]>([]);
     const [search, setSearch] = useState("");
     const [view, setView] = useState<"LIST" | "EDIT">("LIST");
@@ -43,7 +45,10 @@ export function Contacts({ onBack, onStartChat }: { onBack: () => void, onStartC
     }
 
     const handleSave = async () => {
-        if (!editing.Name || !editing.Phone) return alert("Nome e Telefone obrigatórios");
+        if (!editing.Name || !editing.Phone) {
+            showToast("Nome e Telefone obrigatórios", "error");
+            return;
+        }
 
         try {
             const method = editing.ContactId ? "put" : "post";
@@ -62,9 +67,9 @@ export function Contacts({ onBack, onStartChat }: { onBack: () => void, onStartC
             setView("LIST");
             setEditing({});
             loadContacts();
-        } catch (err: any) {
-            const errorMsg = err.response?.data?.error || err.message;
-            alert("Erro ao salvar: " + errorMsg);
+        } catch (error: any) {
+            const errorMsg = error.response?.data?.error || error.message;
+            showToast("Erro ao salvar: " + errorMsg, "error");
         }
     };
 

@@ -63,6 +63,14 @@ services:
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P ${MSSQL_SA_PASSWORD} -C -d AltDeskDev -i /scripts/20-add-contextdata.sql;
         echo 'Executando migration 21 (kanban sla)...';
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P ${MSSQL_SA_PASSWORD} -C -d AltDeskDev -i /scripts/21-kanban-sla.sql;
+        echo 'Executando migration 30 (collaborators and portal)...';
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P ${MSSQL_SA_PASSWORD} -C -d AltDeskDev -i /scripts/30-collaborators-and-portal.sql;
+        echo 'Executando migration 31 (requester portal seed)...';
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P ${MSSQL_SA_PASSWORD} -C -d AltDeskDev -i /scripts/31-requester-portal-seed.sql;
+        echo 'Executando migration 32 (add sender userid)...';
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P ${MSSQL_SA_PASSWORD} -C -d AltDeskDev -i /scripts/32-add-sender-userid.sql;
+        echo 'Executando migration 33 (fix ticketevent tenantid)...';
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P ${MSSQL_SA_PASSWORD} -C -d AltDeskDev -i /scripts/33-fix-ticketevent-tenantid.sql;
         echo 'Todas as migrations concluidas em PROD!';
       "
     networks:

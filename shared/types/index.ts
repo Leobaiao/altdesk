@@ -39,6 +39,9 @@ export interface Conversation {
     QueueId?: string | null;
     QueueName?: string | null;
     AssignedUserId?: string | null;
+    RequesterUserId?: string | null;
+    ContactName?: string;
+    AssignedUserName?: string;
     Tags?: Tag[];
 }
 
@@ -57,6 +60,7 @@ export interface Message {
     Direction: "IN" | "OUT" | "INTERNAL";
     SenderExternalId: string;
     SenderUserId?: string | null;
+    SenderName?: string | null;
     MediaType?: "image" | "audio" | "video" | "document" | null;
     MediaUrl?: string | null;
     Status?: "SENT" | "DELIVERED" | "READ" | "FAILED" | null;

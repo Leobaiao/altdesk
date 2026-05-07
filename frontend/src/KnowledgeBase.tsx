@@ -5,12 +5,14 @@ import { PageHeader } from "./components/PageHeader";
 import { api } from "./lib/api";
 import type { KnowledgeArticle } from "../../shared/types";
 import RichTextEditor from "./components/RichTextEditor";
+import { useChat } from "./contexts/ChatContext";
 
 interface Props {
     onBack: () => void;
 }
 
 export function KnowledgeBase({ onBack }: Props) {
+    const { showToast } = useChat();
     const [articles, setArticles] = useState<KnowledgeArticle[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
@@ -51,8 +53,10 @@ export function KnowledgeBase({ onBack }: Props) {
             }
             setEditingArticle(null);
             loadArticles();
-        } catch (error) {
+            showToast("Artigo salvo com sucesso!", "success");
+        } catch (error: any) {
             console.error("Erro ao salvar artigo:", error);
+            showToast("Erro ao salvar artigo: " + (error.response?.data?.error || error.message), "error");
         } finally {
             setIsSaving(false);
         }
@@ -63,9 +67,10 @@ export function KnowledgeBase({ onBack }: Props) {
             await api.delete(`/api/knowledge/${id}`);
             setConfirmDeleteId(null);
             loadArticles();
+            showToast("Artigo excluído com sucesso!", "success");
         } catch (error: any) {
             console.error("Erro ao excluir artigo:", error);
-            alert("Erro ao excluir: " + (error.response?.data?.error || error.message));
+            showToast("Erro ao excluir: " + (error.response?.data?.error || error.message), "error");
         }
     };
 

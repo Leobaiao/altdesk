@@ -225,11 +225,7 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
     }
   };
 
-  const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info"; action?: { label: string; onClick: () => void } } | null>(null);
-
-  function showToast(message: string, type: "success" | "error" | "info" = "info", action?: { label: string; onClick: () => void }) {
-    setToast({ message, type, action });
-  }
+  const { showToast } = useChat();
 
   const currentPath = location.pathname;
   const isChat = currentPath.startsWith("/chat") || currentPath === "/";
@@ -263,27 +259,31 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
         </div>
         
         <div className="nav-items">
-          {livePermissions?.dashboard !== false && (
+          {role !== 'END_USER' && livePermissions?.dashboard !== false && (
             <NavIcon icon={LayoutDashboard} label="Dashboard" active={currentPath.startsWith("/dashboard")} onClick={() => navigate("/dashboard")} />
           )}
-          {livePermissions?.chat !== false && (
+          {role === 'END_USER' && (
+            <NavIcon icon={LayoutDashboard} label="Portal do Solicitante" active={currentPath === "/dashboard"} onClick={() => navigate("/dashboard")} />
+          )}
+
+          {(livePermissions?.chat !== false || role === 'END_USER') && (
             <NavIcon icon={MessageSquare} label="Conversas" active={isChat} onClick={() => navigate("/chat")} />
           )}
+
           {livePermissions?.tickets !== false && (
             <NavIcon icon={Ticket} label="Chamados (Tickets)" active={currentPath.startsWith("/tickets")} onClick={() => navigate("/tickets")} />
           )}
           
           <div style={{ height: 1, background: "var(--border)", margin: "10px 15px", opacity: 0.5 }} />
           
-          {livePermissions?.contacts !== false && (
+          {role !== 'END_USER' && livePermissions?.contacts !== false && (
             <NavIcon icon={ContactsIcon} label="Contatos" active={currentPath.startsWith("/contacts")} onClick={() => navigate("/contacts")} />
           )}
-
-          {livePermissions?.users !== false && (
-            <NavIcon icon={UsersIcon} label="Usuários" active={currentPath.startsWith("/users")} onClick={() => navigate("/users")} />
+          {role !== 'END_USER' && livePermissions?.users !== false && (
+            <NavIcon icon={UsersIcon} label="Colaboradores" active={currentPath.startsWith("/users")} onClick={() => navigate("/users")} />
           )}
           
-          {livePermissions?.reports !== false && (
+          {role !== 'END_USER' && livePermissions?.reports !== false && (
             <>
               <div style={{ height: 1, background: "var(--border)", margin: "10px 15px", opacity: 0.5 }} />
               <NavIcon icon={BarChart2} label="Relatórios" active={currentPath.startsWith("/reports")} onClick={() => navigate("/reports")} />
@@ -291,10 +291,17 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
           )}
         </div>
         <div className="footer-items">
-          {(role === 'SUPERADMIN' || role === 'ADMIN' || livePermissions?.settings !== false) && (
+          {(role === 'SUPERADMIN' || role === 'ADMIN' || role === 'AGENT' || role === 'END_USER' || livePermissions?.settings !== false) && (
             <NavIcon icon={SettingsIcon} label="Config" active={currentPath.startsWith("/settings") || currentPath.startsWith("/business-hours") || currentPath.startsWith("/canned") || currentPath.startsWith("/knowledge") || currentPath.startsWith("/billing")} onClick={() => navigate("/settings")} />
           )}
-          <button onClick={onLogout} style={{ background: "none", border: "none", cursor: "pointer", opacity: 0.7, padding: 10, color: "var(--text-secondary)" }} title="Sair">
+          <button 
+            onClick={async () => {
+              try { await api.post("/api/auth/logout"); } catch (e) {}
+              onLogout();
+            }} 
+            style={{ background: "none", border: "none", cursor: "pointer", opacity: 0.7, padding: 10, color: "var(--text-secondary)" }} 
+            title="Sair"
+          >
             <LogOut size={24} />
           </button>
         </div>
@@ -310,8 +317,8 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
           <div className="chat-area" style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
             <div style={{ flex: 1, overflow: "hidden", position: "relative", display: "flex", flexDirection: "column" }}>
               <Routes>
-                <Route path="/" element={<Navigate to="/chat" replace />} />
-                <Route path="/chat" element={<ChatWindow setView={(v) => navigate(`/${v.toLowerCase()}`)} showToast={showToast} />} />
+                <Route path="/" element={<Navigate to={role === 'END_USER' ? "/dashboard" : "/chat"} replace />} />
+                <Route path="/chat" element={<ChatWindow setView={(v) => navigate(`/${v.toLowerCase()}`)} />} />
                 <Route path="/contacts" element={<Contacts onBack={() => navigate("/chat")} onStartChat={handleStartChat} />} />
                 <Route path="/canned" element={<CannedResponses onBack={() => navigate("/settings")} />} />
                 <Route path="/dashboard" element={<DashboardView token={token} onBack={() => navigate("/chat")} />} />
@@ -319,7 +326,7 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
                 <Route path="/users" element={<Users token={token} onBack={() => navigate("/chat")} role={role || 'AGENT'} />} />
 
                 <Route path="/settings" element={
-                  (role === 'SUPERADMIN' || role === 'ADMIN' || livePermissions?.settings !== false) 
+                  (role === 'SUPERADMIN' || role === 'ADMIN' || role === 'AGENT' || role === 'END_USER' || livePermissions?.settings !== false) 
                     ? <Settings token={token} onBack={() => navigate("/chat")} role={role || 'AGENT'} livePermissions={livePermissions} />
                     : <Navigate to="/chat" replace />
                 } />
@@ -332,15 +339,12 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
                 <Route path="/billing" element={<Billing onBack={() => navigate("/settings")} />} />
                 <Route path="/audit" element={<AuditLogs onBack={() => navigate("/settings")} />} />
 
-                <Route path="*" element={<Navigate to="/chat" replace />} />
+                <Route path="*" element={<Navigate to={role === 'END_USER' ? "/dashboard" : "/chat"} replace />} />
               </Routes>
             </div>
           </div>
         </div>
       </div>
-
-
-      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     </div>
   );
 }
@@ -371,7 +375,11 @@ function AppContent() {
   function handleLogin(newToken: string, newRole: string) {
     setToken(newToken);
     setRole(newRole);
-    navigate("/chat");
+    if (newRole === 'END_USER') {
+      navigate("/dashboard");
+    } else {
+      navigate("/chat");
+    }
   }
 
   function handleLogout() {

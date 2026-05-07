@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
     Users as UsersIcon,
     Edit2,
@@ -13,6 +14,7 @@ import {
 } from "lucide-react";
 
 import { api } from "./lib/api";
+import { useChat } from "./contexts/ChatContext";
 import { PageHeader } from "./components/PageHeader";
 import type { User } from "../../shared/types";
 
@@ -32,6 +34,8 @@ export function Users({ token, onBack, role }: Props) {
     // Form states
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
+    const { showToast, showConfirm, setSelectedConversationId, refreshConversations } = useChat();
+    const navigate = useNavigate();
     const [password, setPassword] = useState("");
     const [userRole, setUserRole] = useState("AGENT");
     const [position, setPosition] = useState("");
@@ -98,27 +102,55 @@ export function Users({ token, onBack, role }: Props) {
         }
     }
 
-    async function handleToggleStatus(userId: string, currentStatus: boolean) {
-        if (!confirm(`Tem certeza que deseja ${currentStatus ? 'desativar' : 'ativar'} este usuário?`)) return;
-        try {
-            await api.put(`/api/users/${userId}/status`, { isActive: !currentStatus });
-            loadUsers();
-        } catch (e) {
-            console.error(e);
-            alert("Erro ao alterar status do usuário.");
-        }
-    }
+    const handleToggleStatus = async (id: string, currentStatus: boolean) => {
+        showConfirm({
+            title: currentStatus ? "Desativar Usuário" : "Ativar Usuário",
+            description: `Tem certeza que deseja ${currentStatus ? 'desativar' : 'ativar'} este usuário?`,
+            onConfirm: async () => {
+                try {
+                    await api.post(`/api/users/${id}/status`, { isActive: !currentStatus });
+                    loadUsers();
+                    showToast("Status atualizado!", "success");
+                } catch (err) {
+                    showToast("Erro ao atualizar status", "error");
+                }
+            }
+        });
+    };
 
-    async function handleDelete(userId: string) {
-        if (!confirm("Deseja mover este usuário para a LIXEIRA? Ele será desativado e poderá ser restaurado pelo administrador do sistema.")) return;
+    const handleDelete = async (id: string) => {
+        showConfirm({
+            title: "Mover para Lixeira",
+            description: "Deseja mover este usuário para a LIXEIRA? Ele será desativado e poderá ser restaurado pelo administrador do sistema.",
+            confirmLabel: "Mover para Lixeira",
+            isDanger: true,
+            onConfirm: async () => {
+                try {
+                    await api.delete(`/api/users/${id}`);
+                    loadUsers();
+                    showToast("Usuário movido para a lixeira", "success");
+                } catch (err) {
+                    showToast("Erro ao excluir usuário", "error");
+                }
+            }
+        });
+    };
+
+    const handleStartChat = async (u: User) => {
         try {
-            await api.delete(`/api/users/${userId}`);
-            loadUsers();
-        } catch (e: any) {
-            console.error(e);
-            alert("Erro ao mover usuário para a lixeira: " + (e.response?.data?.error || e.message));
+            const res = await api.post("/api/conversations", {
+                userId: u.UserId,
+                name: u.AgentName || u.Name
+            });
+            if (res.data.conversationId) {
+                setSelectedConversationId(res.data.conversationId);
+                refreshConversations();
+                navigate("/chat");
+            }
+        } catch (err: any) {
+            showToast("Erro ao iniciar conversa: " + (err.response?.data?.error || err.message), "error");
         }
-    }
+    };
 
 
     function openEdit(u: User) {
@@ -166,7 +198,7 @@ export function Users({ token, onBack, role }: Props) {
     return (
         <div className="settings-page" style={{ height: "100%", overflowY: "auto" }}>
             <PageHeader
-                title="Minha Equipe"
+                title="Colaboradores"
                 subtitle={isAdmin ? "Gerencie os membros da sua empresa e suas permissões." : "Conheça seus colegas de equipe."}
                 icon={UsersIcon}
                 onBack={onBack}
@@ -198,7 +230,9 @@ export function Users({ token, onBack, role }: Props) {
                     marginBottom: 24,
                     borderRadius: 12,
                     border: "1px solid currentColor",
-                    fontWeight: 600
+                    fontWeight: 600,
+                    zIndex: 1001, // Corrigindo z-index para visibilidade
+                    position: "relative"
                 }}>
                     {msg}
                 </div>
@@ -253,7 +287,7 @@ export function Users({ token, onBack, role }: Props) {
                                             background: u.Role === "ADMIN" ? "rgba(217, 66, 245, 0.15)" : "rgba(0, 168, 132, 0.15)",
                                             color: u.Role === "ADMIN" ? "#d942f5" : "#00a884"
                                         }}>
-                                            {u.Role}
+                                            {u.Role === 'END_USER' ? 'COLABORADOR' : u.Role}
                                         </span>
                                     </div>
                                 </td>
@@ -272,6 +306,15 @@ export function Users({ token, onBack, role }: Props) {
                                             title="Enviar Email"
                                         >
                                             <Mail size={18} />
+                                        </button>
+
+                                        <button
+                                            onClick={() => handleStartChat(u)}
+                                            className="btn btn-ghost"
+                                            style={{ padding: 8, borderRadius: 8, color: "var(--accent)" }}
+                                            title="Iniciar Conversa"
+                                        >
+                                            <MessageSquare size={18} />
                                         </button>
 
                                         {isAdmin && (
@@ -391,14 +434,25 @@ export function Users({ token, onBack, role }: Props) {
                                     onChange={e => {
                                         const newRole = e.target.value;
                                         setUserRole(newRole);
-                                        if (newRole === 'AGENT') {
+                                        if (newRole === 'END_USER') {
+                                            setPermissions({
+                                                dashboard: false, chat: false, tickets: true, contacts: false, 
+                                                reports: false, billing: false, users: false, settings: false
+                                            });
+                                        } else if (newRole === 'AGENT') {
                                             setPermissions(p => ({ ...p, billing: false, users: false }));
+                                        } else if (newRole === 'ADMIN') {
+                                            setPermissions({
+                                                dashboard: true, chat: true, tickets: true, contacts: true, 
+                                                reports: true, billing: true, users: true, settings: true
+                                            });
                                         }
                                     }}
                                     style={{ width: "100%", marginTop: 8, background: "var(--bg-primary)", padding: "12px 16px", borderRadius: 12, border: "1px solid var(--border)", color: "var(--text-primary)", cursor: "pointer" }}
                                 >
-                                    <option value="AGENT">Agente (Atendimento)</option>
-                                    <option value="ADMIN">Administrador (Gestão)</option>
+                                    <option value="ADMIN">Administrador/Supervisor (Acesso Total)</option>
+                                    <option value="AGENT">Agente/Técnico (Atendimento)</option>
+                                    <option value="END_USER">Colaborador (Solicitante - Apenas Portal)</option>
                                 </select>
                             </div>
 

@@ -5,7 +5,7 @@ import { validateBody } from "../middleware/validateMw.js";
 import { listCannedResponses, createCannedResponse, deleteCannedResponse, updateCannedResponse } from "../services/canned-response.js";
 
 const router = Router();
-router.use(authMw, requirePermission('settings'));
+router.use(authMw);
 
 router.get("/", async (req, res, next) => {
     try {
@@ -17,7 +17,7 @@ router.get("/", async (req, res, next) => {
     }
 });
 
-router.post("/", validateBody(z.object({
+router.post("/", requirePermission('settings'), validateBody(z.object({
     shortcut: z.string().min(1),
     content: z.string().min(1),
     title: z.string().min(1)
@@ -32,7 +32,7 @@ router.post("/", validateBody(z.object({
     }
 });
 
-router.delete("/:id", async (req, res, next) => {
+router.delete("/:id", requirePermission('settings'), async (req, res, next) => {
     try {
         const user = (req as any).user;
         await deleteCannedResponse(user.tenantId, req.params.id);
@@ -42,7 +42,7 @@ router.delete("/:id", async (req, res, next) => {
     }
 });
 
-router.put("/:id", validateBody(z.object({
+router.put("/:id", requirePermission('settings'), validateBody(z.object({
     shortcut: z.string().min(1),
     content: z.string().min(1),
     title: z.string().min(1)

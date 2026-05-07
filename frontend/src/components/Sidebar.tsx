@@ -4,6 +4,7 @@ import { useChat } from "../contexts/ChatContext";
 import type { Conversation, Tag } from "../../../shared/types";
 import { TagPill } from "./TagPill";
 import { api } from "../lib/api";
+import { getUserIdFromToken } from "../lib/auth";
 
 
 function TabButton({ label, active, onClick }: { label: string, active: boolean, onClick: () => void }) {
@@ -36,27 +37,28 @@ function formatPhone(ext: string) {
     return ext.replace("@s.whatsapp.net", "").replace("@c.us", "");
 }
 
-function getChannelIcon(source: string | undefined) {
+function getChannelIcon(source: string | undefined, kind?: string) {
+    if ((kind === "DIRECT" || kind === "INTERNAL") && (!source || source === "INTERNAL")) {
+        return <Monitor size={14} style={{ color: "#00a884" }} />; // Or Users icon
+    }
     const s = (source || "").toUpperCase();
     if (s.includes("WHATSAPP")) return <MessageSquare size={14} style={{ color: "#25D366" }} />;
     if (s.includes("EMAIL")) return <Mail size={14} style={{ color: "#EA4335" }} />;
     return <Monitor size={14} style={{ color: "#8696a0" }} />;
 }
 
-// Helper para descobrir o UserId a partir do token
-function getUserIdFromToken() {
-    const token = localStorage.getItem("token");
-    if (!token) return null;
-    try {
-        const payload = JSON.parse(atob(token.split(".")[1]));
-        return payload.userId;
-    } catch {
-        return null;
+function getConversationTitle(c: Conversation, currentUserId: string | undefined) {
+    if (c.Kind === "INTERNAL") {
+        if (c.RequesterUserId === currentUserId) return c.AssignedUserName || "Agente";
+        if (c.AssignedUserId === currentUserId) return c.ContactName || "Atendimento";
+        return c.Title || "Chat Interno";
     }
+    return c.Title || formatPhone(c.ExternalUserId);
 }
 
+
 export function Sidebar({ setView }: { setView: (view: any) => void }) {
-    const { conversations, selectedConversationId, setSelectedConversationId, accountStatus } = useChat();
+    const { conversations, selectedConversationId, setSelectedConversationId, accountStatus, refreshConversations, showToast } = useChat();
     const token = localStorage.getItem("token");
     const role = useMemo(() => {
         if (!token) return "AGENT";
@@ -73,34 +75,49 @@ export function Sidebar({ setView }: { setView: (view: any) => void }) {
     const [showNewChatModal, setShowNewChatModal] = useState(false);
     const [contactSearch, setContactSearch] = useState("");
     const [contacts, setContacts] = useState<any[]>([]);
+    const [internalUsers, setInternalUsers] = useState<any[]>([]);
+
 
     const handleOpenNewChat = async () => {
         try {
-            const res = await api.get("/api/contacts");
-            setContacts(Array.isArray(res.data) ? res.data : []);
+            const [cRes, uRes] = await Promise.all([
+                api.get("/api/contacts"),
+                api.get("/api/users")
+            ]);
+            setContacts(Array.isArray(cRes.data) ? cRes.data : []);
+            setInternalUsers(Array.isArray(uRes.data) ? uRes.data : []);
             setShowNewChatModal(true);
         } catch (e) {
             console.error(e);
         }
     };
 
-    const handleStartChat = async (contact: any) => {
+    const handleStartChat = async (target: { Phone?: string, Name?: string, UserId?: string }) => {
         try {
-            const res = await api.post("/api/conversations", { phone: contact.Phone, name: contact.Name });
+            const payload = target.UserId ? { userId: target.UserId } : { phone: target.Phone, name: target.Name };
+            const res = await api.post("/api/conversations", payload);
             setSelectedConversationId(res.data.conversationId);
             setShowNewChatModal(false);
             setContactSearch("");
             refreshConversations();
         } catch (e: any) {
-            alert("Erro: " + (e.response?.data?.error || e.message));
+            showToast("Erro: " + (e.response?.data?.error || e.message), "error");
         }
     };
 
     const userId = getUserIdFromToken();
-    const myChats = conversations.filter(c => c.Status === "OPEN" && c.AssignedUserId === userId);
-    const queueChats = conversations.filter(c => c.Status === "OPEN" && !c.AssignedUserId);
-    const allChats = conversations.filter(c => c.Status === "OPEN");
-    const resolvedChats = conversations.filter(c => c.Status === "RESOLVED");
+    
+    let myChats = conversations.filter(c => c.Status === "OPEN" && (c.AssignedUserId === userId || c.RequesterUserId === userId));
+    let queueChats = conversations.filter(c => c.Status === "OPEN" && !c.AssignedUserId);
+    let allChats = conversations.filter(c => c.Status === "OPEN");
+    let resolvedChats = conversations.filter(c => c.Status === "RESOLVED");
+
+    if (role === 'END_USER') {
+        myChats = conversations.filter(c => (c.RequesterUserId === userId || c.AssignedUserId === userId) && c.Status === 'OPEN');
+        queueChats = []; // Requesters don't see queues
+        allChats = myChats; // For requesters, 'All' is just their chats
+        resolvedChats = conversations.filter(c => (c.RequesterUserId === userId || c.AssignedUserId === userId) && c.Status === 'RESOLVED');
+    }
 
     let displayedConversations = myChats;
     if (tab === "QUEUE") displayedConversations = queueChats;
@@ -136,31 +153,29 @@ export function Sidebar({ setView }: { setView: (view: any) => void }) {
                     )}
                 </div>
                 <div style={{ display: "flex", gap: 10 }}>
-                    <button 
-                        onClick={handleOpenNewChat} 
-                        title="Nova Conversa" 
-                        style={{ 
-                            background: "rgba(0, 168, 132, 0.1)", 
-                            border: "none", 
-                            color: "#00a884", 
-                            cursor: "pointer", 
-                            width: 36, 
-                            height: 36, 
-                            borderRadius: 10, 
-                            display: "flex", 
-                            alignItems: "center", 
-                            justifyContent: "center",
-                            transition: "all 0.2s ease"
-                        }}
-                        onMouseEnter={e => e.currentTarget.style.transform = "scale(1.05)"}
-                        onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
-                    >
-                        <Plus size={22} />
-                    </button>
+                    {role !== 'END_USER' && (
+                        <button 
+                            onClick={handleOpenNewChat} 
+                            title="Nova Conversa" 
+                            style={{ 
+                                background: "rgba(0, 168, 132, 0.1)", 
+                                border: "none", 
+                                color: "#00a884", 
+                                cursor: "pointer", 
+                                width: 36, 
+                                height: 36, 
+                                borderRadius: 10, 
+                                display: "flex", 
+                                alignItems: "center", 
+                                justifyContent: "center",
+                                transition: "all 0.2s"
+                            }}
+                        >
+                            <MessageSquare size={20} />
+                        </button>
+                    )}
                 </div>
             </div>
-
-
 
             <div className="search-box" style={{ padding: 10, position: "relative" }}>
                 <Search size={16} color="#8696a0" style={{ position: "absolute", left: 20, top: 20 }} />
@@ -177,7 +192,7 @@ export function Sidebar({ setView }: { setView: (view: any) => void }) {
                     <TabButton label="Todos" active={tab === "ALL"} onClick={() => setTab("ALL")} />
                 )}
                 <TabButton label="Minhas" active={tab === "MY"} onClick={() => setTab("MY")} />
-                <TabButton label="Filas" active={tab === "QUEUE"} onClick={() => setTab("QUEUE")} />
+                {role !== 'END_USER' && <TabButton label="Filas" active={tab === "QUEUE"} onClick={() => setTab("QUEUE")} />}
                 <TabButton label="Resolvidos" active={tab === "RESOLVED"} onClick={() => setTab("RESOLVED")} />
             </div>
 
@@ -190,9 +205,9 @@ export function Sidebar({ setView }: { setView: (view: any) => void }) {
                     >
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-                                {getChannelIcon(c.SourceChannel)}
+                                {getChannelIcon(c.SourceChannel, c.Kind)}
                                 <span className="title" style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                    {c.Title || formatPhone(c.ExternalUserId)}
+                                    {getConversationTitle(c, userId)}
                                 </span>
                             </div>
                             <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
@@ -268,20 +283,43 @@ export function Sidebar({ setView }: { setView: (view: any) => void }) {
                             />
                         </div>
 
-                        <div className="custom-scrollbar" style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, paddingRight: 5 }}>
-                            {contacts.filter(c => (c.Name || "").toLowerCase().includes(contactSearch.toLowerCase()) || (c.Phone || "").includes(contactSearch)).map(contact => (
-                                <div key={contact.ContactId} onClick={() => handleStartChat(contact)} style={{ padding: "12px 16px", borderRadius: 12, cursor: "pointer", border: "1px solid transparent", display: "flex", alignItems: "center", gap: 12, transition: "all 0.2s" }} onMouseEnter={e => { e.currentTarget.style.background = "rgba(0, 168, 132, 0.05)"; e.currentTarget.style.borderColor = "rgba(0, 168, 132, 0.2)"; }} onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "transparent"; }}>
-                                    <div style={{ width: 40, height: 40, borderRadius: "50%", background: "var(--bg-hover)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "var(--text-secondary)", fontSize: "1.1rem" }}>
-                                        {(contact.Name || "?").charAt(0).toUpperCase()}
-                                    </div>
-                                    <div style={{ flex: 1 }}>
-                                        <div style={{ fontWeight: 600, color: "var(--text-primary)" }}>{contact.Name || "Sem Nome"}</div>
-                                        <div style={{ fontSize: "0.85rem", color: "#8696a0", marginTop: 2 }}>{contact.Phone}</div>
-                                    </div>
-                                    <Plus size={18} color="#00a884" opacity={0.5} />
+                        <div className="custom-scrollbar" style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 15, paddingRight: 5 }}>
+                            {/* Seção de Usuários Internos */}
+                            {internalUsers.filter(u => u.UserId !== userId && (u.Name || "").toLowerCase().includes(contactSearch.toLowerCase())).length > 0 && (
+                                <div>
+                                    <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#00a884", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 8, paddingLeft: 8 }}>Equipe</div>
+                                    {internalUsers.filter(u => u.UserId !== userId && (u.Name || "").toLowerCase().includes(contactSearch.toLowerCase())).map(u => (
+                                        <div key={u.UserId} onClick={() => handleStartChat({ UserId: u.UserId })} style={{ padding: "10px 16px", borderRadius: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 12, transition: "all 0.2s" }} onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                                            <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#00a884", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "white", fontSize: "0.9rem" }}>
+                                                {(u.Name || "?").charAt(0).toUpperCase()}
+                                            </div>
+                                            <div style={{ flex: 1 }}>
+                                                <div style={{ fontWeight: 600, fontSize: "0.95rem" }}>{u.Name}</div>
+                                                <div style={{ fontSize: "0.75rem", color: "#8696a0" }}>Usuário Interno</div>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
-                            ))}
-                            {contacts.length === 0 && <div style={{ textAlign: "center", color: "#8696a0", padding: 40 }}>Nenhum contato encontrado.</div>}
+                            )}
+
+                            {/* Seção de Contatos Externos */}
+                            <div>
+                                <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#8696a0", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 8, paddingLeft: 8 }}>Contatos Externos</div>
+                                {contacts.filter(c => (c.Name || "").toLowerCase().includes(contactSearch.toLowerCase()) || (c.Phone || "").includes(contactSearch)).map(contact => (
+                                    <div key={contact.ContactId} onClick={() => handleStartChat(contact)} style={{ padding: "10px 16px", borderRadius: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 12, transition: "all 0.2s" }} onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                                        <div style={{ width: 36, height: 36, borderRadius: "50%", background: "var(--bg-hover)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "var(--text-secondary)", fontSize: "0.9rem" }}>
+                                            {(contact.Name || "?").charAt(0).toUpperCase()}
+                                        </div>
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ fontWeight: 600, fontSize: "0.95rem" }}>{contact.Name || "Sem Nome"}</div>
+                                            <div style={{ fontSize: "0.75rem", color: "#8696a0" }}>{contact.Phone}</div>
+                                        </div>
+                                    </div>
+                                ))}
+                                {contacts.length === 0 && internalUsers.length === 0 && (
+                                    <div style={{ textAlign: "center", color: "#8696a0", padding: 20 }}>Nenhum resultado encontrado.</div>
+                                )}
+                            </div>
                         </div>
 
                         <div style={{ marginTop: 25, paddingTop: 20, borderTop: "1px solid var(--border)", textAlign: "center" }}>

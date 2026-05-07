@@ -10,10 +10,16 @@ import {
     FileText,
     RefreshCw,
     X,
-    Send
+    Send,
+    BookOpen,
+    Zap,
+    Search,
+    RotateCcw
 } from "lucide-react";
 import { api } from "../lib/api";
 import type { TicketData } from "./TicketList";
+import { ConfirmModal } from "./Modal";
+import { useChat } from "../contexts/ChatContext";
 
 interface HistoryEntry {
     HistoryId: string;
@@ -24,6 +30,7 @@ interface HistoryEntry {
     MetadataJson: string | null;
     CreatedAt: string;
     ActorEmail: string | null;
+    ActorName: string | null;
     EscalatedToEmail: string | null;
 }
 
@@ -61,6 +68,7 @@ interface TicketDetailProps {
 }
 
 export function TicketDetail({ ticket, onBack, profile, onTicketUpdate }: TicketDetailProps) {
+    const { showToast } = useChat();
     const [history, setHistory] = useState<HistoryEntry[]>([]);
     const [loading, setLoading] = useState(true);
     const [showEscalateModal, setShowEscalateModal] = useState(false);
@@ -69,6 +77,14 @@ export function TicketDetail({ ticket, onBack, profile, onTicketUpdate }: Ticket
     const [auditLogs, setAuditLogs] = useState<any[]>([]);
     const [comment, setComment] = useState("");
     const [actionLoading, setActionLoading] = useState(false);
+    const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+    const [showKBModal, setShowKBModal] = useState(false);
+    const [showCannedMenu, setShowCannedMenu] = useState(false);
+    const [kbArticles, setKbArticles] = useState<any[]>([]);
+    const [cannedResponses, setCannedResponses] = useState<any[]>([]);
+    const [kbSearch, setKbSearch] = useState("");
+    const [showSaveToKB, setShowSaveToKB] = useState(false);
+    const [kbForm, setKbForm] = useState({ title: "", content: "", category: "Resolvidos" });
 
     async function loadHistory() {
         setLoading(true);
@@ -82,24 +98,44 @@ export function TicketDetail({ ticket, onBack, profile, onTicketUpdate }: Ticket
         }
     }
 
+    async function loadKbArticles() {
+        try {
+            const res = await api.get("/api/knowledge");
+            setKbArticles(Array.isArray(res.data) ? res.data : []);
+            setShowKBModal(true);
+        } catch (e) {
+            console.error("Error loading KB articles:", e);
+        }
+    }
+
+    async function loadCannedResponses() {
+        try {
+            const res = await api.get("/api/canned-responses");
+            setCannedResponses(Array.isArray(res.data) ? res.data : []);
+            setShowCannedMenu(!showCannedMenu);
+        } catch (e) {
+            console.error("Error loading canned responses:", e);
+        }
+    }
+
     useEffect(() => { loadHistory(); }, [ticket.ConversationId]);
 
     const canEscalate = profile?.CanEscalate || profile?.Role === "ADMIN" || profile?.Role === "SUPERADMIN";
     const canClose = profile?.CanClose || profile?.Role === "ADMIN" || profile?.Role === "SUPERADMIN";
-    const canComment = profile?.CanComment !== false; // default true
+    const canComment = profile?.CanComment !== false; 
     const hasLogAccess = profile?.HasLogAccess || profile?.Role === "ADMIN" || profile?.Role === "SUPERADMIN";
 
     async function handleClose() {
-        if (!confirm("Deseja realmente fechar este chamado?")) return;
         setActionLoading(true);
         try {
             await api.post(`/api/conversations/${ticket.ConversationId}/status`, { status: "RESOLVED" });
             onTicketUpdate();
             loadHistory();
         } catch (e: any) {
-            alert("Erro ao fechar chamado: " + (e.response?.data?.error || e.message));
+            showToast("Erro ao fechar chamado: " + (e.response?.data?.error || e.message), "error");
         } finally {
             setActionLoading(false);
+            setShowCloseConfirm(false);
         }
     }
 
@@ -110,7 +146,7 @@ export function TicketDetail({ ticket, onBack, profile, onTicketUpdate }: Ticket
             onTicketUpdate();
             loadHistory();
         } catch (e: any) {
-            alert("Erro ao reabrir chamado: " + (e.response?.data?.error || e.message));
+            showToast("Erro ao reabrir chamado: " + (e.response?.data?.error || e.message), "error");
         } finally {
             setActionLoading(false);
         }
@@ -124,7 +160,7 @@ export function TicketDetail({ ticket, onBack, profile, onTicketUpdate }: Ticket
             onTicketUpdate();
             loadHistory();
         } catch (e: any) {
-            alert("Erro ao escalar: " + (e.response?.data?.error || e.message));
+            showToast("Erro ao escalar: " + (e.response?.data?.error || e.message), "error");
         } finally {
             setActionLoading(false);
         }
@@ -141,7 +177,6 @@ export function TicketDetail({ ticket, onBack, profile, onTicketUpdate }: Ticket
     }
 
     async function openAuditLog() {
-        // For now just show the conversation history as audit info
         setAuditLogs(history.map(h => ({
             action: h.Action,
             actor: h.ActorEmail || "Sistema",
@@ -155,15 +190,58 @@ export function TicketDetail({ ticket, onBack, profile, onTicketUpdate }: Ticket
         if (!comment.trim()) return;
         setActionLoading(true);
         try {
-            // Send as a reply (demo internal message)
             await api.post(`/api/conversations/demo/${ticket.ConversationId}/messages`, { text: `[COMENTÁRIO] ${comment}` });
             setComment("");
             loadHistory();
         } catch (e: any) {
-            alert("Erro ao comentar: " + (e.response?.data?.error || e.message));
+            showToast("Erro ao comentar: " + (e.response?.data?.error || e.message), "error");
         } finally {
             setActionLoading(false);
         }
+    }
+
+    async function handleSaveToKB() {
+        if (!kbForm.title.trim() || !kbForm.content.trim()) return;
+        setActionLoading(true);
+        try {
+            await api.post("/api/knowledge", {
+                Title: kbForm.title,
+                Content: kbForm.content,
+                Category: kbForm.category,
+                IsPublic: true
+            });
+            setShowSaveToKB(false);
+            showToast("Artigo salvo na Base de Conhecimento!", "success");
+        } catch (e: any) {
+            showToast("Erro ao salvar artigo: " + (e.response?.data?.error || e.message), "error");
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    function openSaveToKB() {
+        // Extract real content from history
+        const relevantHistory = history.filter(h => h.Action === 'REPLIED' || h.Action === 'OPENED' || h.Action === 'COMMENTED');
+        const contentLines = relevantHistory.map(h => {
+            let meta: any = {};
+            try { meta = h.MetadataJson ? JSON.parse(h.MetadataJson) : {}; } catch {}
+            
+            // Priority for history text: meta.text -> meta.body -> fallback
+            const text = meta.text || meta.body || (h.Action === 'OPENED' ? "Abertura do chamado" : "");
+            if (!text) return "";
+
+            const sender = h.ActorName || h.ActorEmail || (meta.direction === "IN" ? "Cliente" : "Sistema");
+            const prefix = h.Action === 'COMMENTED' ? "[NOTA INTERNA]" : `[${sender}]`;
+            
+            return `${prefix}: ${text}`;
+        }).filter(t => !!t);
+
+        setKbForm({
+            title: `Solução: ${ticket.Title || "Chamado #" + ticket.id}`,
+            content: contentLines.join('\n\n'),
+            category: "Resolvidos"
+        });
+        setShowSaveToKB(true);
     }
 
     return (
@@ -180,10 +258,12 @@ export function TicketDetail({ ticket, onBack, profile, onTicketUpdate }: Ticket
                     </button>
                     <div style={{ flex: 1 }}>
                         <h2 style={{ margin: 0, fontSize: "1.15rem", fontWeight: 700 }}>
-                            {ticket.ContactName || ticket.ExternalUserId || "Chamado"}
+                            {ticket.Title || "Ticket"}
                         </h2>
                         <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4, fontSize: "0.8rem", color: "var(--text-secondary)" }}>
-                            <span>CPF: {ticket.ContactCPF || "N/I"}</span>
+                            <span style={{ fontWeight: 600 }}>{ticket.ContactName || "Sem nome"}</span>
+                            <span>·</span>
+                            <span>{ticket.ExternalUserId}</span>
                             <span>·</span>
                             <span>Atendente: {ticket.AssignedUserName || ticket.AssignedUserEmail || "Não atribuído"}</span>
                             <span>·</span>
@@ -220,7 +300,7 @@ export function TicketDetail({ ticket, onBack, profile, onTicketUpdate }: Ticket
                         </button>
                     )}
                     {canClose && ticket.Status !== "RESOLVED" && (
-                        <button onClick={handleClose} className="btn" disabled={actionLoading} style={{
+                        <button onClick={() => setShowCloseConfirm(true)} className="btn" disabled={actionLoading} style={{
                             padding: "8px 14px", borderRadius: 10, border: "1px solid #8696a0",
                             background: "rgba(134,150,160,0.08)", color: "#8696a0", fontWeight: 600, fontSize: "0.8rem",
                             display: "flex", alignItems: "center", gap: 6, cursor: "pointer"
@@ -235,6 +315,15 @@ export function TicketDetail({ ticket, onBack, profile, onTicketUpdate }: Ticket
                             display: "flex", alignItems: "center", gap: 6, cursor: "pointer"
                         }}>
                             <RefreshCw size={14} /> Reabrir
+                        </button>
+                    )}
+                    {ticket.Status === "RESOLVED" && (
+                        <button onClick={openSaveToKB} className="btn" style={{
+                            padding: "8px 14px", borderRadius: 10, border: "1px solid #9b59b6",
+                            background: "rgba(155,89,182,0.08)", color: "#9b59b6", fontWeight: 600, fontSize: "0.8rem",
+                            display: "flex", alignItems: "center", gap: 6, cursor: "pointer"
+                        }}>
+                            <BookOpen size={14} /> Salvar na Base
                         </button>
                     )}
                     {hasLogAccess && (
@@ -316,7 +405,7 @@ export function TicketDetail({ ticket, onBack, profile, onTicketUpdate }: Ticket
                                     </div>
 
                                     <div style={{ marginTop: 6, fontSize: "0.82rem", color: "var(--text-secondary)" }}>
-                                        {h.ActorEmail && <span>Por: <strong>{h.ActorEmail}</strong></span>}
+                                        {h.ActorUserId && <span>Por: <strong>{h.ActorName || h.ActorEmail}</strong></span>}
                                         {h.EscalatedToEmail && <span> → Escalado para: <strong>{h.EscalatedToEmail}</strong></span>}
                                         {meta.direction && <span> · Direção: {meta.direction === "IN" ? "Entrada" : "Saída"}</span>}
                                         {meta.newStatus && <span> · Novo status: <strong>{meta.newStatus}</strong></span>}
@@ -333,8 +422,27 @@ export function TicketDetail({ ticket, onBack, profile, onTicketUpdate }: Ticket
             {canComment && ticket.Status !== "RESOLVED" && (
                 <div style={{
                     padding: "12px 24px", borderTop: "1px solid var(--border)",
-                    display: "flex", gap: 10, alignItems: "center"
+                    display: "flex", gap: 10, alignItems: "center", position: "relative"
                 }}>
+                    {showCannedMenu && (
+                        <div style={{ position: "absolute", bottom: "100%", left: 24, background: "var(--bg-secondary)", border: "1px solid var(--border)", borderRadius: 10, width: 300, maxHeight: 200, overflowY: "auto", zIndex: 10, boxShadow: "0 -4px 12px rgba(0,0,0,0.2)" }}>
+                            {cannedResponses.map(c => (
+                                <div key={c.CannedResponseId} onClick={() => { setComment(c.Content); setShowCannedMenu(false); }} style={{ padding: 12, borderBottom: "1px solid var(--border)", cursor: "pointer" }} className="table-row-hover">
+                                    <div style={{ fontWeight: 600, color: "#00a884" }}>/{c.Shortcut}</div>
+                                    <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.Content}</div>
+                                </div>
+                            ))}
+                            {cannedResponses.length === 0 && <div style={{ padding: 15, textAlign: "center", color: "var(--text-secondary)" }}>Nenhuma resposta rápida.</div>}
+                        </div>
+                    )}
+                    
+                    <button onClick={loadCannedResponses} title="Respostas Rápidas" style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", padding: 5 }}>
+                        <Zap size={20} />
+                    </button>
+                    <button onClick={loadKbArticles} title="Base de Conhecimento" style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", padding: 5 }}>
+                        <BookOpen size={20} />
+                    </button>
+
                     <input
                         value={comment}
                         onChange={e => setComment(e.target.value)}
@@ -441,6 +549,96 @@ export function TicketDetail({ ticket, onBack, profile, onTicketUpdate }: Ticket
                             {auditLogs.length === 0 && (
                                 <p style={{ textAlign: "center", color: "var(--text-secondary)", padding: 20 }}>Nenhum registro de auditoria.</p>
                             )}
+                        </div>
+                    </div>
+                </div>
+            )}
+            {showCloseConfirm && (
+                <ConfirmModal 
+                    title="Fechar Chamado"
+                    description="Deseja realmente marcar este chamado como resolvido? O cliente será notificado."
+                    confirmLabel="Sim, Fechar"
+                    onConfirm={handleClose}
+                    onCancel={() => setShowCloseConfirm(false)}
+                    loading={actionLoading}
+                />
+            )}
+
+            {showKBModal && (
+                <div className="modal-overlay" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 }}>
+                    <div style={{ background: "var(--bg-secondary)", padding: 25, borderRadius: 10, width: 700, maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                            <h3 style={{ margin: 0 }}>Base de Conhecimento</h3>
+                            <button onClick={() => setShowKBModal(false)} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer" }}>
+                                <RotateCcw size={18} />
+                            </button>
+                        </div>
+                        <div style={{ position: "relative", marginBottom: 15 }}>
+                            <Search style={{ position: "absolute", left: 12, top: 10, color: "#8696a0" }} size={18} />
+                            <input 
+                                placeholder="Buscar artigos..." 
+                                value={kbSearch} 
+                                onChange={e => setKbSearch(e.target.value)}
+                                style={{ width: "100%", padding: "10px 10px 10px 40px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", boxSizing: "border-box" }}
+                            />
+                        </div>
+                        <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 10 }}>
+                            {kbArticles.filter(a => a.Title.toLowerCase().includes(kbSearch.toLowerCase()) || a.Category?.toLowerCase().includes(kbSearch.toLowerCase())).map(article => (
+                                <div key={article.ArticleId} style={{ padding: 15, border: "1px solid var(--border)", borderRadius: 10, cursor: "pointer" }} 
+                                    className="table-row-hover"
+                                    onClick={() => {
+                                        setComment(comment + article.Content.replace(/<[^>]*>?/gm, ''));
+                                        setShowKBModal(false);
+                                    }}>
+                                    <div style={{ fontWeight: 600, color: "var(--accent)", fontSize: "0.8rem" }}>{article.Category || "Geral"}</div>
+                                    <div style={{ fontWeight: 700, fontSize: "1rem", margin: "4px 0" }}>{article.Title}</div>
+                                    <div style={{ fontSize: "0.82rem", color: "var(--text-secondary)", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                                        {article.Content.replace(/<[^>]*>?/gm, '')}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showSaveToKB && (
+                <div className="modal-overlay" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 }}>
+                    <div style={{ background: "var(--bg-secondary)", padding: 25, borderRadius: 12, width: 500 }}>
+                        <h3 style={{ marginTop: 0 }}>Salvar na Base de Conhecimento</h3>
+                        <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem" }}>Crie um novo artigo baseado na solução deste ticket.</p>
+                        
+                        <div style={{ display: "flex", flexDirection: "column", gap: 15, marginTop: 20 }}>
+                            <div>
+                                <label style={{ display: "block", marginBottom: 6, fontSize: "0.85rem", color: "#8696a0" }}>Título</label>
+                                <input 
+                                    value={kbForm.title} 
+                                    onChange={e => setKbForm({ ...kbForm, title: e.target.value })}
+                                    style={{ width: "100%", padding: 10, borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)" }}
+                                />
+                            </div>
+                            <div>
+                                <label style={{ display: "block", marginBottom: 6, fontSize: "0.85rem", color: "#8696a0" }}>Categoria</label>
+                                <input 
+                                    value={kbForm.category} 
+                                    onChange={e => setKbForm({ ...kbForm, category: e.target.value })}
+                                    style={{ width: "100%", padding: 10, borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)" }}
+                                />
+                            </div>
+                            <div>
+                                <label style={{ display: "block", marginBottom: 6, fontSize: "0.85rem", color: "#8696a0" }}>Conteúdo da Solução</label>
+                                <textarea 
+                                    value={kbForm.content} 
+                                    onChange={e => setKbForm({ ...kbForm, content: e.target.value })}
+                                    rows={6}
+                                    style={{ width: "100%", padding: 10, borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", resize: "vertical" }}
+                                />
+                            </div>
+                        </div>
+
+                        <div style={{ display: "flex", gap: 10, marginTop: 25 }}>
+                            <button onClick={() => setShowSaveToKB(false)} className="btn btn-ghost" style={{ flex: 1 }}>Cancelar</button>
+                            <button onClick={handleSaveToKB} className="btn btn-primary" style={{ flex: 1 }} disabled={actionLoading}>Salvar Artigo</button>
                         </div>
                     </div>
                 </div>

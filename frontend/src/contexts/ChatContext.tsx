@@ -2,6 +2,8 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 import io, { Socket } from "socket.io-client";
 
 import type { Conversation, Message } from "../../../shared/types";
+import { Toast } from "../components/Toast";
+import { ConfirmModal } from "../components/Modal";
 
 type ChatContextType = {
     socket: Socket | null;
@@ -15,6 +17,8 @@ type ChatContextType = {
     typingUsers: Record<string, string>; // conversationId → userName
     emitTyping: (conversationId: string, isTyping: boolean) => void;
     accountStatus: "TRIAL" | "ACTIVE" | null;
+    showToast: (message: string, type?: "success" | "error" | "info") => void;
+    showConfirm: (options: { title: string; description: string; confirmLabel?: string; cancelLabel?: string; isDanger?: boolean; onConfirm: () => void }) => void;
 };
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -29,6 +33,11 @@ export function ChatProvider({ children, token, onLogout }: { children: ReactNod
     const [messages, setMessages] = useState<Message[]>([]);
     const [typingUsers, setTypingUsers] = useState<Record<string, string>>({});
     const [accountStatus, setAccountStatus] = useState<"TRIAL" | "ACTIVE" | null>(null);
+
+    // Toast & Confirm States
+    const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
+    const [confirm, setConfirm] = useState<{ title: string; description: string; confirmLabel?: string; cancelLabel?: string; isDanger?: boolean; onConfirm: () => void } | null>(null);
+
 
     // Ref to always have the latest selectedConversationId in socket listeners without re-subscribing
     const selectedConvIdRef = React.useRef<string | null>(null);
@@ -134,6 +143,8 @@ export function ChatProvider({ children, token, onLogout }: { children: ReactNod
                             Body: m.text || m.Body || `[${m.mediaType || 'media'}]`,
                             Direction: m.direction || m.Direction || "IN",
                             SenderExternalId: m.senderExternalId || m.SenderExternalId || "",
+                            SenderUserId: m.SenderUserId || m.senderUserId,
+                            SenderName: m.SenderName || m.senderName,
                             MediaType: m.mediaType || m.MediaType,
                             MediaUrl: m.mediaUrl || m.MediaUrl,
                             CreatedAt: m.CreatedAt || new Date().toISOString(),
@@ -236,6 +247,32 @@ export function ChatProvider({ children, token, onLogout }: { children: ReactNod
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedConversationId, socket]);
 
+    // 2.5 Ensure selected conversation is in the list
+    useEffect(() => {
+        if (!selectedConversationId) return;
+        const exists = conversations.some(c => c.ConversationId === selectedConversationId);
+        if (!exists) {
+            api.get<Conversation>(`/api/conversations/${selectedConversationId}`)
+                .then(res => {
+                    if (res.data) {
+                        setConversations(prev => {
+                            if (prev.some(c => c.ConversationId === selectedConversationId)) return prev;
+                            return [res.data, ...prev];
+                        });
+                    }
+                })
+                .catch(console.error);
+        }
+    }, [selectedConversationId, conversations]);
+
+    const showToast = (message: string, type: "success" | "error" | "info" = "info") => {
+        setToast({ message, type });
+    };
+
+    const showConfirm = (options: { title: string; description: string; confirmLabel?: string; cancelLabel?: string; isDanger?: boolean; onConfirm: () => void }) => {
+        setConfirm(options);
+    };
+
     return (
         <ChatContext.Provider value={{
             socket,
@@ -248,9 +285,32 @@ export function ChatProvider({ children, token, onLogout }: { children: ReactNod
             refreshConversations,
             typingUsers,
             emitTyping,
-            accountStatus
+            accountStatus,
+            showToast,
+            showConfirm
         }}>
             {children}
+            {toast && (
+                <Toast 
+                    message={toast.message} 
+                    type={toast.type} 
+                    onClose={() => setToast(null)} 
+                />
+            )}
+            {confirm && (
+                <ConfirmModal
+                    title={confirm.title}
+                    description={confirm.description}
+                    confirmLabel={confirm.confirmLabel}
+                    cancelLabel={confirm.cancelLabel}
+                    isDanger={confirm.isDanger}
+                    onConfirm={() => {
+                        confirm.onConfirm();
+                        setConfirm(null);
+                    }}
+                    onCancel={() => setConfirm(null)}
+                />
+            )}
         </ChatContext.Provider>
     );
 }
