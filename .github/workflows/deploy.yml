@@ -49,12 +49,14 @@ jobs:
           ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
           chmod 644 ~/.ssh/known_hosts
 
-      - name: Test SSH Connection (Debug)
+      - name: Test SSH Connection (Debug Max)
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
         run: |
-          ssh -v -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new $SSH_USER@$SSH_HOST "echo 'SSH connection successful'"
+          ssh -vvv -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new \
+            -o IdentitiesOnly=yes \
+            $SSH_USER@$SSH_HOST "echo 'SSH connection successful'"
 
       - name: Generate .env file locally
         run: |
@@ -85,14 +87,14 @@ jobs:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
         run: |
-          scp -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new .env.prod $SSH_USER@$SSH_HOST:/opt/altdesk/.env
+          scp -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new -o IdentitiesOnly=yes .env.prod $SSH_USER@$SSH_HOST:/opt/altdesk/.env
 
       - name: Deploy via SSH
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
         run: |
-          ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new $SSH_USER@$SSH_HOST << 'EOF'
+          ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new -o IdentitiesOnly=yes $SSH_USER@$SSH_HOST << 'EOF'
             set -e
             cd /opt/altdesk
             git pull origin main
@@ -101,6 +103,7 @@ jobs:
             # Limpeza de imagens órfãs para poupar espaço no disco da Locaweb
             docker image prune -f
           EOF
+
 
 
 
