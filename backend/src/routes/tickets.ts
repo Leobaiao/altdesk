@@ -60,7 +60,7 @@ router.post("/portal/new", validateBody(z.object({
         const convResult = await pool.request()
             .input("tenantId", tenantId)
             .input("channelId", channelId)
-            .input("title", collaboratorName)
+            .input("title", title)
             .input("requesterUserId", userId)
             .query(`
                 INSERT INTO altdesk.Conversation (TenantId, ChannelId, Title, Kind, Status, RequesterUserId)
@@ -103,7 +103,7 @@ router.post("/portal/new", validateBody(z.object({
             // Notificar novo ticket/conversa
             emitConversationEvent(io, tenantId!, conversationId, "conversation:new", {
                 ConversationId: conversationId,
-                Title: collaboratorName,
+                Title: title,
                 Status: 'OPEN',
                 Kind: 'DIRECT',
                 RequesterUserId: userId,
@@ -132,9 +132,23 @@ router.get("/kanban", (async (req: AuthenticatedRequest, res: Response, next: Ne
         const { tenantId, role, userId } = req.user;
         const pool = await getPool();
 
-        let whereClause = "WHERE c.TenantId = @tenantId AND c.DeletedAt IS NULL AND ISNULL(t.Status, 'NEW') != 'CLOSED'";
+        let whereClause = "WHERE c.TenantId = @tenantId AND c.DeletedAt IS NULL AND t.TicketId IS NOT NULL AND t.Status != 'CLOSED'";
         if (role === 'END_USER') {
             whereClause += " AND c.RequesterUserId = @userId";
+        } else if (role === 'AGENT') {
+            // For agents, show:
+            // 1. Tickets assigned to them
+            // 2. Unassigned tickets on connectors they have access to
+            whereClause += ` AND (
+                ag.UserId = @userId
+                OR (
+                    t.AssignedAgentId IS NULL 
+                    AND (
+                        NOT EXISTS (SELECT 1 FROM altdesk.InstanceAssignment ia WHERE ia.ConnectorId = extMap.ConnectorId)
+                        OR EXISTS (SELECT 1 FROM altdesk.InstanceAssignment ia WHERE ia.ConnectorId = extMap.ConnectorId AND ia.UserId = @userId)
+                    )
+                )
+            )`;
         }
 
         const result = await pool.request()
@@ -155,11 +169,11 @@ router.get("/kanban", (async (req: AuthenticatedRequest, res: Response, next: Ne
                     agentUser.DisplayName as AgentName,
                     reqContact.Name as RequesterName
                 FROM altdesk.Conversation c
-                LEFT JOIN altdesk.Ticket t ON t.ConversationId = c.ConversationId AND t.DeletedAt IS NULL
+                INNER JOIN altdesk.Ticket t ON t.ConversationId = c.ConversationId AND t.DeletedAt IS NULL
                 LEFT JOIN altdesk.Agent ag ON ag.AgentId = t.AssignedAgentId
                 LEFT JOIN altdesk.[User] agentUser ON agentUser.UserId = ag.UserId
                 OUTER APPLY (
-                    SELECT TOP 1 etm.ExternalUserId
+                    SELECT TOP 1 etm.ExternalUserId, etm.ConnectorId
                     FROM altdesk.ExternalThreadMap etm
                     WHERE etm.ConversationId = c.ConversationId
                 ) extMap

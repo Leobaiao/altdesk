@@ -60,6 +60,7 @@ export async function getConversationHistory(tenantId: string, conversationId: s
       SELECT ch.HistoryId, ch.SequenceNumber, ch.Action, ch.ActorUserId, ch.EscalatedToUserId,
              ch.MetadataJson, ch.CreatedAt,
              u1.Email AS ActorEmail,
+             u1.DisplayName AS ActorName,
              u2.Email AS EscalatedToEmail
       FROM altdesk.ConversationHistory ch
       LEFT JOIN altdesk.[User] u1 ON u1.UserId = ch.ActorUserId

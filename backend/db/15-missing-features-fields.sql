@@ -85,6 +85,22 @@ IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('altdesk.Te
     ALTER TABLE altdesk.Tenant ADD OffHoursMessage NVARCHAR(500) NULL;
 GO
 
+IF NOT EXISTS (SELECT 1 FROM sys.objects WHERE object_id = OBJECT_ID('altdesk.BusinessDayException') AND type = 'U')
+BEGIN
+    CREATE TABLE altdesk.BusinessDayException (
+        ExceptionId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+        TenantId UNIQUEIDENTIFIER NOT NULL REFERENCES altdesk.Tenant(TenantId),
+        [Date] DATE NOT NULL,
+        Description NVARCHAR(200),
+        IsOpen BIT NOT NULL DEFAULT 0,
+        StartTime TIME NULL,
+        EndTime TIME NULL,
+        CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME(),
+        UNIQUE (TenantId, [Date])
+    );
+END
+GO
+
 -- ─────────────────────────────────────────────────────────────
 -- 5. Knowledge Base
 -- ─────────────────────────────────────────────────────────────

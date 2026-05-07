@@ -10,8 +10,11 @@ import {
 import { api } from "../lib/api";
 
 export interface TicketData {
+    id: string;
+    conversationId: string;
     ConversationId: string;
     Title: string;
+    status: string;
     Status: string;
     Kind: string;
     LastMessageAt: string;
@@ -258,7 +261,7 @@ export function TicketList({ onSelect, selectedId, onBack, refreshKey, onStatsUp
                             {getChannelIcon(t.SourceChannel)}
                         </div>
 
-                        {/* Name & CPF & SLA */}
+                        {/* Subject & Name & SLA */}
                         <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                 <div style={{
@@ -266,7 +269,7 @@ export function TicketList({ onSelect, selectedId, onBack, refreshKey, onStatsUp
                                     overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                                     color: 'var(--text-primary, #1f2937)'
                                 }}>
-                                    {t.ContactName || t.ExternalUserId || "Sem identificação"}
+                                    {t.Title || t.ContactName || t.ExternalUserId || "Sem assunto"}
                                 </div>
                                 {t.SlaStatus && (
                                     <span style={{
@@ -280,7 +283,8 @@ export function TicketList({ onSelect, selectedId, onBack, refreshKey, onStatsUp
                                 )}
                             </div>
                             <div style={{ color: "var(--text-secondary, #6b7280)", fontSize: "0.76rem", marginTop: 2 }}>
-                                CPF: {formatCPF(t.ContactCPF)} · {getChannelLabel(t.SourceChannel)}
+                                {t.ContactName && t.ContactName !== t.Title ? `${t.ContactName} · ` : ""}
+                                {getChannelLabel(t.SourceChannel)}
                             </div>
                         </div>
 

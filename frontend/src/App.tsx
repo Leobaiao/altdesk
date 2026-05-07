@@ -225,11 +225,7 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
     }
   };
 
-  const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info"; action?: { label: string; onClick: () => void } } | null>(null);
-
-  function showToast(message: string, type: "success" | "error" | "info" = "info", action?: { label: string; onClick: () => void }) {
-    setToast({ message, type, action });
-  }
+  const { showToast } = useChat();
 
   const currentPath = location.pathname;
   const isChat = currentPath.startsWith("/chat") || currentPath === "/";
@@ -267,10 +263,10 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
             <NavIcon icon={LayoutDashboard} label="Dashboard" active={currentPath.startsWith("/dashboard")} onClick={() => navigate("/dashboard")} />
           )}
           {role === 'END_USER' && (
-            <NavIcon icon={LayoutDashboard} label="Portal do Solicitante" active={currentPath === "/dashboard" || currentPath === "/chat" || currentPath === "/"} onClick={() => navigate("/dashboard")} />
+            <NavIcon icon={LayoutDashboard} label="Portal do Solicitante" active={currentPath === "/dashboard"} onClick={() => navigate("/dashboard")} />
           )}
 
-          {livePermissions?.chat !== false && role !== 'END_USER' && (
+          {(livePermissions?.chat !== false || role === 'END_USER') && (
             <NavIcon icon={MessageSquare} label="Conversas" active={isChat} onClick={() => navigate("/chat")} />
           )}
 
@@ -283,7 +279,6 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
           {role !== 'END_USER' && livePermissions?.contacts !== false && (
             <NavIcon icon={ContactsIcon} label="Contatos" active={currentPath.startsWith("/contacts")} onClick={() => navigate("/contacts")} />
           )}
-
           {role !== 'END_USER' && livePermissions?.users !== false && (
             <NavIcon icon={UsersIcon} label="Colaboradores" active={currentPath.startsWith("/users")} onClick={() => navigate("/users")} />
           )}
@@ -296,7 +291,7 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
           )}
         </div>
         <div className="footer-items">
-          {role !== 'END_USER' && (role === 'SUPERADMIN' || role === 'ADMIN' || livePermissions?.settings !== false) && (
+          {(role === 'SUPERADMIN' || role === 'ADMIN' || role === 'AGENT' || role === 'END_USER' || livePermissions?.settings !== false) && (
             <NavIcon icon={SettingsIcon} label="Config" active={currentPath.startsWith("/settings") || currentPath.startsWith("/business-hours") || currentPath.startsWith("/canned") || currentPath.startsWith("/knowledge") || currentPath.startsWith("/billing")} onClick={() => navigate("/settings")} />
           )}
           <button 
@@ -323,7 +318,7 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
             <div style={{ flex: 1, overflow: "hidden", position: "relative", display: "flex", flexDirection: "column" }}>
               <Routes>
                 <Route path="/" element={<Navigate to={role === 'END_USER' ? "/dashboard" : "/chat"} replace />} />
-                <Route path="/chat" element={<ChatWindow setView={(v) => navigate(`/${v.toLowerCase()}`)} showToast={showToast} />} />
+                <Route path="/chat" element={<ChatWindow setView={(v) => navigate(`/${v.toLowerCase()}`)} />} />
                 <Route path="/contacts" element={<Contacts onBack={() => navigate("/chat")} onStartChat={handleStartChat} />} />
                 <Route path="/canned" element={<CannedResponses onBack={() => navigate("/settings")} />} />
                 <Route path="/dashboard" element={<DashboardView token={token} onBack={() => navigate("/chat")} />} />
@@ -331,7 +326,7 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
                 <Route path="/users" element={<Users token={token} onBack={() => navigate("/chat")} role={role || 'AGENT'} />} />
 
                 <Route path="/settings" element={
-                  (role === 'SUPERADMIN' || role === 'ADMIN' || livePermissions?.settings !== false) 
+                  (role === 'SUPERADMIN' || role === 'ADMIN' || role === 'AGENT' || role === 'END_USER' || livePermissions?.settings !== false) 
                     ? <Settings token={token} onBack={() => navigate("/chat")} role={role || 'AGENT'} livePermissions={livePermissions} />
                     : <Navigate to="/chat" replace />
                 } />
@@ -350,9 +345,6 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
           </div>
         </div>
       </div>
-
-
-      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     </div>
   );
 }

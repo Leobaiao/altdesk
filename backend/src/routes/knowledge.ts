@@ -31,7 +31,7 @@ router.get("/public/search", (async (req: any, res: any, next: any) => {
 }) as any);
 
 // Auth required for management
-router.use(authMw, requirePermission('settings'));
+router.use(authMw);
 
 // List all articles
 router.get("/", (async (req: any, res: any, next: any) => {
@@ -45,7 +45,7 @@ router.get("/", (async (req: any, res: any, next: any) => {
 }) as any);
 
 // Create article
-router.post("/", validateBody(z.object({
+router.post("/", requirePermission('settings'), validateBody(z.object({
     Title: z.string().min(1),
     Content: z.string().min(1),
     Category: z.string().optional(),
@@ -61,7 +61,7 @@ router.post("/", validateBody(z.object({
 }) as any);
 
 // Update article
-router.put("/:id", validateBody(z.object({
+router.put("/:id", requirePermission('settings'), validateBody(z.object({
     Title: z.string().min(1),
     Content: z.string().min(1),
     Category: z.string().optional(),
@@ -77,7 +77,7 @@ router.put("/:id", validateBody(z.object({
 }) as any);
 
 // Delete article
-router.delete("/:id", (async (req: any, res: any, next: any) => {
+router.delete("/:id", requirePermission('settings'), (async (req: any, res: any, next: any) => {
     try {
         const authReq = req as AuthenticatedRequest;
         await deleteArticle(authReq.user.tenantId || "", authReq.params.id);

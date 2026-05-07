@@ -55,11 +55,13 @@ export function Dashboard({ token, onBack }: { token: string; onBack: () => void
                 navigate("/chat");
             }
         } catch (e: any) {
-            alert("Erro ao criar chamado: " + (e.response?.data?.error || e.message));
+            showToast("Erro ao criar chamado: " + (e.response?.data?.error || e.message), "error");
         } finally {
             setCreating(false);
         }
     };
+
+    const { showToast } = useChat();
 
     const role = useMemo(() => getUserRoleFromToken(), [token]);
 

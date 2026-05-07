@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Plus, Search, MessageSquare, Zap, Trash2, ArrowLeft, Pencil, Check, X } from "lucide-react";
+import { Plus, Search, MessageSquare, Zap, Trash2, ArrowLeft, Pencil, Check, X, BookOpen } from "lucide-react";
 
 
 import { PageHeader } from "./components/PageHeader";
@@ -7,8 +7,10 @@ import { PageHeader } from "./components/PageHeader";
 import type { CannedResponse } from "../../shared/types";
 
 import { api } from "./lib/api";
+import { useChat } from "./contexts/ChatContext";
 
 export function CannedResponses({ onBack }: { onBack: () => void }) {
+    const { showToast } = useChat();
     const [items, setItems] = useState<CannedResponse[]>([]);
     const [view, setView] = useState<"LIST" | "FORM">("LIST");
     const [editingItem, setEditingItem] = useState<CannedResponse | null>(null);
@@ -37,7 +39,10 @@ export function CannedResponses({ onBack }: { onBack: () => void }) {
     };
 
     const handleSave = async () => {
-        if (!newShortcut || !newContent || !newTitle) return alert("Preencha todos os campos");
+        if (!newShortcut || !newContent || !newTitle) {
+            showToast("Preencha todos os campos", "error");
+            return;
+        }
 
         try {
             if (editingItem) {
@@ -57,9 +62,8 @@ export function CannedResponses({ onBack }: { onBack: () => void }) {
             await loadItems();
             setView("LIST");
             resetForm();
-        } catch (error: any) {
-            const err = error.response?.data || {};
-            alert("Erro ao salvar: " + (err.error || error.message));
+        } catch (err: any) {
+            showToast("Erro ao salvar: " + (err.response?.data?.error || err.message), "error");
         }
     };
 
@@ -84,8 +88,7 @@ export function CannedResponses({ onBack }: { onBack: () => void }) {
             setItems(prev => prev.filter(i => i.CannedResponseId !== id));
             setConfirmDeleteId(null);
         } catch (e: any) {
-            console.error("Delete failed:", e);
-            alert("Erro ao excluir: " + (e.response?.data?.error || e.message));
+            showToast("Erro ao excluir: " + (e.response?.data?.error || e.message), "error");
         }
     };
 

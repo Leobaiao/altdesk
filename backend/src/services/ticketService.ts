@@ -4,7 +4,7 @@ import { logger } from "../lib/logger.js";
 /**
  * Cria um ticket vinculado a uma conversa.
  */
-export async function createTicketForConversation(tenantId: string, conversationId: string, priority: string = "MEDIUM") {
+export async function createTicketForConversation(tenantId: string, conversationId: string, priority: string = "MEDIUM", actorUserId?: string) {
     const pool = await getPool();
 
     // Verify if conversation already has an active ticket
@@ -60,15 +60,20 @@ export async function createTicketForConversation(tenantId: string, conversation
 
     const newTicket = result.recordset[0];
     
-    // Log the event
-    await pool.request()
-        .input("tenantId", tenantId)
-        .input("ticketId", newTicket.TicketId)
-        .input("eventType", "CREATED")
-        .query(`
-            INSERT INTO altdesk.TicketEvent (TenantId, TicketId, EventType, NewValue)
-            VALUES (@tenantId, @ticketId, @eventType, 'NEW')
-        `);
+    // Log the event (non-blocking)
+    try {
+        await pool.request()
+            .input("tenantId", tenantId)
+            .input("ticketId", newTicket.TicketId)
+            .input("eventType", "CREATED")
+            .input("actorUserId", actorUserId || null)
+            .query(`
+                INSERT INTO altdesk.TicketEvent (TenantId, TicketId, EventType, NewValue, ActorUserId)
+                VALUES (@tenantId, @ticketId, @eventType, 'NEW', @actorUserId)
+            `);
+    } catch (e) {
+        logger.error({ err: e, ticketId: newTicket.TicketId }, "Failed to log TicketEvent for creation");
+    }
 
     logger.info({ tenantId, conversationId, ticketId: newTicket.TicketId }, "Ticket created with SLA applied");
     return newTicket;

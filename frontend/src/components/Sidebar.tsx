@@ -37,16 +37,28 @@ function formatPhone(ext: string) {
     return ext.replace("@s.whatsapp.net", "").replace("@c.us", "");
 }
 
-function getChannelIcon(source: string | undefined) {
+function getChannelIcon(source: string | undefined, kind?: string) {
+    if ((kind === "DIRECT" || kind === "INTERNAL") && (!source || source === "INTERNAL")) {
+        return <Monitor size={14} style={{ color: "#00a884" }} />; // Or Users icon
+    }
     const s = (source || "").toUpperCase();
     if (s.includes("WHATSAPP")) return <MessageSquare size={14} style={{ color: "#25D366" }} />;
     if (s.includes("EMAIL")) return <Mail size={14} style={{ color: "#EA4335" }} />;
     return <Monitor size={14} style={{ color: "#8696a0" }} />;
 }
 
+function getConversationTitle(c: Conversation, currentUserId: string | undefined) {
+    if (c.Kind === "INTERNAL") {
+        if (c.RequesterUserId === currentUserId) return c.AssignedUserName || "Agente";
+        if (c.AssignedUserId === currentUserId) return c.ContactName || "Atendimento";
+        return c.Title || "Chat Interno";
+    }
+    return c.Title || formatPhone(c.ExternalUserId);
+}
+
 
 export function Sidebar({ setView }: { setView: (view: any) => void }) {
-    const { conversations, selectedConversationId, setSelectedConversationId, accountStatus } = useChat();
+    const { conversations, selectedConversationId, setSelectedConversationId, accountStatus, refreshConversations, showToast } = useChat();
     const token = localStorage.getItem("token");
     const role = useMemo(() => {
         if (!token) return "AGENT";
@@ -65,7 +77,6 @@ export function Sidebar({ setView }: { setView: (view: any) => void }) {
     const [contacts, setContacts] = useState<any[]>([]);
     const [internalUsers, setInternalUsers] = useState<any[]>([]);
 
-    const { refreshConversations } = useChat();
 
     const handleOpenNewChat = async () => {
         try {
@@ -90,22 +101,22 @@ export function Sidebar({ setView }: { setView: (view: any) => void }) {
             setContactSearch("");
             refreshConversations();
         } catch (e: any) {
-            alert("Erro: " + (e.response?.data?.error || e.message));
+            showToast("Erro: " + (e.response?.data?.error || e.message), "error");
         }
     };
 
     const userId = getUserIdFromToken();
     
-    let myChats = conversations.filter(c => c.Status === "OPEN" && c.AssignedUserId === userId);
+    let myChats = conversations.filter(c => c.Status === "OPEN" && (c.AssignedUserId === userId || c.RequesterUserId === userId));
     let queueChats = conversations.filter(c => c.Status === "OPEN" && !c.AssignedUserId);
     let allChats = conversations.filter(c => c.Status === "OPEN");
     let resolvedChats = conversations.filter(c => c.Status === "RESOLVED");
 
     if (role === 'END_USER') {
-        myChats = conversations.filter(c => c.RequesterUserId === userId && c.Status === 'OPEN');
+        myChats = conversations.filter(c => (c.RequesterUserId === userId || c.AssignedUserId === userId) && c.Status === 'OPEN');
         queueChats = []; // Requesters don't see queues
         allChats = myChats; // For requesters, 'All' is just their chats
-        resolvedChats = conversations.filter(c => c.RequesterUserId === userId && c.Status === 'RESOLVED');
+        resolvedChats = conversations.filter(c => (c.RequesterUserId === userId || c.AssignedUserId === userId) && c.Status === 'RESOLVED');
     }
 
     let displayedConversations = myChats;
@@ -181,7 +192,7 @@ export function Sidebar({ setView }: { setView: (view: any) => void }) {
                     <TabButton label="Todos" active={tab === "ALL"} onClick={() => setTab("ALL")} />
                 )}
                 <TabButton label="Minhas" active={tab === "MY"} onClick={() => setTab("MY")} />
-                <TabButton label="Filas" active={tab === "QUEUE"} onClick={() => setTab("QUEUE")} />
+                {role !== 'END_USER' && <TabButton label="Filas" active={tab === "QUEUE"} onClick={() => setTab("QUEUE")} />}
                 <TabButton label="Resolvidos" active={tab === "RESOLVED"} onClick={() => setTab("RESOLVED")} />
             </div>
 
@@ -194,9 +205,9 @@ export function Sidebar({ setView }: { setView: (view: any) => void }) {
                     >
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-                                {getChannelIcon(c.SourceChannel)}
+                                {getChannelIcon(c.SourceChannel, c.Kind)}
                                 <span className="title" style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                    {c.Title || formatPhone(c.ExternalUserId)}
+                                    {getConversationTitle(c, userId)}
                                 </span>
                             </div>
                             <div style={{ display: "flex", gap: 5, alignItems: "center" }}>

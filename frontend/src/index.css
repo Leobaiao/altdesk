@@ -306,17 +306,21 @@ body,
 }
 
 .bubble-row.in .bubble {
-  background: var(--bg-secondary);
+  background: var(--bubble-in);
   color: var(--text-primary);
   border-bottom-left-radius: 4px;
   border: 1px solid var(--border);
 }
 
 .bubble-row.out .bubble {
-  background: linear-gradient(135deg, #00a884 0%, #008f70 100%);
-  color: #ffffff;
+  background: var(--bubble-out);
+  color: var(--text-primary); /* WhatsApp text is usually dark even on light green */
   border-bottom-right-radius: 4px;
-  box-shadow: 0 4px 12px rgba(0, 168, 132, 0.25);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="dark"] .bubble-row.out .bubble {
+  color: var(--text-primary);
 }
 
 

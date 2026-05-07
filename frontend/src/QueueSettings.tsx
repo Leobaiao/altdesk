@@ -5,8 +5,10 @@ import { PageHeader } from "./components/PageHeader";
 import type { Queue } from "../../shared/types";
 
 import { api } from "./lib/api";
+import { useChat } from "./contexts/ChatContext";
 
 export function QueueSettings({ onBack }: { onBack: () => void }) {
+    const { showToast } = useChat();
     const [items, setItems] = useState<Queue[]>([]);
     const [newName, setNewName] = useState("");
     const [loading, setLoading] = useState(false);
@@ -38,7 +40,7 @@ export function QueueSettings({ onBack }: { onBack: () => void }) {
             setNewName("");
         } catch (error: any) {
             const err = error.response?.data || {};
-            alert("Erro ao criar fila: " + (err.error || error.message));
+            showToast("Erro ao criar fila: " + (err.error || error.message), "error");
             console.error(error);
         } finally {
             setLoading(false);

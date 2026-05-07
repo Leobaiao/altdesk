@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { ArrowLeft, Clock, Save, Calendar, Plus, Trash2, AlertCircle } from "lucide-react";
+import { ArrowLeft, Clock, Save, Calendar, Plus, Trash2, AlertCircle, Edit2 } from "lucide-react";
 import { PageHeader } from "./components/PageHeader";
 import { api } from "./lib/api";
+import { ConfirmModal } from "./components/Modal";
+import { Toast } from "./components/Toast";
 
 const DAY_NAMES = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 
@@ -46,6 +48,9 @@ export function BusinessHours({ onBack }: Props) {
     const [newExcIsOpen, setNewExcIsOpen] = useState(false);
     const [newExcStart, setNewExcStart] = useState("08:00");
     const [newExcEnd, setNewExcEnd] = useState("18:00");
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+    const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
     useEffect(() => {
         loadData();
@@ -84,42 +89,74 @@ export function BusinessHours({ onBack }: Props) {
         setSaving(true);
         try {
             await api.put("/api/business-hours", { hours, offHoursMessage });
+            setToast({ message: "Configurações salvas com sucesso!", type: "success" });
         } catch (err) {
             console.error(err);
+            setToast({ message: "Erro ao salvar configurações", type: "error" });
         } finally {
             setSaving(false);
         }
     };
 
-    const handleAddException = async () => {
+    const handleSaveException = async () => {
         if (!newExcDate) return;
         setExceptionsLoading(true);
         try {
             await api.post("/api/business-hours/exceptions", {
+                exceptionId: editingId, // Send ID if editing
                 date: newExcDate,
                 description: newExcDesc,
                 isOpen: newExcIsOpen,
                 startTime: newExcIsOpen ? newExcStart : null,
                 endTime: newExcIsOpen ? newExcEnd : null
             });
+            
+            // Reset form
             setNewExcDate("");
             setNewExcDesc("");
             setNewExcIsOpen(false);
+            setEditingId(null);
+
             const excRes = await api.get("/api/business-hours/exceptions");
             setExceptions(excRes.data);
-        } catch (err) {
+            setToast({ message: editingId ? "Exceção atualizada!" : "Exceção adicionada!", type: "success" });
+        } catch (err: any) {
             console.error(err);
+            setToast({ message: err.response?.data?.error || "Erro ao salvar exceção", type: "error" });
         } finally {
             setExceptionsLoading(false);
         }
     };
 
-    const handleDeleteException = async (id: string) => {
+    const handleEditStart = (e: BusinessException) => {
+        setEditingId(e.ExceptionId);
+        setNewExcDate(e.Date);
+        setNewExcDesc(e.Description || "");
+        setNewExcIsOpen(e.IsOpen);
+        setNewExcStart(e.StartTime || "08:00");
+        setNewExcEnd(e.EndTime || "18:00");
+        // Scroll to form
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const handleCancelEdit = () => {
+        setEditingId(null);
+        setNewExcDate("");
+        setNewExcDesc("");
+        setNewExcIsOpen(false);
+    };
+
+    const handleDeleteException = async () => {
+        if (!confirmDeleteId) return;
         try {
-            await api.delete(`/api/business-hours/exceptions/${id}`);
-            setExceptions(prev => prev.filter(e => e.ExceptionId !== id));
+            await api.delete(`/api/business-hours/exceptions/${confirmDeleteId}`);
+            setExceptions(prev => prev.filter(e => e.ExceptionId !== confirmDeleteId));
+            setToast({ message: "Exceção removida", type: "success" });
         } catch (err) {
             console.error(err);
+            setToast({ message: "Erro ao remover exceção", type: "error" });
+        } finally {
+            setConfirmDeleteId(null);
         }
     };
 
@@ -249,17 +286,29 @@ export function BusinessHours({ onBack }: Props) {
                             )}
                         </div>
 
-                        <button 
-                            className="btn btn-primary"
-                            disabled={!newExcDate || exceptionsLoading}
-                            onClick={handleAddException}
-                            style={{ 
-                                display: "flex", alignItems: "center", justifyContent: "center", gap: 8, 
-                                padding: "10px", fontSize: "0.85rem", marginTop: 4, width: "100%"
-                            }}
-                        >
-                            <Plus size={16} /> Adicionar Exceção
-                        </button>
+                        <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+                            <button 
+                                className="btn btn-primary"
+                                disabled={!newExcDate || exceptionsLoading}
+                                onClick={handleSaveException}
+                                style={{ 
+                                    flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, 
+                                    padding: "10px", fontSize: "0.85rem"
+                                }}
+                            >
+                                {editingId ? <Save size={16} /> : <Plus size={16} />}
+                                {editingId ? "Salvar Alterações" : "Adicionar Exceção"}
+                            </button>
+                            {editingId && (
+                                <button 
+                                    className="btn btn-ghost"
+                                    onClick={handleCancelEdit}
+                                    style={{ padding: "10px 15px", fontSize: "0.85rem" }}
+                                >
+                                    Cancelar
+                                </button>
+                            )}
+                        </div>
                     </div>
 
                     {/* Exceptions List */}
@@ -293,13 +342,24 @@ export function BusinessHours({ onBack }: Props) {
                                             </span>
                                         </div>
                                     </div>
-                                    <button 
-                                        onClick={() => handleDeleteException(e.ExceptionId)}
-                                        style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", padding: 8 }}
-                                        title="Remover"
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
+                                    <div style={{ display: "flex", gap: 4 }}>
+                                        <button 
+                                            onClick={() => handleEditStart(e)}
+                                            style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", padding: 8, borderRadius: 6 }}
+                                            className="btn-hover-bg"
+                                            title="Editar"
+                                        >
+                                            <Edit2 size={16} style={{ opacity: 0.7 }} />
+                                        </button>
+                                        <button 
+                                            onClick={() => setConfirmDeleteId(e.ExceptionId)}
+                                            style={{ background: "none", border: "none", color: "var(--danger, #ef4444)", cursor: "pointer", padding: 8, borderRadius: 6 }}
+                                            className="btn-hover-bg"
+                                            title="Remover"
+                                        >
+                                            <Trash2 size={16} style={{ opacity: 0.8 }} />
+                                        </button>
+                                    </div>
                                 </div>
                             ))
                         )}
@@ -337,6 +397,25 @@ export function BusinessHours({ onBack }: Props) {
                     <Save size={20} /> {saving ? "Salvando..." : "Salvar Todas as Configurações"}
                 </button>
             </div>
+
+            {confirmDeleteId && (
+                <ConfirmModal 
+                    title="Remover Exceção"
+                    description="Tem certeza que deseja remover este feriado/exceção do calendário? Esta ação não pode ser desfeita."
+                    confirmLabel="Sim, Remover"
+                    isDanger={true}
+                    onConfirm={handleDeleteException}
+                    onCancel={() => setConfirmDeleteId(null)}
+                />
+            )}
+
+            {toast && (
+                <Toast 
+                    message={toast.message} 
+                    type={toast.type} 
+                    onClose={() => setToast(null)} 
+                />
+            )}
         </div>
     );
 }

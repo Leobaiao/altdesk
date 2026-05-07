@@ -8,7 +8,7 @@ import { TemplateModal } from "./TemplateModal";
 import { ImageViewerModal } from "./ImageViewerModal";
 import { DocumentCard } from "./DocumentCard";
 import { TagPill } from "./TagPill";
-import type { Tag } from "../../../shared/types";
+import type { Tag, Conversation } from "../../../shared/types";
 
 import { api } from "../lib/api";
 import { getUserRoleFromToken, getUserIdFromToken } from "../lib/auth";
@@ -24,17 +24,28 @@ function formatPhone(ext: string) {
     return ext.replace("@s.whatsapp.net", "").replace("@c.us", "");
 }
 
-function getChannelIcon(source: string | undefined) {
+function getChannelIcon(source: string | undefined, kind?: string) {
+    if ((kind === "DIRECT" || kind === "INTERNAL") && (!source || source === "INTERNAL")) {
+        return <Monitor size={18} style={{ color: "#00a884" }} />;
+    }
     const s = (source || "").toUpperCase();
     if (s.includes("WHATSAPP")) return <MessageSquare size={18} style={{ color: "#25D366" }} />;
     if (s.includes("EMAIL")) return <Mail size={18} style={{ color: "#EA4335" }} />;
     return <Monitor size={18} style={{ color: "#8696a0" }} />;
 }
+function getConversationTitle(c: Conversation, currentUserId: string | undefined) {
+    if (c.Kind === "INTERNAL") {
+        if (c.RequesterUserId === currentUserId) return c.AssignedUserName || "Agente";
+        if (c.AssignedUserId === currentUserId) return c.ContactName || "Atendimento";
+        return c.Title || "Chat Interno";
+    }
+    return c.Title || formatPhone(c.ExternalUserId);
+}
 
 
-
-export function ChatWindow({ setView, showToast }: { setView: (v: any) => void, showToast: (m: string, t: "success" | "error" | "info") => void }) {
-    const { conversations, selectedConversationId, setSelectedConversationId, messages, refreshConversations, typingUsers, emitTyping } = useChat();
+export function ChatWindow({ setView }: { setView: (v: any) => void }) {
+    const { conversations, selectedConversationId, setSelectedConversationId, messages, refreshConversations, typingUsers, emitTyping, showToast, showConfirm } = useChat();
+    const currentUserId = getUserIdFromToken();
     const [text, setText] = useState("");
     const [sending, setSending] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -101,7 +112,8 @@ export function ChatWindow({ setView, showToast }: { setView: (v: any) => void, 
             const res = await api.post(`/api/conversations/${selectedConversationId}/ticket`, { priority: ticketPriority });
             setActiveTicket(res.data);
             setShowTicketModal(false);
-            showToast("Ticket criado com sucesso", "success");
+            showToast("Ticket criado com sucesso!", "success");
+            loadActiveTicket();
         } catch (e: any) {
             showToast("Erro ao criar ticket: " + (e.response?.data?.error || e.message), "error");
         }
@@ -252,13 +264,20 @@ export function ChatWindow({ setView, showToast }: { setView: (v: any) => void, 
     }
 
     async function handleDeleteMessage(messageId: string) {
-        if (!confirm("Tem certeza que deseja apagar esta mensagem?")) return;
-        try {
-            await api.delete(`/api/conversations/${selectedConversationId}/messages/${messageId}`);
-            showToast("Mensagem apagada", "success");
-        } catch (e: any) {
-            showToast("Erro ao apagar mensagem", "error");
-        }
+        showConfirm({
+            title: "Apagar Mensagem",
+            description: "Tem certeza que deseja apagar esta mensagem?",
+            confirmLabel: "Apagar",
+            isDanger: true,
+            onConfirm: async () => {
+                try {
+                    await api.delete(`/api/messages/${messageId}`);
+                    showToast("Mensagem apagada", "success");
+                } catch (err) {
+                    showToast("Erro ao apagar mensagem", "error");
+                }
+            }
+        });
     }
 
     async function openAssignModal() {
@@ -298,18 +317,28 @@ export function ChatWindow({ setView, showToast }: { setView: (v: any) => void, 
                         <ArrowLeft size={24} />
                     </button>
                     <div style={{ width: 44, height: 44, borderRadius: 12, background: "var(--bg-hover)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.2rem", fontWeight: 700, color: "var(--accent)", flexShrink: 0 }}>
-                        {(selectedConversation.Title || "?").charAt(0).toUpperCase()}
+                        {(getConversationTitle(selectedConversation, currentUserId) || "?").charAt(0).toUpperCase()}
                     </div>
                     <div style={{ minWidth: 0 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            {getChannelIcon(selectedConversation.SourceChannel)}
+                            {getChannelIcon(selectedConversation.SourceChannel, selectedConversation.Kind)}
                             <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                {selectedConversation.Title || formatPhone(selectedConversation.ExternalUserId)}
+                                {getConversationTitle(selectedConversation, currentUserId)}
                             </h2>
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+                            {selectedConversation.ContactName && selectedConversation.ContactName !== selectedConversation.Title && (
+                                <>
+                                    <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: 600 }}>
+                                        {selectedConversation.ContactName}
+                                    </span>
+                                    <span style={{ width: 4, height: 4, borderRadius: "50%", background: "var(--border)" }} />
+                                </>
+                            )}
                             <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
-                                {formatPhone(selectedConversation.ExternalUserId)}
+                                {formatPhone(selectedConversation.ExternalUserId).length > 20 
+                                    ? formatPhone(selectedConversation.ExternalUserId).substring(0, 8) + "..." 
+                                    : formatPhone(selectedConversation.ExternalUserId)}
                             </span>
                             <span style={{ width: 4, height: 4, borderRadius: "50%", background: "var(--border)" }} />
                             <span style={{ fontSize: "0.8rem", textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 700, color: selectedConversation.Status === "OPEN" ? "#00a884" : "#8696a0" }}>
@@ -339,7 +368,7 @@ export function ChatWindow({ setView, showToast }: { setView: (v: any) => void, 
                                     + TAG
                                 </button>
                                 {showTagMenu && (
-                                    <div style={{ position: "absolute", top: 30, right: 0, background: "var(--bg-secondary)", border: "1px solid var(--border)", borderRadius: 10, zIndex: 100, width: 180, maxHeight: 200, overflowY: "auto", boxShadow: "0 10px 25px rgba(0,0,0,0.2)", padding: 5 }}>
+                                    <div style={{ position: "absolute", top: 30, right: 0, background: "var(--bg-secondary)", border: "1px solid var(--border)", borderRadius: 10, zIndex: 100, width: 180, maxHeight: 200, overflowY: "auto", boxShadow: "0 10px 25px rgba(0,0,0,0.2)", padding: 5, minHeight: 40, display: "flex", flexDirection: "column" }}>
                                         {allTags.filter(t => !selectedConversation.Tags?.find(st => st.TagId === t.TagId)).map(tag => (
                                             <div key={tag.TagId} onClick={() => { handleAddTag(tag.TagId); setShowTagMenu(false); }} style={{ padding: "8px 12px", cursor: "pointer", borderRadius: 6, fontSize: "0.85rem", transition: "all 0.2s" }} onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                                                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -348,6 +377,11 @@ export function ChatWindow({ setView, showToast }: { setView: (v: any) => void, 
                                                 </div>
                                             </div>
                                         ))}
+                                        {allTags.filter(t => !selectedConversation.Tags?.find(st => st.TagId === t.TagId)).length === 0 && (
+                                            <div style={{ padding: "10px", textAlign: "center", color: "var(--text-secondary)", fontSize: "0.8rem" }}>
+                                                Nenhuma tag disponível
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -405,9 +439,17 @@ export function ChatWindow({ setView, showToast }: { setView: (v: any) => void, 
                             )}
 
                             <button
-                                onClick={async () => {
-                                    if (!confirm("Deseja re-conectar esta conversa ao Provider Padrão?")) return;
-                                    try { await api.post(`/api/conversations/${selectedConversationId}/reassign-connector`); showToast("Re-conectado ao provider padrão", "success"); } catch (e: any) { showToast("Erro ao re-conectar", "error"); }
+                                onClick={() => {
+                                    showConfirm({
+                                        title: "Re-conectar Conversa",
+                                        description: "Deseja re-conectar esta conversa ao Provider Padrão?",
+                                        onConfirm: async () => {
+                                            try {
+                                                await api.post(`/api/conversations/${selectedConversationId}/reconnect`);
+                                                refreshConversations();
+                                            } catch (e) {}
+                                        }
+                                    });
                                 }}
                                 style={{ background: "var(--bg-hover)", border: "none", color: "var(--text-secondary)", width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
                                 title="Trocar Provider"
@@ -435,14 +477,20 @@ export function ChatWindow({ setView, showToast }: { setView: (v: any) => void, 
 
                     {role !== 'END_USER' && (
                         <button
-                            onClick={async () => {
-                                if (!confirm("Tem certeza que deseja apagar esta conversa?")) return;
-                                try {
-                                    await api.delete(`/api/conversations/${selectedConversationId}`);
-                                    showToast("Conversa apagada", "success");
-                                    refreshConversations();
-                                    setSelectedConversationId(null);
-                                } catch (e: any) { showToast("Erro: " + e.message, "error"); }
+                            onClick={() => {
+                                showConfirm({
+                                    title: "Apagar Conversa",
+                                    description: "Tem certeza que deseja apagar esta conversa? Esta ação é irreversível.",
+                                    confirmLabel: "Apagar",
+                                    isDanger: true,
+                                    onConfirm: async () => {
+                                        try {
+                                            await api.delete(`/api/conversations/${selectedConversationId}`);
+                                            setSelectedConversationId(null);
+                                            refreshConversations();
+                                        } catch (e) {}
+                                    }
+                                });
                             }}
                             style={{ background: "rgba(234, 67, 53, 0.1)", border: "none", color: "#ea4335", width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
                             title="Apagar Conversa"
@@ -461,16 +509,24 @@ export function ChatWindow({ setView, showToast }: { setView: (v: any) => void, 
                     // Somente agentes atribuídos ou admins vêem notas
                     if (role === 'ADMIN' || role === 'SUPERADMIN') return true;
                     return selectedConversation?.AssignedUserId === userId;
-                }).map((m) => (
-                    <div key={m.MessageId} className={`bubble-row ${m.Direction === "INTERNAL" ? "internal" : m.Direction === "OUT" ? "out" : "in"}`}>
+                }).map((m) => {
+                    let isOut = m.Direction === "OUT";
+                    if (selectedConversation.Kind === "INTERNAL" && m.SenderUserId) {
+                        isOut = m.SenderUserId === currentUserId;
+                    }
+
+                    return (
+                    <div key={m.MessageId} className={`bubble-row ${m.Direction === "INTERNAL" ? "internal" : isOut ? "out" : "in"}`}>
                         <div className="bubble" style={m.Direction === "INTERNAL" ? { background: "#fef3c7", border: "1px solid #fbbf24" } : undefined}>
                             {m.Direction === "INTERNAL" && (
                                 <div className="sender" style={{ color: "#92400e", display: "flex", alignItems: "center", gap: 4 }}>📌 Nota Interna</div>
                             )}
-                            {m.Direction === "IN" && (
-                                <div className="sender">{selectedConversation.Title && !selectedConversation.Title.startsWith("WhatsApp") ? selectedConversation.Title : formatPhone(m.SenderExternalId) || "Cliente"}</div>
+                            {(!isOut && m.Direction !== "INTERNAL") && (
+                                <div className="sender">{
+                                    selectedConversation.Kind === "INTERNAL" ? (m.SenderName || getConversationTitle(selectedConversation, currentUserId)) : 
+                                    (selectedConversation.Title && !selectedConversation.Title.startsWith("WhatsApp") ? selectedConversation.Title : formatPhone(m.SenderExternalId) || "Cliente")
+                                }</div>
                             )}
-                            {m.Direction === "OUT" && <div className="sender" style={{ color: "#8bb8a8" }}>Agente</div>}
 
                             {m.MediaType === "image" && m.MediaUrl && (
                                 <div className="media-attachment" style={{ cursor: "zoom-in" }} onClick={() => setViewingImage(m.MediaUrl!)}>
@@ -527,7 +583,7 @@ export function ChatWindow({ setView, showToast }: { setView: (v: any) => void, 
                             </div>
                         </div>
                     </div>
-                ))}
+                )})}
                 <div ref={messagesEndRef} />
             </div>
 

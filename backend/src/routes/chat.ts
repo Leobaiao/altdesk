@@ -110,6 +110,24 @@ router.delete("/:id/messages/:messageId", (async (req: AuthenticatedRequest, res
     }
 }) as any);
 
+router.get("/:id", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const user = req.user;
+        const conversationId = req.params.id;
+
+        const { allowed } = await checkConversationAccess(user, conversationId);
+        if (!allowed) return res.status(403).json({ error: "Access denied" });
+
+        const { getConversationDetails } = await import("../services/chatService.js");
+        const details = await getConversationDetails(user, conversationId);
+        if (!details) return res.status(404).json({ error: "Conversation not found" });
+
+        res.json(details);
+    } catch (error) {
+        next(error);
+    }
+}) as any);
+
 router.get("/:id/messages", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const user = req.user;
@@ -180,9 +198,9 @@ router.post("/:id/reply", validateBody(z.object({ text: z.string().min(1) })), (
                 timestamp: Date.now(),
                 text: text,
                 raw: {}
-            }, conversationId);
+            }, conversationId, user.userId);
         } else {
-            messageId = await saveOutboundMessage(user.tenantId || "", conversationId, text, externalMessageId);
+            messageId = await saveOutboundMessage(user.tenantId || "", conversationId, text, externalMessageId, user.userId);
         }
 
         // Audit log
@@ -203,6 +221,8 @@ router.post("/:id/reply", validateBody(z.object({ text: z.string().min(1) })), (
                 MessageId: messageId,
                 ExternalMessageId: externalMessageId,
                 senderExternalId: user.role === 'END_USER' ? user.userId : "agent",
+                SenderUserId: user.userId,
+                SenderName: user.displayName,
                 text,
                 direction
             });
@@ -452,7 +472,7 @@ router.post("/:id/ticket", validateBody(z.object({ priority: z.string() })), (as
         if (!allowed) return res.status(403).json({ error: "Access denied" });
         
         const { createTicketForConversation } = await import("../services/ticketService.js");
-        const ticket = await createTicketForConversation(tenantId!, conversationId, priority);
+        const ticket = await createTicketForConversation(tenantId!, conversationId, priority, user.userId);
         res.json(ticket);
     } catch (error) {
         next(error);

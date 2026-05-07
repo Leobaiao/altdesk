@@ -63,6 +63,7 @@ router.get("/exceptions", (async (req: any, res: any, next: any) => {
 }) as any);
 
 router.post("/exceptions", validateBody(z.object({
+    exceptionId: z.string().uuid().optional().nullable(),
     date: z.string(), // ISO date 
     description: z.string().optional(),
     isOpen: z.boolean(),
