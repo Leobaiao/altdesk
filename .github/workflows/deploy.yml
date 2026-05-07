@@ -5,7 +5,33 @@ on:
     branches: [main]
 
 jobs:
+  # 1. Verificação de Integridade (Build)
+  build_check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build Backend
+        run: |
+          cd backend
+          npm install
+          npm run build
+
+      - name: Build Frontend
+        run: |
+          cd frontend
+          npm install
+          npm run build
+
+  # 2. Deploy para Produção
   deploy:
+    needs: build_check
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -18,7 +44,7 @@ jobs:
 
       - name: Generate .env file locally
         run: |
-          cat > .env.prod <<'ENVFILE'
+          cat <<EOF > .env.prod
           MSSQL_SA_PASSWORD=${{ secrets.MSSQL_SA_PASSWORD }}
           DB_USER=sa
           DB_NAME=AltDeskDev
@@ -36,8 +62,7 @@ jobs:
           SMTP_USER=${{ secrets.SMTP_USER }}
           SMTP_PASS=${{ secrets.SMTP_PASS }}
           SMTP_SECURE=false
-          ENVFILE
-          sed -i 's/^          //' .env.prod
+          EOF
 
       - name: Upload .env to server
         env:
@@ -57,3 +82,4 @@ jobs:
             git pull origin main
             docker compose -f deploy/docker-compose.prod.yml up -d --build
           EOF
+
