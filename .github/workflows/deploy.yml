@@ -42,6 +42,11 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_KEY }}
 
+      - name: Add SSH known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
       - name: Generate .env file locally
         run: |
           cat <<EOF > .env.prod
@@ -71,14 +76,14 @@ jobs:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
         run: |
-          scp -o StrictHostKeyChecking=no .env.prod $SSH_USER@$SSH_HOST:/opt/altdesk/.env
+          scp -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new .env.prod $SSH_USER@$SSH_HOST:/opt/altdesk/.env
 
       - name: Deploy via SSH
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
         run: |
-          ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST << 'EOF'
+          ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new $SSH_USER@$SSH_HOST << 'EOF'
             set -e
             cd /opt/altdesk
             git pull origin main
@@ -87,5 +92,6 @@ jobs:
             # Limpeza de imagens órfãs para poupar espaço no disco da Locaweb
             docker image prune -f
           EOF
+
 
 
