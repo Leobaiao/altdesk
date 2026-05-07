@@ -45,7 +45,16 @@ jobs:
       - name: Add SSH known hosts
         run: |
           mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
           ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Test SSH Connection (Debug)
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          ssh -v -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new $SSH_USER@$SSH_HOST "echo 'SSH connection successful'"
 
       - name: Generate .env file locally
         run: |
@@ -92,6 +101,7 @@ jobs:
             # Limpeza de imagens órfãs para poupar espaço no disco da Locaweb
             docker image prune -f
           EOF
+
 
 
 
