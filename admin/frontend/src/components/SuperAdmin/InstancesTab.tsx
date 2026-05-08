@@ -4,6 +4,7 @@ import { api } from "../../lib/api";
 import { InstanceModal } from "./Modals/InstanceModal";
 import { WebhookModal } from "./Modals/WebhookModal";
 import { ConnectModal } from "./Modals/ConnectModal";
+import { ConfirmModal } from "./Modals/ConfirmModal";
 import { useNotification } from "../../contexts/NotificationContext";
 
 export function InstancesTab() {
@@ -19,6 +20,7 @@ export function InstancesTab() {
     const [search, setSearch] = useState("");
     const [reassigningId, setReassigningId] = useState<string | null>(null);
     const [editingInstance, setEditingInstance] = useState<any | null>(null);
+    const [confirmAction, setConfirmAction] = useState<{ type: 'delete' | 'disconnect', id?: string, ids?: string[] } | null>(null);
     const { notify } = useNotification();
 
     useEffect(() => {
@@ -111,7 +113,6 @@ export function InstancesTab() {
     };
 
     const handleDisconnect = async (connectorId: string) => {
-        if (!confirm("Tem certeza que deseja desconectar esta instância do WhatsApp?")) return;
         try {
             await api.delete(`/api/admin/instances/${connectorId}/disconnect`);
             notify("Instância desconectada com sucesso!", "success");
@@ -123,13 +124,15 @@ export function InstancesTab() {
     };
 
     const handleBulkDelete = async () => {
-        if (!confirm(`Excluir ${selectedInstanceIds.size} instâncias permanentemente?`)) return;
+        const ids = Array.from(selectedInstanceIds);
         try {
-            await api.post("/api/admin/instances/bulk-delete", { connectorIds: Array.from(selectedInstanceIds) });
+            await api.post("/api/admin/instances/bulk-delete", { connectorIds: ids });
+            notify(`${ids.length} instâncias movidas para a lixeira`, "success");
             setSelectedInstanceIds(new Set());
             loadData();
-        } catch (err) {
+        } catch (err: any) {
             console.error(err);
+            notify("Erro ao excluir instâncias: " + (err.response?.data?.error || err.message), "error");
         }
     };
 
@@ -183,7 +186,7 @@ export function InstancesTab() {
                 </div>
                 <div style={{ display: "flex", gap: 10 }}>
                     {selectedInstanceIds.size > 0 && (
-                        <button onClick={handleBulkDelete} className="btn" style={{ background: "rgba(234,67,53,0.12)", color: "var(--danger)", border: "1px solid rgba(234,67,53,0.3)", borderRadius: 10, fontWeight: 600 }}>
+                        <button onClick={() => setConfirmAction({ type: 'delete', ids: Array.from(selectedInstanceIds) })} className="btn" style={{ background: "rgba(234,67,53,0.12)", color: "var(--danger)", border: "1px solid rgba(234,67,53,0.3)", borderRadius: 10, fontWeight: 600 }}>
                             🗑 Excluir ({selectedInstanceIds.size})
                         </button>
                     )}
@@ -287,7 +290,7 @@ export function InstancesTab() {
                                                     🔄 Sync
                                                 </button>
                                                 {String(config.connectionStatus).toLowerCase() === "open" || String(config.connectionStatus).toLowerCase() === "connected" ? (
-                                                    <button onClick={() => handleDisconnect(i.ConnectorId)} className="btn btn-ghost" style={{ padding: "7px 14px", borderRadius: 8, fontSize: "0.78rem", display: "inline-flex", alignItems: "center", gap: 5, height: "auto", marginRight: 8, color: "var(--danger)", border: "1px solid rgba(234,67,53,0.3)" }}>
+                                                    <button onClick={() => setConfirmAction({ type: 'disconnect', id: i.ConnectorId })} className="btn btn-ghost" style={{ padding: "7px 14px", borderRadius: 8, fontSize: "0.78rem", display: "inline-flex", alignItems: "center", gap: 5, height: "auto", marginRight: 8, color: "var(--danger)", border: "1px solid rgba(234,67,53,0.3)" }}>
                                                         🔌 Desconectar
                                                     </button>
                                                 ) : (
@@ -321,6 +324,23 @@ export function InstancesTab() {
             )}
             {showWebhookModal && <WebhookModal instance={selectedInstance} onClose={() => setShowWebhookModal(false)} />}
             {showConnectModal && <ConnectModal connectorId={connectConnectorId} onClose={() => setShowConnectModal(false)} />}
+
+            {confirmAction && (
+                <ConfirmModal
+                    title={confirmAction.type === 'delete' ? `Excluir ${confirmAction.ids?.length} instâncias?` : "Desconectar WhatsApp?"}
+                    message={confirmAction.type === 'delete' 
+                        ? "Deseja mover as instâncias selecionadas para a lixeira? A comunicação será interrompida."
+                        : "Tem certeza que deseja desconectar esta instância do WhatsApp? Você precisará ler o QR Code novamente para reconectar."
+                    }
+                    onConfirm={() => {
+                        if (confirmAction.type === 'delete') handleBulkDelete();
+                        if (confirmAction.type === 'disconnect') handleDisconnect(confirmAction.id!);
+                        setConfirmAction(null);
+                    }}
+                    onCancel={() => setConfirmAction(null)}
+                    confirmLabel={confirmAction.type === 'delete' ? "Excluir Agora" : "Desconectar"}
+                />
+            )}
         </>
     );
 }

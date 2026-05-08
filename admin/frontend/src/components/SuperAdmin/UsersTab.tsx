@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Edit2, Play, Pause, Trash2 } from "lucide-react";
 import { api } from "../../lib/api";
 import { UserModal } from "./Modals/UserModal";
+import { ConfirmModal } from "./Modals/ConfirmModal";
 import { useNotification } from "../../contexts/NotificationContext";
 
 type RoleFilter = "ALL" | "SUPERADMIN" | "ADMIN" | "AGENT";
@@ -13,7 +14,8 @@ export function UsersTab() {
     const [showModal, setShowModal] = useState(false);
     const [editUser, setEditUser] = useState<any>(null);
     const [search, setSearch] = useState("");
-    const [roleFilter, setRoleFilter] = useState<RoleFilter>("ALL");
+    const [roleFilter, setRoleFilter] = useState<RoleFilter | "END_USER">("ALL");
+    const [confirmAction, setConfirmAction] = useState<{ type: 'delete' | 'status', userId: string, extra?: any } | null>(null);
     const { notify } = useNotification();
 
     useEffect(() => {
@@ -60,7 +62,6 @@ export function UsersTab() {
     };
 
     const handleDeleteUser = async (userId: string) => {
-        if (!confirm("Deseja mover este usuário para a LIXEIRA? Ele será desativado e poderá ser restaurado depois.")) return;
         try {
             await api.delete(`/api/admin/users/${userId}`);
             notify("Usuário movido para a lixeira", "success");
@@ -76,11 +77,12 @@ export function UsersTab() {
             SUPERADMIN: { bg: "rgba(168,0,168,0.15)", color: "#d942f5", label: "SuperAdmin" },
             ADMIN: { bg: "rgba(255,152,0,0.15)", color: "#ff9800", label: "Admin" },
             AGENT: { bg: "rgba(0,168,132,0.15)", color: "#00a884", label: "Agente" },
+            END_USER: { bg: "rgba(0,168,132,0.1)", color: "var(--accent)", label: "Colaborador" },
         };
         return map[role] || { bg: "rgba(255,255,255,0.08)", color: "#aaa", label: role };
     };
 
-    const roles: RoleFilter[] = ["ALL", "SUPERADMIN", "ADMIN", "AGENT"];
+    const roles: (RoleFilter | "END_USER")[] = ["ALL", "SUPERADMIN", "ADMIN", "AGENT", "END_USER"];
 
     const filteredUsers = users.filter(u => {
         const q = search.toLowerCase();
@@ -106,17 +108,17 @@ export function UsersTab() {
                         />
                     </div>
                     <div style={{ display: "flex", gap: 6 }}>
-                        {roles.map(r => (
+                        {["ALL", "SUPERADMIN", "ADMIN", "AGENT", "END_USER"].map(r => (
                             <button
                                 key={r}
-                                onClick={() => setRoleFilter(r)}
+                                onClick={() => setRoleFilter(r as any)}
                                 style={{
                                     padding: "6px 12px", borderRadius: 20, fontSize: "0.75rem", fontWeight: 600, cursor: "pointer", transition: "all 0.15s", border: "none",
                                     background: roleFilter === r ? "var(--accent)" : "var(--bg-primary)",
                                     color: roleFilter === r ? "#fff" : "var(--text-secondary)"
                                 }}
                             >
-                                {r === "ALL" ? "Todos" : r === "SUPERADMIN" ? "SuperAdmin" : r === "ADMIN" ? "Admin" : "Agente"}
+                                {r === "ALL" ? "Todos" : r === "SUPERADMIN" ? "SuperAdmin" : r === "ADMIN" ? "Admin" : r === "AGENT" ? "Agente" : "Colaborador"}
                             </button>
                         ))}
                     </div>
@@ -178,7 +180,7 @@ export function UsersTab() {
                                                 {u.IsActive ? <Pause size={15} /> : <Play size={15} />}
                                             </button>
                                             <button
-                                                onClick={() => handleDeleteUser(u.UserId)}
+                                                onClick={() => setConfirmAction({ type: 'delete', userId: u.UserId })}
                                                 className="btn btn-ghost"
                                                 style={{ padding: 8, borderRadius: 8, height: "auto", color: "var(--danger)" }}
                                                 title="Mover para Lixeira"
@@ -200,6 +202,22 @@ export function UsersTab() {
                     tenants={tenants}
                     onClose={() => setShowModal(false)}
                     onSubmit={handleSaveUser}
+                />
+            )}
+
+            {confirmAction && (
+                <ConfirmModal
+                    title={confirmAction.type === 'delete' ? "Mover para Lixeira?" : "Alterar Status?"}
+                    message={confirmAction.type === 'delete' 
+                        ? "Deseja mover este usuário para a LIXEIRA? Ele será desativado e poderá ser restaurado depois."
+                        : "Deseja alterar a disponibilidade deste usuário?"
+                    }
+                    onConfirm={() => {
+                        if (confirmAction.type === 'delete') handleDeleteUser(confirmAction.userId);
+                        setConfirmAction(null);
+                    }}
+                    onCancel={() => setConfirmAction(null)}
+                    confirmLabel={confirmAction.type === 'delete' ? "Mover para Lixeira" : "Confirmar"}
                 />
             )}
         </>

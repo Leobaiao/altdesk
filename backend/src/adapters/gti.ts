@@ -113,33 +113,46 @@ export class GtiAdapter implements ChannelAdapter {
       throw new Error(`Configuração do conector GTI (${connector.ConnectorId}) está vazia.`);
     }
     const cfg = JSON.parse(connector.ConfigJson);
-    // BaseUrl real da GTI/uazapi
     const baseUrl = cfg.baseUrl ?? "https://api.gtiapi.workers.dev";
     const url = `${baseUrl}/send/text`;
 
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "token": cfg.token || cfg.apiKey
-      },
-      body: JSON.stringify({
-        instance: cfg.instance,
-        number: to,
-        text: text
-      })
-    });
+    // GTI/uazapi costuma esperar apenas o número, sem o sufixo @s.whatsapp.net
+    const cleanNumber = to.split("@")[0];
+    const token = cfg.token || cfg.apiKey;
+    const instance = cfg.instance || cfg.instanceId;
 
-    if (!response.ok) {
-      const errBody = await response.text();
-      throw new Error(`GTI sendText() falhou: ${response.status} ${response.statusText} - ${errBody}`);
+    if (!token) {
+      throw new Error(`Token/ApiKey não configurado para o conector GTI (${connector.ConnectorId}).`);
     }
 
     try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "token": token,
+          "apikey": token,
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          instance: instance,
+          number: cleanNumber,
+          text: text
+        })
+      });
+
+      if (!response.ok) {
+        const errBody = await response.text();
+        console.error(`[GTI] sendText falhou (${response.status}): ${errBody}`);
+        throw new Error(`GTI sendText() falhou: ${response.status} - ${errBody}`);
+      }
+
       const respJson = await response.json();
       return respJson.messageid || respJson.id;
-    } catch {
-      return undefined;
+    } catch (err: any) {
+      console.error(`[GTI] Erro no sendText:`, err);
+      // Repassar o erro para que a UI mostre que falhou, já que o usuário confirmou que não enviou
+      throw err;
     }
   }
 
@@ -180,11 +193,14 @@ export class GtiAdapter implements ChannelAdapter {
       action: "add"
     };
 
+    const token = cfg.token || cfg.apiKey;
     const response = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "token": cfg.token || cfg.apiKey
+        "token": token,
+        "apikey": token,
+        "Authorization": `Bearer ${token}`
       },
       body: JSON.stringify(payload)
     });
@@ -200,10 +216,13 @@ export class GtiAdapter implements ChannelAdapter {
     const baseUrl = cfg.baseUrl ?? "https://api.gtiapi.workers.dev";
     const url = `${baseUrl}/webhook`;
 
+    const token = cfg.token || cfg.apiKey;
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        "token": cfg.token || cfg.apiKey
+        "token": token,
+        "apikey": token,
+        "Authorization": `Bearer ${token}`
       }
     });
 
@@ -225,11 +244,14 @@ export class GtiAdapter implements ChannelAdapter {
       id: webhookId
     };
 
+    const token = cfg.token || cfg.apiKey;
     const response = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "token": cfg.token || cfg.apiKey
+        "token": token,
+        "apikey": token,
+        "Authorization": `Bearer ${token}`
       },
       body: JSON.stringify(payload)
     });
