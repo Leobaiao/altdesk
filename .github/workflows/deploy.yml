@@ -85,7 +85,6 @@ jobs:
 
       - name: Generate .env file locally
         run: |
-          # Criar o arquivo sem aspas e escapar $ para $$ (exigência do Docker Compose em .env)
           cat <<'EOF' > .env.prod
           MSSQL_SA_PASSWORD=${{ secrets.MSSQL_SA_PASSWORD }}
           DB_USER=sa
@@ -105,11 +104,7 @@ jobs:
           SMTP_PASS=${{ secrets.SMTP_PASS }}
           SMTP_SECURE=false
           EOF
-          # Escapa $ para $$ para o Docker Compose não tentar interpolar
-          sed -i 's/\$/\$\$/g' .env.prod
           # Remove espaços no início das linhas
-          sed -i 's/^[[:space:]]*//' .env.prod
-          # Remove espaços no início das linhas (causados pela indentação do YAML)
           sed -i 's/^[[:space:]]*//' .env.prod
 
       # Validação: garante que variáveis críticas não estão vazias
