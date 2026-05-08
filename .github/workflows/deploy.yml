@@ -43,16 +43,21 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          # Usar printf para preservar exatamente o conteúdo da chave
-          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          # Escrever a chave removendo qualquer \r (Windows CRLF) que possa corromper
+          echo "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
           chmod 644 ~/.ssh/known_hosts
-          # Verificar fingerprint da chave escrita
-          echo "=== Fingerprint da chave carregada ==="
+          # Debug: verificar integridade da chave
+          echo "=== Fingerprint ==="
           ssh-keygen -l -f ~/.ssh/id_rsa
-          echo "=== Tipo da chave ==="
-          ssh-keygen -y -f ~/.ssh/id_rsa > /dev/null && echo "Chave privada válida" || echo "ERRO: Chave privada inválida!"
+          echo "=== Key file size ==="
+          wc -c ~/.ssh/id_rsa
+          echo "=== First/Last lines ==="
+          head -1 ~/.ssh/id_rsa
+          tail -1 ~/.ssh/id_rsa
+          echo "=== Validate private key ==="
+          ssh-keygen -y -f ~/.ssh/id_rsa > /dev/null && echo "OK: chave válida" || echo "ERRO: chave inválida!"
 
       - name: Test SSH Connection
         env:
