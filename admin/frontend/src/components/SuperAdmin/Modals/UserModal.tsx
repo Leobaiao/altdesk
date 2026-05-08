@@ -97,6 +97,7 @@ export function UserModal({ editUser, tenants, onClose, onSubmit }: UserModalPro
                                 <option value="AGENT">Agente</option>
                                 <option value="ADMIN">Gerente (Admin)</option>
                                 <option value="SUPERADMIN">Root (SuperAdmin)</option>
+                                <option value="END_USER">Colaborador</option>
                             </select>
                         </div>
                         <div className="field">

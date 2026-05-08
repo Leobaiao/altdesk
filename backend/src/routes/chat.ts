@@ -179,8 +179,34 @@ router.post("/:id/reply", validateBody(z.object({ text: z.string().min(1) })), (
             } catch (adapterErr: any) {
                 const { logger } = await import("../lib/logger.js");
                 logger.error({ err: adapterErr, conversationId, provider: metadata.provider }, "[Reply] Adapter sendText failed");
+
+                // Mensagens de erro específicas para o usuário
+                const errMsg = adapterErr?.message || adapterErr?.cause?.message || "";
+                const errCode = adapterErr?.cause?.code || "";
+                let userMessage: string;
+
+                if (errCode === "ENOTFOUND" || errMsg.includes("ENOTFOUND")) {
+                  const hostname = adapterErr?.cause?.hostname || "desconhecido";
+                  userMessage = `Servidor do provedor não encontrado (${hostname}). Verifique a URL de conexão nas configurações da instância.`;
+                } else if (errCode === "ECONNREFUSED" || errMsg.includes("ECONNREFUSED")) {
+                  userMessage = `Conexão recusada pelo provedor. O serviço pode estar fora do ar ou a porta está incorreta.`;
+                } else if (errCode === "ETIMEDOUT" || errCode === "ESOCKETTIMEDOUT" || errMsg.includes("timeout")) {
+                  userMessage = `Tempo de conexão esgotado. O provedor pode estar lento ou indisponível no momento.`;
+                } else if (errMsg.includes("401") || errMsg.includes("403") || errMsg.includes("Unauthorized")) {
+                  userMessage = `Autenticação falhou com o provedor. Verifique o token/apikey nas configurações da instância.`;
+                } else if (errMsg.includes("404")) {
+                  userMessage = `Endpoint não encontrado no provedor. A URL ou a instância configurada pode estar incorreta.`;
+                } else if (errMsg.includes("429")) {
+                  userMessage = `Limite de envios atingido no provedor. Aguarde alguns segundos e tente novamente.`;
+                } else if (errMsg.includes("500") || errMsg.includes("502") || errMsg.includes("503")) {
+                  userMessage = `O provedor está com erro interno. Tente novamente em alguns instantes.`;
+                } else {
+                  userMessage = `Falha ao enviar: ${errMsg.substring(0, 150)}`;
+                }
+
                 return res.status(502).json({ 
-                    error: `Erro ao enviar mensagem: falha na comunicação com o provedor (${metadata.provider}). Verifique as configurações de conexão ou a disponibilidade do serviço externo.` 
+                    error: userMessage,
+                    provider: metadata.provider
                 });
             }
         }

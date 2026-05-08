@@ -31,6 +31,7 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
     const [usersLoading, setUsersLoading] = useState(false);
     const [showUserModal, setShowUserModal] = useState(false);
     const [editUser, setEditUser] = useState<any>(null);
+    const [confirmAction, setConfirmAction] = useState<{ type: 'delete_tenant' | 'delete_user' | 'status_tenant', id: string, extra?: any } | null>(null);
     const { notify } = useNotification();
 
     useEffect(() => {
@@ -113,7 +114,6 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
     };
 
     const handleDeleteUser = async (userId: string) => {
-        if (!confirm("Deseja mover este usuário para a LIXEIRA? Ele será desativado e poderá ser restaurado depois.")) return;
         try {
             await api.delete(`/api/admin/users/${userId}`);
             notify("Usuário movido para a lixeira", "success");
@@ -150,7 +150,6 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
     };
 
     const handleDelete = async (tenantId: string) => {
-        if (!confirm("Deseja mover esta empresa para a LIXEIRA? Ela será desativada e ocultada da lista principal.")) return;
         try {
             await api.delete(`/api/admin/tenants/${tenantId}`);
             loadTenants();
@@ -161,8 +160,6 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
     };
 
     const handleSetStatus = async (tenantId: string, active: boolean) => {
-        const action = active ? "reativar" : "inativar";
-        if (!confirm(`Tem certeza que deseja ${action} esta empresa?`)) return;
         try {
             await api.put(`/api/admin/tenants/${tenantId}/status`, { isActive: active });
             loadTenants();
@@ -324,7 +321,7 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
                                     </button>
 
                                     <button
-                                        onClick={() => handleSetStatus(selectedTenant.TenantId, !selectedTenant.IsActive)}
+                                        onClick={() => setConfirmAction({ type: 'status_tenant', id: selectedTenant.TenantId, extra: !selectedTenant.IsActive })}
                                         className="btn btn-ghost"
                                         style={{ padding: "8px 16px", borderRadius: 10, fontSize: "0.85rem", border: "1px solid var(--border)" }}
                                     >
@@ -332,7 +329,7 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
                                     </button>
 
                                     <button
-                                        onClick={() => handleDelete(selectedTenant.TenantId)}
+                                        onClick={() => setConfirmAction({ type: 'delete_tenant', id: selectedTenant.TenantId })}
                                         className="btn btn-ghost"
                                         style={{ padding: "8px 16px", borderRadius: 10, fontSize: "0.85rem", border: "1px solid var(--border)", color: "var(--danger)" }}
                                         title="Mover para Lixeira"
@@ -535,7 +532,7 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
                                                                         {u.IsActive ? <Pause size={14} /> : <Play size={14} />}
                                                                     </button>
                                                                     <button 
-                                                                        onClick={() => handleDeleteUser(u.UserId)} 
+                                                                        onClick={() => setConfirmAction({ type: 'delete_user', id: u.UserId })} 
                                                                         className="btn btn-ghost" 
                                                                         style={{ padding: 6, width: 32, height: 32, borderRadius: 8, color: "var(--danger)" }}
                                                                         title="Lixeira"
@@ -572,6 +569,29 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
                 }}>
                     <LimitModal tenant={editTenant} onClose={() => setShowLimitModal(false)} onSubmit={handleSaveLimit} />
                 </div>
+            )}
+
+            {confirmAction && (
+                <ConfirmModal
+                    title={
+                        confirmAction.type === 'delete_tenant' ? "Mover Empresa para Lixeira?" :
+                        confirmAction.type === 'delete_user' ? "Mover Usuário para Lixeira?" :
+                        "Alterar Status da Empresa?"
+                    }
+                    message={
+                        confirmAction.type === 'delete_tenant' ? "Esta empresa será desativada e ocultada da lista principal. Todos os seus dados serão preservados na lixeira." :
+                        confirmAction.type === 'delete_user' ? "O usuário perderá o acesso imediatamente, mas poderá ser restaurado depois." :
+                        `Deseja realmente ${selectedTenant.IsActive ? 'inativar' : 'reativar'} esta empresa?`
+                    }
+                    onConfirm={() => {
+                        if (confirmAction.type === 'delete_tenant') handleDelete(confirmAction.id);
+                        if (confirmAction.type === 'delete_user') handleDeleteUser(confirmAction.id);
+                        if (confirmAction.type === 'status_tenant') handleSetStatus(confirmAction.id, confirmAction.extra);
+                        setConfirmAction(null);
+                    }}
+                    onCancel={() => setConfirmAction(null)}
+                    confirmLabel={confirmAction.type.startsWith('delete') ? "Mover para Lixeira" : "Confirmar Alteração"}
+                />
             )}
         </div>
     );

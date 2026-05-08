@@ -678,7 +678,7 @@ router.post("/instances/:connectorId/set-webhook", validateBody(z.object({
     }
 }) as any);
 
-const ConnectorIdSchema = z.string().regex(/^[a-fA-F0-9-]+$/);
+const ConnectorIdSchema = z.string().min(1);
 router.post("/instances/bulk-delete", validateBody(z.object({ connectorIds: z.array(ConnectorIdSchema) })), (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const { connectorIds } = req.body;

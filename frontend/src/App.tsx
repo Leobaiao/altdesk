@@ -185,8 +185,8 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
     }
     const phone = contact.Phone.replace(/\D/g, "");
 
-    // 1. Tentar achar localmente
-    const existing = conversations.find(c => c.ExternalUserId.includes(phone));
+    // 1. Tentar achar localmente (com segurança contra valores nulos)
+    const existing = conversations.find(c => c.ExternalUserId?.includes(phone));
 
     if (existing) {
       setSelectedConversationId(existing.ConversationId);

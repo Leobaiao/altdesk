@@ -105,9 +105,7 @@ export async function updateInstanceTenant(connectorId: string, tenantId: string
 export async function bulkDeleteInstances(connectorIds: string[]) {
     if (!connectorIds.length) return 0;
 
-    // Critical: Validate that all IDs are valid UUIDs to prevent any SQLi attempt
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    const validIds = connectorIds.filter(id => uuidRegex.test(id));
+    const validIds = connectorIds.filter(id => id && id.length > 0);
     if (validIds.length === 0) return 0;
 
     const pool = await getPool();

@@ -45,7 +45,7 @@ BEGIN
         'A45E1676-A820-46AD-8E51-4B414226CAC1',
         @ChannelId,
         'GTI',
-        '{"baseUrl":"https://evo.altdesk.com.br", "token":"d7ef03be-cce7-4725-9ce7-79afa277265b", "instance":"altdesk"}'
+        '{"baseUrl":"https://api.gtiapi.workers.dev", "token":"d7ef03be-cce7-4725-9ce7-79afa277265b", "instance":"altdesk"}'
     );
 END
 GO
