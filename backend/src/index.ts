@@ -58,6 +58,28 @@ app.use(express.static("public"));
 
 // HTTP Access Log (antes das rotas para capturar todos os requests)
 app.use(requestLogger);
+
+// Endpoint de Health Check e Diagnóstico
+app.get("/api/health", async (req, res) => {
+    try {
+        const pool = await getPool();
+        const r = await pool.request().query("SELECT 1 as result");
+        if (r.recordset[0].result === 1) {
+            res.status(200).json({ status: "ok", message: "Database connected" });
+        } else {
+            res.status(500).json({ status: "error", message: "Unexpected database query result" });
+        }
+    } catch (error: any) {
+        res.status(500).json({ 
+            status: "error", 
+            message: "Database connection failed", 
+            details: error.message,
+            dbHost: process.env.DB_HOST,
+            dbName: process.env.DB_NAME
+        });
+    }
+});
+
 app.use(globalAuditLogger);
 
 const server = http.createServer(app);
