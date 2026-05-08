@@ -37,27 +37,24 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up SSH
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_KEY }}
+      - name: Set up SSH Agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_KEY }}
+
+      - name: Configure known_hosts
         run: |
           mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          # Escrever a chave removendo qualquer \r (Windows CRLF) que possa corromper
-          echo "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
-          chmod 644 ~/.ssh/known_hosts
-          # Debug: verificar integridade da chave
-          echo "=== Fingerprint ==="
-          ssh-keygen -l -f ~/.ssh/id_rsa
-          echo "=== Key file size ==="
-          wc -c ~/.ssh/id_rsa
-          echo "=== First/Last lines ==="
-          head -1 ~/.ssh/id_rsa
-          tail -1 ~/.ssh/id_rsa
-          echo "=== Validate private key ==="
-          ssh-keygen -y -f ~/.ssh/id_rsa > /dev/null && echo "OK: chave válida" || echo "ERRO: chave inválida!"
+
+      - name: Debug SSH Host Resolution
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+        run: |
+          echo "=== Resolving SSH_HOST ==="
+          getent hosts $SSH_HOST || nslookup $SSH_HOST || echo "Cannot resolve"
+          echo "=== Agent keys loaded ==="
+          ssh-add -l
 
       - name: Test SSH Connection
         env:
@@ -67,8 +64,6 @@ jobs:
           ssh -v -o ConnectTimeout=10 \
             -o StrictHostKeyChecking=accept-new \
             -o PasswordAuthentication=no \
-            -o PreferredAuthentications=publickey \
-            -i ~/.ssh/id_rsa \
             $SSH_USER@$SSH_HOST "echo 'SSH connection successful'"
 
 
