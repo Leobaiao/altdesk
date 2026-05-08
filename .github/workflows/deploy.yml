@@ -47,24 +47,30 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
 
-      - name: Debug SSH Host Resolution
-        env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-        run: |
-          echo "=== Resolving SSH_HOST ==="
-          getent hosts $SSH_HOST || nslookup $SSH_HOST || echo "Cannot resolve"
-          echo "=== Agent keys loaded ==="
-          ssh-add -l
-
-      - name: Test SSH Connection
+      - name: Debug Secrets Values
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
         run: |
-          ssh -v -o ConnectTimeout=10 \
+          echo "=== SSH_HOST length: $(echo -n "$SSH_HOST" | wc -c) ==="
+          echo "=== SSH_HOST hex ===" 
+          echo -n "$SSH_HOST" | xxd | head -2
+          echo "=== SSH_USER length: $(echo -n "$SSH_USER" | wc -c) ==="
+          echo "=== SSH_USER hex ==="
+          echo -n "$SSH_USER" | xxd | head -2
+          echo "=== Agent keys loaded ==="
+          ssh-add -l
+          echo "=== Resolving host ==="
+          getent hosts 191.252.110.173 || echo "getent failed"
+          echo "=== Direct ping test ==="
+          ping -c 1 -W 3 191.252.110.173 || echo "ping failed"
+
+      - name: Test SSH with hardcoded values
+        run: |
+          ssh -vvv -o ConnectTimeout=10 \
             -o StrictHostKeyChecking=accept-new \
             -o PasswordAuthentication=no \
-            $SSH_USER@$SSH_HOST "echo 'SSH connection successful'"
+            deploy@191.252.110.173 "echo 'SSH connection successful'"
 
 
       - name: Generate .env file locally
