@@ -2,7 +2,7 @@ name: Deploy AltDesk to Locaweb
 
 on:
   push:
-    branches: [main, development]
+    branches: [main]
 
 jobs:
   # 1. Verificação de Integridade (Build)
@@ -47,32 +47,6 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
 
-      - name: Debug Secrets Values
-        env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_USER: ${{ secrets.SSH_USER }}
-        run: |
-          echo "=== SSH_HOST length: $(echo -n "$SSH_HOST" | wc -c) ==="
-          echo "=== SSH_HOST hex ===" 
-          echo -n "$SSH_HOST" | xxd | head -2
-          echo "=== SSH_USER length: $(echo -n "$SSH_USER" | wc -c) ==="
-          echo "=== SSH_USER hex ==="
-          echo -n "$SSH_USER" | xxd | head -2
-          echo "=== Agent keys loaded ==="
-          ssh-add -l
-          echo "=== Resolving host ==="
-          getent hosts 191.252.110.173 || echo "getent failed"
-          echo "=== Direct ping test ==="
-          ping -c 1 -W 3 191.252.110.173 || echo "ping failed"
-
-      - name: Test SSH with hardcoded values
-        run: |
-          ssh -vvv -o ConnectTimeout=10 \
-            -o StrictHostKeyChecking=accept-new \
-            -o PasswordAuthentication=no \
-            deploy@191.252.110.173 "echo 'SSH connection successful'"
-
-
       - name: Generate .env file locally
         run: |
           cat <<EOF > .env.prod
@@ -112,15 +86,17 @@ jobs:
           ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new $SSH_USER@$SSH_HOST << 'EOF'
             set -e
             cd /opt/altdesk
-            git pull origin main
+
+            # Clonar o repositório se ainda não existir
+            if [ ! -d ".git" ]; then
+              git clone https://github.com/Leobaiao/altdesk.git .
+            else
+              git fetch origin main
+              git reset --hard origin/main
+            fi
+
             docker compose -f deploy/docker-compose.prod.yml up -d --build
             
             # Limpeza de imagens órfãs para poupar espaço no disco da Locaweb
             docker image prune -f
           EOF
-
-
-
-
-
-
