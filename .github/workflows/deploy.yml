@@ -49,7 +49,7 @@ jobs:
 
       - name: Generate .env file locally
         run: |
-          cat <<EOF > .env.prod
+          cat <<'EOF' > .env.prod
           MSSQL_SA_PASSWORD=${{ secrets.MSSQL_SA_PASSWORD }}
           DB_USER=sa
           DB_NAME=AltDeskDev

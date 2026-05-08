@@ -144,7 +144,15 @@ router.post("/login", authLimiter, validateBody(LoginSchema), async (req, res, n
         });
 
         return res.json({ token, role: u.Role, tenantId: u.TenantId, permissions });
-    } catch (error) {
+    } catch (error: any) {
+        logger.error({ 
+            requestId, 
+            email: req.body?.email, 
+            error: error.message, 
+            stack: error.stack,
+            dbHost: process.env.DB_HOST,
+            dbName: process.env.DB_NAME
+        }, "Login route crashed with 500 error");
         next(error);
     }
 });
