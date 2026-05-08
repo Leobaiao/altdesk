@@ -2,7 +2,7 @@ name: Deploy AltDesk to Locaweb
 
 on:
   push:
-    branches: [main]
+    branches: [main, development]
 
 jobs:
   # 1. Verificação de Integridade (Build)
