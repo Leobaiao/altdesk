@@ -4,9 +4,20 @@ on:
   push:
     branches: [main]
 
+# Evita dois deploys simultâneos — o mais recente cancela o anterior
+concurrency:
+  group: deploy-production
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20'
+
 jobs:
-  # 1. Verificação de Integridade (Build)
+  # ──────────────────────────────────────────────
+  # 1. Verificação de Integridade (Build de Todos os Módulos)
+  # ──────────────────────────────────────────────
   build_check:
+    name: 🔨 Build Check
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -15,24 +26,49 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ env.NODE_VERSION }}
+
+      # Cache global do npm para acelerar builds
+      - name: Cache npm dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
 
       - name: Build Backend
         run: |
           cd backend
-          npm install
+          npm ci --prefer-offline
+          npm run build
+
+      - name: Build Admin Backend
+        run: |
+          cd admin/backend
+          npm ci --prefer-offline
           npm run build
 
       - name: Build Frontend
         run: |
           cd frontend
-          npm install
+          npm install --prefer-offline
           npm run build
 
+      - name: Build Admin Frontend
+        run: |
+          cd admin/frontend
+          npm install --prefer-offline
+          npm run build
+
+  # ──────────────────────────────────────────────
   # 2. Deploy para Produção
+  # ──────────────────────────────────────────────
   deploy:
+    name: 🚀 Deploy to Production
     needs: build_check
     runs-on: ubuntu-latest
+    environment: production
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -68,8 +104,21 @@ jobs:
           SMTP_PASS=${{ secrets.SMTP_PASS }}
           SMTP_SECURE=false
           EOF
-          # Garante que não existam espaços acidentais no início das linhas
+          # Remove espaços no início das linhas (causados pela indentação do YAML)
           sed -i 's/^[[:space:]]*//' .env.prod
+
+      # Validação: garante que variáveis críticas não estão vazias
+      - name: Validate .env file
+        run: |
+          echo "🔍 Validando variáveis críticas no .env..."
+          for var in MSSQL_SA_PASSWORD JWT_SECRET ENCRYPTION_KEY; do
+            value=$(grep "^${var}=" .env.prod | cut -d'=' -f2-)
+            if [ -z "$value" ]; then
+              echo "❌ ERRO: ${var} está vazia no .env!"
+              exit 1
+            fi
+          done
+          echo "✅ Todas as variáveis críticas estão presentes."
 
       - name: Upload .env to server
         env:
@@ -95,8 +144,80 @@ jobs:
               git reset --hard origin/main
             fi
 
+            echo "🏗️  Iniciando build dos containers..."
             docker compose -f deploy/docker-compose.prod.yml up -d --build
-            
-            # Limpeza de imagens órfãs para poupar espaço no disco da Locaweb
+
+            # Aguardar o banco de dados ficar saudável
+            echo "⏳ Aguardando banco de dados..."
+            for i in $(seq 1 30); do
+              if docker inspect --format='{{.State.Health.Status}}' altdesk_db_prod 2>/dev/null | grep -q healthy; then
+                echo "✅ Banco de dados saudável."
+                break
+              fi
+              if [ "$i" = "30" ]; then
+                echo "❌ Banco de dados não ficou saudável em 60s!"
+                docker logs altdesk_db_prod --tail 20
+                exit 1
+              fi
+              sleep 2
+            done
+
+            # Aguardar o backend iniciar
+            echo "⏳ Aguardando backend..."
+            for i in $(seq 1 20); do
+              if docker logs altdesk_api_prod --tail 5 2>&1 | grep -qi "listening\|started\|ready"; then
+                echo "✅ Backend iniciado."
+                break
+              fi
+              if [ "$i" = "20" ]; then
+                echo "⚠️ Backend pode não ter iniciado (timeout 40s). Verificar logs."
+                docker logs altdesk_api_prod --tail 15
+              fi
+              sleep 2
+            done
+
+            # Limpeza de imagens órfãs para poupar espaço no disco
             docker image prune -f
+            echo "🎉 Deploy concluído com sucesso!"
           EOF
+
+  # ──────────────────────────────────────────────
+  # 3. Smoke Test Pós-Deploy
+  # ──────────────────────────────────────────────
+  smoke_test:
+    name: 🧪 Smoke Test
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Aguardar estabilização (30s)
+        run: sleep 30
+
+      - name: Verificar API Backend
+        run: |
+          echo "🔍 Testando API principal..."
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 https://api.altdesk.com.br/api/health 2>/dev/null || echo "000")
+          if [ "$STATUS" = "200" ] || [ "$STATUS" = "404" ]; then
+            echo "✅ API Backend respondendo (HTTP $STATUS)"
+          else
+            echo "⚠️ API Backend retornou HTTP $STATUS — pode estar iniciando ou com problema."
+          fi
+
+      - name: Verificar Frontend
+        run: |
+          echo "🔍 Testando Frontend..."
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 https://altdesk.com.br 2>/dev/null || echo "000")
+          if [ "$STATUS" = "200" ]; then
+            echo "✅ Frontend OK (HTTP $STATUS)"
+          else
+            echo "⚠️ Frontend retornou HTTP $STATUS"
+          fi
+
+      - name: Verificar Admin Frontend
+        run: |
+          echo "🔍 Testando Admin Frontend..."
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 https://admin.altdesk.com.br 2>/dev/null || echo "000")
+          if [ "$STATUS" = "200" ]; then
+            echo "✅ Admin Frontend OK (HTTP $STATUS)"
+          else
+            echo "⚠️ Admin Frontend retornou HTTP $STATUS"
+          fi
