@@ -1,14 +1,10 @@
 USE master;
 GO
 
-IF EXISTS(SELECT * FROM sys.databases WHERE name = 'AltDeskDev')
+IF NOT EXISTS(SELECT * FROM sys.databases WHERE name = 'AltDeskDev')
 BEGIN
-    ALTER DATABASE AltDeskDev SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
-    DROP DATABASE AltDeskDev;
+    CREATE DATABASE AltDeskDev;
 END
-GO
-
-CREATE DATABASE AltDeskDev;
 GO
 
 USE AltDeskDev;
