@@ -37,26 +37,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up SSH
+      - name: Set up SSH Agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_KEY }}
+
+      - name: Configure known_hosts
         run: |
           mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
-          chmod 644 ~/.ssh/known_hosts
-
-      - name: Test SSH Connection (Debug Max)
-        env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_USER: ${{ secrets.SSH_USER }}
-        run: |
-          echo "Verificando fingerprint da chave carregada:"
-          ssh-keygen -l -f ~/.ssh/id_rsa
-          ssh -vvv -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new \
-            -i ~/.ssh/id_rsa \
-            $SSH_USER@$SSH_HOST "echo 'SSH connection successful'"
-
 
       - name: Generate .env file locally
         run: |
@@ -97,15 +86,17 @@ jobs:
           ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new $SSH_USER@$SSH_HOST << 'EOF'
             set -e
             cd /opt/altdesk
-            git pull origin main
+
+            # Clonar o repositório se ainda não existir
+            if [ ! -d ".git" ]; then
+              git clone https://github.com/Leobaiao/altdesk.git .
+            else
+              git fetch origin main
+              git reset --hard origin/main
+            fi
+
             docker compose -f deploy/docker-compose.prod.yml up -d --build
             
             # Limpeza de imagens órfãs para poupar espaço no disco da Locaweb
             docker image prune -f
           EOF
-
-
-
-
-
-
