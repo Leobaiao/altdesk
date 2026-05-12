@@ -10,7 +10,7 @@ const port = hostParts[1] ? parseInt(hostParts[1], 10) : (process.env.DB_PORT ? 
 
 const config: SqlConfig = {
   user: process.env.DB_USER!,
-  password: process.env.DB_PASS!,
+  password: process.env.DB_PASS || process.env.MSSQL_SA_PASSWORD!,
   server,
   port,
   database: process.env.DB_NAME!,

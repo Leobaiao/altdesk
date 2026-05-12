@@ -12,7 +12,7 @@ const __dirname = path.dirname(__filename);
 
 const config = {
   user: process.env.DB_USER!,
-  password: process.env.DB_PASS!,
+  password: process.env.DB_PASS || process.env.MSSQL_SA_PASSWORD!,
   server: process.env.DB_HOST ? process.env.DB_HOST.split(',')[0] : "db",
   port: process.env.DB_HOST && process.env.DB_HOST.includes(',') ? parseInt(process.env.DB_HOST.split(',')[1]) : 1433,
   database: "master", // Connect to master first to create DB if needed

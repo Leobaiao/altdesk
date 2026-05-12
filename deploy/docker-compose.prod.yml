@@ -146,6 +146,7 @@ services:
     env_file:
       - ../.env
     environment:
+      NODE_ENV: production
       PORT: 3002
       DB_HOST: db
     expose:
