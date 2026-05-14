@@ -416,12 +416,12 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
                             <div style={{ width: 1, height: 24, background: "var(--border)", margin: "0 5px" }} />
 
                             {!selectedConversation.AssignedUserId && (
-                                <button onClick={() => handleAssign(selectedConversation.QueueId || null, userId)} style={{ background: "#00a884", border: "none", color: "white", padding: "8px 12px", borderRadius: 8, cursor: "pointer", fontSize: "0.8rem", fontWeight: 600 }}>
+                                <button onClick={() => handleAssign(selectedConversation.QueueId || null, currentUserId)} style={{ background: "#00a884", border: "none", color: "white", padding: "8px 12px", borderRadius: 8, cursor: "pointer", fontSize: "0.8rem", fontWeight: 600 }}>
                                     Assumir
                                 </button>
                             )}
 
-                            {selectedConversation.AssignedUserId === userId && (
+                            {selectedConversation.AssignedUserId === currentUserId && (
                                 <button onClick={() => handleAssign(null, null)} style={{ background: "var(--bg-hover)", border: "none", color: "var(--text-secondary)", width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }} title="Devolver para Fila">
                                     <RotateCcw size={18} />
                                 </button>
@@ -811,7 +811,7 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
                         <div style={{ maxHeight: 300, overflowY: "auto", border: "1px solid var(--border)", borderRadius: 8, marginBottom: 20 }}>
                             {assignTab === "USERS" ? (
                                 <>
-                                    {usersToAssign.filter(u => u.UserId !== userId).map(u => (
+                                    {usersToAssign.filter(u => u.UserId !== currentUserId).map(u => (
                                         <div key={u.UserId} style={{ padding: 10, borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                             <div>
                                                 <div style={{ fontWeight: 500 }}>{u.AgentName || 'Sem Nome'}</div>
@@ -826,7 +826,7 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
                                             </button>
                                         </div>
                                     ))}
-                                    {usersToAssign.filter(u => u.UserId !== userId).length === 0 && (
+                                    {usersToAssign.filter(u => u.UserId !== currentUserId).length === 0 && (
                                         <div style={{ padding: 20, textAlign: "center", color: "var(--text-secondary)" }}>Nenhum outro usuário disponível</div>
                                     )}
                                 </>
