@@ -56,4 +56,19 @@ Este documento resume as melhorias implementadas e o plano para os itens pendent
 
 ---
 
+## 📅 Planejamento para Amanhã [15/05/2026]
+
+### 1. Automação e Manutenção (Admin)
+*   **Botão "Zerar Dados":** Implementação do botão no painel administrativo para chamar a SP `sp_altdesk_purge_tenant_data`.
+*   **Dashboard de Tenants:** Adição da coluna "Data de Onboarding" para acompanhamento comercial.
+
+### 2. CRM e Enriquecimento de Leads
+*   **Origem e Atividade:** Implementação dos campos de rastro (UTM, Canal, Origem) no cadastro de contatos.
+*   **Timeline de Contato:** Exibir a data da última interação diretamente no card do contato.
+
+### 3. Refinamentos de Interface
+*   **Edição de Kanban:** Permitir editar o título dos cards diretamente no Kanban (Quick Edit).
+
+---
+
 **Prioridade Imediata:** Reset de dados de teste e enriquecimento da tabela de contatos.
