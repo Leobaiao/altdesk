@@ -14,12 +14,29 @@ import {
     BookOpen,
     Zap,
     Search,
-    RotateCcw
+    RotateCcw,
+    ShieldAlert,
+    Timer,
+    Phone
 } from "lucide-react";
 import { api } from "../lib/api";
 import type { TicketData } from "./TicketList";
 import { ConfirmModal } from "./Modal";
 import { useChat } from "../contexts/ChatContext";
+import { ChatWindow } from "./ChatWindow";
+
+function formatWhatsApp(raw: string) {
+    if (!raw) return "";
+    let number = raw.replace("@s.whatsapp.net", "").replace("@c.us", "");
+    const digits = number.replace(/\D/g, "");
+    if (digits.startsWith("55") && (digits.length === 12 || digits.length === 13)) {
+        const ddd = digits.substring(2, 4);
+        const part1 = digits.length === 13 ? digits.substring(4, 9) : digits.substring(4, 8);
+        const part2 = digits.length === 13 ? digits.substring(9) : digits.substring(8);
+        return `+55 (${ddd}) ${part1}-${part2}`;
+    }
+    return number;
+}
 
 interface HistoryEntry {
     HistoryId: string;
@@ -64,11 +81,12 @@ interface TicketDetailProps {
     ticket: TicketData;
     onBack: () => void;
     profile: any;
+    role: string;
     onTicketUpdate: () => void;
 }
 
-export function TicketDetail({ ticket, onBack, profile, onTicketUpdate }: TicketDetailProps) {
-    const { showToast } = useChat();
+export function TicketDetail({ ticket, onBack, profile, role, onTicketUpdate }: TicketDetailProps) {
+    const { showToast, setSelectedConversationId } = useChat();
     const [history, setHistory] = useState<HistoryEntry[]>([]);
     const [loading, setLoading] = useState(true);
     const [showEscalateModal, setShowEscalateModal] = useState(false);
@@ -85,6 +103,13 @@ export function TicketDetail({ ticket, onBack, profile, onTicketUpdate }: Ticket
     const [kbSearch, setKbSearch] = useState("");
     const [showSaveToKB, setShowSaveToKB] = useState(false);
     const [kbForm, setKbForm] = useState({ title: "", content: "", category: "Resolvidos" });
+    const [activeTab, setActiveTab] = useState<"CHAT" | "TIMELINE">("CHAT");
+
+    useEffect(() => {
+        if (ticket.ConversationId) {
+            setSelectedConversationId(ticket.ConversationId);
+        }
+    }, [ticket.ConversationId, setSelectedConversationId]);
 
     async function loadHistory() {
         setLoading(true);
@@ -166,6 +191,21 @@ export function TicketDetail({ ticket, onBack, profile, onTicketUpdate }: Ticket
         }
     }
 
+    async function handleSendComment() {
+        if (!comment.trim() || !ticket.ConversationId || actionLoading) return;
+        setActionLoading(true);
+        try {
+            await api.post(`/api/conversations/${ticket.ConversationId}/note`, { text: comment });
+            setComment("");
+            showToast("Comentário adicionado!", "success");
+            loadHistory();
+        } catch (e: any) {
+            showToast("Erro ao adicionar comentário: " + (e.response?.data?.error || e.message), "error");
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
     async function openEscalateModal() {
         try {
             const res = await api.get<UserOption[]>("/api/users");
@@ -184,20 +224,6 @@ export function TicketDetail({ ticket, onBack, profile, onTicketUpdate }: Ticket
             meta: h.MetadataJson ? JSON.parse(h.MetadataJson) : null
         })));
         setShowAuditModal(true);
-    }
-
-    async function handleComment() {
-        if (!comment.trim()) return;
-        setActionLoading(true);
-        try {
-            await api.post(`/api/conversations/demo/${ticket.ConversationId}/messages`, { text: `[COMENTÁRIO] ${comment}` });
-            setComment("");
-            loadHistory();
-        } catch (e: any) {
-            showToast("Erro ao comentar: " + (e.response?.data?.error || e.message), "error");
-        } finally {
-            setActionLoading(false);
-        }
     }
 
     async function handleSaveToKB() {
@@ -220,19 +246,14 @@ export function TicketDetail({ ticket, onBack, profile, onTicketUpdate }: Ticket
     }
 
     function openSaveToKB() {
-        // Extract real content from history
         const relevantHistory = history.filter(h => h.Action === 'REPLIED' || h.Action === 'OPENED' || h.Action === 'COMMENTED');
         const contentLines = relevantHistory.map(h => {
             let meta: any = {};
             try { meta = h.MetadataJson ? JSON.parse(h.MetadataJson) : {}; } catch {}
-            
-            // Priority for history text: meta.text -> meta.body -> fallback
             const text = meta.text || meta.body || (h.Action === 'OPENED' ? "Abertura do chamado" : "");
             if (!text) return "";
-
             const sender = h.ActorName || h.ActorEmail || (meta.direction === "IN" ? "Cliente" : "Sistema");
             const prefix = h.Action === 'COMMENTED' ? "[NOTA INTERNA]" : `[${sender}]`;
-            
             return `${prefix}: ${text}`;
         }).filter(t => !!t);
 
@@ -245,262 +266,280 @@ export function TicketDetail({ ticket, onBack, profile, onTicketUpdate }: Ticket
     }
 
     return (
-        <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
-            {/* Header */}
-            <div style={{
-                padding: "20px 24px",
-                borderBottom: "1px solid var(--border)",
-                background: "var(--bg-secondary)"
-            }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <button onClick={onBack} className="btn btn-ghost" style={{ padding: 8, borderRadius: "50%" }}>
-                        <ArrowLeft size={20} />
-                    </button>
-                    <div style={{ flex: 1 }}>
-                        <h2 style={{ margin: 0, fontSize: "1.15rem", fontWeight: 700 }}>
-                            {ticket.Title || "Ticket"}
-                        </h2>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4, fontSize: "0.8rem", color: "var(--text-secondary)" }}>
-                            <span style={{ fontWeight: 600 }}>{ticket.ContactName || "Sem nome"}</span>
-                            <span>·</span>
-                            <span>{ticket.ExternalUserId}</span>
-                            <span>·</span>
-                            <span>Atendente: {ticket.AssignedUserName || ticket.AssignedUserEmail || "Não atribuído"}</span>
-                            <span>·</span>
+        <div style={{ display: "flex", height: "100%", overflow: "hidden", background: "var(--bg-primary)" }}>
+            
+            {/* Esquerda: Área de Conversa/Chat */}
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", borderRight: "1px solid var(--border)", minWidth: 0 }}>
+                {/* Header de Navegação */}
+                <div style={{ padding: "12px 20px", borderBottom: "1px solid var(--border)", background: "var(--bg-secondary)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <button onClick={onBack} className="btn btn-ghost" style={{ padding: 8, borderRadius: "50%" }}>
+                            <ArrowLeft size={20} />
+                        </button>
+                        <div>
+                            <h2 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 700 }}>{ticket.Title || "Ticket #" + ticket.id}</h2>
+                            <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 2 }}>
+                                ID: {ticket.id} · Aberto em {formatDateTime(ticket.CreatedAt || "")}
+                            </div>
+                        </div>
+                    </div>
+                    <div style={{ display: "flex", background: "var(--bg-primary)", padding: 4, borderRadius: 10, gap: 4 }}>
+                        <button 
+                            onClick={() => setActiveTab("CHAT")}
+                            style={{ padding: "6px 14px", borderRadius: 8, border: "none", fontSize: "0.8rem", fontWeight: 700, cursor: "pointer", background: activeTab === "CHAT" ? "var(--bg-secondary)" : "transparent", color: activeTab === "CHAT" ? "var(--accent)" : "var(--text-secondary)", boxShadow: activeTab === "CHAT" ? "0 2px 6px rgba(0,0,0,0.05)" : "none" }}
+                        >
+                            Conversa
+                        </button>
+                        <button 
+                            onClick={() => setActiveTab("TIMELINE")}
+                            style={{ padding: "6px 14px", borderRadius: 8, border: "none", fontSize: "0.8rem", fontWeight: 700, cursor: "pointer", background: activeTab === "TIMELINE" ? "var(--bg-secondary)" : "transparent", color: activeTab === "TIMELINE" ? "var(--accent)" : "var(--text-secondary)", boxShadow: activeTab === "TIMELINE" ? "0 2px 6px rgba(0,0,0,0.05)" : "none" }}
+                        >
+                            Linha do Tempo
+                        </button>
+                    </div>
+                </div>
+
+                {/* Conteúdo Dinâmico */}
+                <div style={{ flex: 1, position: "relative", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+                    {activeTab === "CHAT" ? (
+                        <ChatWindow setView={() => {}} hideHeader={true} />
+                    ) : (
+                        <div style={{ height: "100%", overflowY: "auto", padding: "24px" }}>
+                            <div style={{ position: "relative" }}>
+                                {history.length > 0 && <div style={{ position: "absolute", left: 17, top: 0, bottom: 0, width: 2, background: "var(--border)", zIndex: 0 }} />}
+                                {history.map((h) => {
+                                    const info = getActionDisplayInfo(h.Action);
+                                    let meta: any = {};
+                                    try { meta = h.MetadataJson ? JSON.parse(h.MetadataJson) : {}; } catch { }
+                                    return (
+                                        <div key={h.HistoryId} style={{ display: "flex", gap: 14, marginBottom: 20, position: "relative", zIndex: 1 }}>
+                                            <div style={{ width: 36, height: 36, borderRadius: 10, background: "var(--bg-secondary)", border: `2px solid ${info.color}`, display: "flex", alignItems: "center", justifyContent: "center", color: info.color, flexShrink: 0 }}>
+                                                {info.icon}
+                                            </div>
+                                            <div style={{ flex: 1, background: "var(--bg-secondary)", borderRadius: 12, padding: "12px 16px", border: "1px solid var(--border)" }}>
+                                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                                                    <span style={{ fontWeight: 600, fontSize: "0.88rem" }}>{info.label}</span>
+                                                    <span style={{ fontSize: "0.72rem", color: "var(--text-secondary)" }}>{formatDateTime(h.CreatedAt)}</span>
+                                                </div>
+                                                <div style={{ marginTop: 6, fontSize: "0.82rem", color: "var(--text-secondary)" }}>
+                                                    {h.ActorUserId && <span>Por: <strong>{h.ActorName || h.ActorEmail}</strong></span>}
+                                                    {h.EscalatedToEmail && <span> → Escalado para: <strong>{h.EscalatedToEmail}</strong></span>}
+                                                    {meta.newStatus && <span> · Novo status: <strong>{meta.newStatus}</strong></span>}
+                                                </div>
+                                                {(meta.text || meta.body) && (
+                                                    <div style={{ 
+                                                        marginTop: 10, 
+                                                        padding: "10px 14px", 
+                                                        background: h.Action === 'COMMENTED' ? "rgba(155,89,182,0.05)" : "rgba(0,0,0,0.03)", 
+                                                        borderRadius: 8, 
+                                                        fontSize: "0.85rem",
+                                                        color: "var(--text-primary)",
+                                                        borderLeft: h.Action === 'COMMENTED' ? "3px solid #9b59b6" : "none",
+                                                        whiteSpace: "pre-wrap"
+                                                    }}>
+                                                        {meta.text || meta.body}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {activeTab === "TIMELINE" && role !== 'END_USER' && (
+                    <div style={{ 
+                        padding: "12px 20px", 
+                        borderTop: "1px solid var(--border)", 
+                        background: "var(--bg-secondary)",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 12
+                    }}>
+                        <button onClick={loadCannedResponses} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer" }} title="Respostas Rápidas">
+                            <Zap size={20} />
+                        </button>
+                        <button onClick={loadKbArticles} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer" }} title="Base de Conhecimento">
+                            <BookOpen size={20} />
+                        </button>
+                        <div style={{ flex: 1, position: "relative" }}>
+                            {showCannedMenu && (
+                                <div style={{ 
+                                    position: "absolute", 
+                                    bottom: "100%", 
+                                    left: -60, 
+                                    width: 300, 
+                                    background: "var(--bg-secondary)", 
+                                    border: "1px solid var(--border)", 
+                                    borderRadius: 12, 
+                                    boxShadow: "0 -10px 25px rgba(0,0,0,0.15)",
+                                    marginBottom: 10,
+                                    zIndex: 100,
+                                    maxHeight: 200,
+                                    overflowY: "auto"
+                                }}>
+                                    <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", fontSize: "0.75rem", fontWeight: 700, color: "var(--text-secondary)" }}>RESPOSTAS RÁPIDAS</div>
+                                    {cannedResponses.map(c => (
+                                        <div 
+                                            key={c.CannedId} 
+                                            onClick={() => { setComment(comment + c.Content); setShowCannedMenu(false); }}
+                                            style={{ padding: "10px 14px", cursor: "pointer", fontSize: "0.82rem", borderBottom: "1px solid var(--border)" }}
+                                            className="table-row-hover"
+                                        >
+                                            <div style={{ fontWeight: 600 }}>{c.Shortcut}</div>
+                                            <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.Content}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            <input 
+                                placeholder="Adicionar comentário..." 
+                                value={comment}
+                                onChange={e => setComment(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && handleSendComment()}
+                                style={{ 
+                                    width: "100%", 
+                                    padding: "10px 16px", 
+                                    borderRadius: 10, 
+                                    border: "1px solid var(--border)", 
+                                    background: "var(--bg-primary)",
+                                    color: "var(--text-primary)",
+                                    fontSize: "0.85rem",
+                                    outline: "none"
+                                }}
+                            />
+                        </div>
+                        <button 
+                            onClick={handleSendComment}
+                            disabled={!comment.trim() || actionLoading}
+                            style={{ 
+                                background: "var(--accent)", 
+                                color: "#fff", 
+                                border: "none", 
+                                width: 36, 
+                                height: 36, 
+                                borderRadius: 10, 
+                                display: "flex", 
+                                alignItems: "center", 
+                                justifyContent: "center",
+                                cursor: "pointer",
+                                opacity: (!comment.trim() || actionLoading) ? 0.6 : 1
+                            }}
+                        >
+                            <Send size={18} />
+                        </button>
+                    </div>
+                )}
+            </div>
+
+            {/* Direita: Sidebar de Metadados e Ações */}
+            <div style={{ width: 340, display: "flex", flexDirection: "column", background: "var(--bg-secondary)", borderLeft: "1px solid var(--border)" }}>
+                <div style={{ flex: 1, overflowY: "auto", padding: "24px" }}>
+                    
+                    {/* Status & SLA Section */}
+                    <div style={{ marginBottom: 24 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                            <h3 style={{ margin: 0, fontSize: "0.75rem", fontWeight: 800, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "1px" }}>Status do Chamado</h3>
+                        </div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                             <span style={{
-                                padding: "2px 8px", borderRadius: 6, fontSize: "0.7rem", fontWeight: 700,
-                                background: ["OPEN", "NEW", "TRIAGE", "IN_PROGRESS", "ESCALATED"].includes(ticket.Status) ? "rgba(0,168,132,0.12)" : ["WAITING_CUSTOMER", "WAITING_THIRD_PARTY"].includes(ticket.Status) ? "rgba(245,158,11,0.12)" : "rgba(134,150,160,0.12)",
-                                color: ["OPEN", "NEW", "TRIAGE", "IN_PROGRESS", "ESCALATED"].includes(ticket.Status) ? "#00a884" : ["WAITING_CUSTOMER", "WAITING_THIRD_PARTY"].includes(ticket.Status) ? "#d97706" : "#8696a0"
+                                padding: "6px 12px", borderRadius: 8, fontSize: "0.75rem", fontWeight: 800,
+                                background: ["OPEN", "NEW", "TRIAGE", "IN_PROGRESS", "ESCALATED"].includes(ticket.Status) ? "rgba(0,168,132,0.12)" : "rgba(134,150,160,0.12)",
+                                color: ["OPEN", "NEW", "TRIAGE", "IN_PROGRESS", "ESCALATED"].includes(ticket.Status) ? "#00a884" : "#8696a0",
+                                border: `1px solid ${["OPEN", "NEW", "TRIAGE", "IN_PROGRESS", "ESCALATED"].includes(ticket.Status) ? "rgba(0,168,132,0.2)" : "rgba(134,150,160,0.2)"}`
                             }}>
-                                {{ "NEW": "Novo", "OPEN": "Aberto", "TRIAGE": "Triagem", "IN_PROGRESS": "Em atendimento", "WAITING_CUSTOMER": "Aguard. cliente", "WAITING_THIRD_PARTY": "Aguard. terceiro", "ESCALATED": "Escalado", "RESOLVED": "Resolvido", "CLOSED": "Fechado" }[ticket.Status] || ticket.Status}
+                                {{ "NEW": "Novo", "OPEN": "Aberto", "TRIAGE": "Triagem", "IN_PROGRESS": "Atendimento", "WAITING_CUSTOMER": "Aguard. cliente", "RESOLVED": "Resolvido", "CLOSED": "Fechado" }[ticket.Status] || ticket.Status}
                             </span>
                             {ticket.SlaStatus && (
                                 <span style={{
-                                    padding: "2px 8px", borderRadius: 6, fontSize: "0.7rem", fontWeight: 700,
+                                    padding: "6px 12px", borderRadius: 8, fontSize: "0.75rem", fontWeight: 800,
                                     background: ticket.SlaStatus === 'BREACHED' ? "rgba(239,68,68,0.12)" : ticket.SlaStatus === 'WARNING' ? "rgba(245,158,11,0.12)" : "rgba(16,185,129,0.12)",
                                     color: ticket.SlaStatus === 'BREACHED' ? "#ef4444" : ticket.SlaStatus === 'WARNING' ? "#f59e0b" : "#10b981",
-                                    textTransform: 'uppercase'
+                                    border: `1px solid ${ticket.SlaStatus === 'BREACHED' ? "rgba(239,68,68,0.2)" : ticket.SlaStatus === 'WARNING' ? "rgba(245,158,11,0.2)" : "rgba(16,185,129,0.2)"}`
                                 }}>
-                                    SLA: {ticket.SlaStatus}
+                                    <Timer size={12} style={{ marginRight: 4, verticalAlign: "middle" }} />
+                                    SLA {ticket.SlaStatus}
                                 </span>
                             )}
                         </div>
                     </div>
-                </div>
 
-                {/* Action buttons */}
-                <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
-                    {canEscalate && ticket.Status !== "RESOLVED" && (
-                        <button onClick={openEscalateModal} className="btn" disabled={actionLoading} style={{
-                            padding: "8px 14px", borderRadius: 10, border: "1px solid #e67e22",
-                            background: "rgba(230,126,34,0.08)", color: "#e67e22", fontWeight: 600, fontSize: "0.8rem",
-                            display: "flex", alignItems: "center", gap: 6, cursor: "pointer"
-                        }}>
-                            <ArrowUpRight size={14} /> Escalar
-                        </button>
-                    )}
-                    {canClose && ticket.Status !== "RESOLVED" && (
-                        <button onClick={() => setShowCloseConfirm(true)} className="btn" disabled={actionLoading} style={{
-                            padding: "8px 14px", borderRadius: 10, border: "1px solid #8696a0",
-                            background: "rgba(134,150,160,0.08)", color: "#8696a0", fontWeight: 600, fontSize: "0.8rem",
-                            display: "flex", alignItems: "center", gap: 6, cursor: "pointer"
-                        }}>
-                            <CheckCircle size={14} /> Fechar Ticket
-                        </button>
-                    )}
-                    {ticket.Status === "RESOLVED" && (
-                        <button onClick={handleReopen} className="btn" disabled={actionLoading} style={{
-                            padding: "8px 14px", borderRadius: 10, border: "1px solid #00a884",
-                            background: "rgba(0,168,132,0.08)", color: "#00a884", fontWeight: 600, fontSize: "0.8rem",
-                            display: "flex", alignItems: "center", gap: 6, cursor: "pointer"
-                        }}>
-                            <RefreshCw size={14} /> Reabrir
-                        </button>
-                    )}
-                    {ticket.Status === "RESOLVED" && (
-                        <button onClick={openSaveToKB} className="btn" style={{
-                            padding: "8px 14px", borderRadius: 10, border: "1px solid #9b59b6",
-                            background: "rgba(155,89,182,0.08)", color: "#9b59b6", fontWeight: 600, fontSize: "0.8rem",
-                            display: "flex", alignItems: "center", gap: 6, cursor: "pointer"
-                        }}>
-                            <BookOpen size={14} /> Salvar na Base
-                        </button>
-                    )}
-                    {hasLogAccess && (
-                        <button onClick={openAuditLog} className="btn" style={{
-                            padding: "8px 14px", borderRadius: 10, border: "1px solid var(--border)",
-                            background: "transparent", color: "var(--text-secondary)", fontWeight: 600, fontSize: "0.8rem",
-                            display: "flex", alignItems: "center", gap: 6, cursor: "pointer"
-                        }}>
-                            <FileText size={14} /> Log de Auditoria
-                        </button>
-                    )}
-                </div>
-            </div>
-
-            {/* Timeline */}
-            <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px" }}>
-                <h3 style={{ margin: "0 0 16px", fontSize: "0.9rem", fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                    Linha do Tempo · {history.length} interações
-                </h3>
-
-                {loading && (
-                    <div style={{ padding: 30, textAlign: "center" }}>
-                        <div className="spinner" style={{ margin: "0 auto" }}></div>
-                    </div>
-                )}
-
-                {!loading && history.length === 0 && (
-                    <div style={{ padding: 30, textAlign: "center", color: "var(--text-secondary)" }}>
-                        Nenhuma interação registrada.
-                    </div>
-                )}
-
-                <div style={{ position: "relative" }}>
-                    {/* Vertical line */}
-                    {history.length > 0 && (
-                        <div style={{
-                            position: "absolute", left: 17, top: 0, bottom: 0, width: 2,
-                            background: "var(--border)", zIndex: 0
-                        }} />
-                    )}
-
-                    {history.map((h, i) => {
-                        const info = getActionDisplayInfo(h.Action);
-                        let meta: Record<string, any> = {};
-                        try { meta = h.MetadataJson ? JSON.parse(h.MetadataJson) : {}; } catch { }
-
-                        return (
-                            <div key={h.HistoryId} style={{
-                                display: "flex", gap: 14, marginBottom: 20, position: "relative", zIndex: 1
-                            }}>
-                                {/* Dot */}
-                                <div style={{
-                                    width: 36, height: 36, borderRadius: 10,
-                                    background: "var(--bg-secondary)", border: `2px solid ${info.color}`,
-                                    display: "flex", alignItems: "center", justifyContent: "center",
-                                    color: info.color, flexShrink: 0
-                                }}>
-                                    {info.icon}
-                                </div>
-
-                                {/* Card */}
-                                <div style={{
-                                    flex: 1, background: "var(--bg-secondary)", borderRadius: 12,
-                                    padding: "12px 16px", border: "1px solid var(--border)"
-                                }}>
-                                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                            <span style={{
-                                                fontWeight: 800, fontSize: "0.85rem", color: info.color,
-                                                background: `${info.color}15`, padding: "2px 8px", borderRadius: 6
-                                            }}>
-                                                #{h.SequenceNumber}
-                                            </span>
-                                            <span style={{ fontWeight: 600, fontSize: "0.88rem" }}>{info.label}</span>
-                                        </div>
-                                        <span style={{ fontSize: "0.72rem", color: "var(--text-secondary)" }}>
-                                            {formatDateTime(h.CreatedAt)}
-                                        </span>
-                                    </div>
-
-                                    <div style={{ marginTop: 6, fontSize: "0.82rem", color: "var(--text-secondary)" }}>
-                                        {h.ActorUserId && <span>Por: <strong>{h.ActorName || h.ActorEmail}</strong></span>}
-                                        {h.EscalatedToEmail && <span> → Escalado para: <strong>{h.EscalatedToEmail}</strong></span>}
-                                        {meta.direction && <span> · Direção: {meta.direction === "IN" ? "Entrada" : "Saída"}</span>}
-                                        {meta.newStatus && <span> · Novo status: <strong>{meta.newStatus}</strong></span>}
-                                        {meta.source && <span> · Canal: {meta.source}</span>}
-                                    </div>
+                    {/* Requester Section */}
+                    <div style={{ marginBottom: 24, padding: 16, background: "var(--bg-primary)", borderRadius: 12, border: "1px solid var(--border)" }}>
+                        <h3 style={{ margin: "0 0 12px", fontSize: "0.75rem", fontWeight: 800, color: "var(--text-secondary)", textTransform: "uppercase" }}>Solicitante</h3>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                            <div style={{ width: 40, height: 40, borderRadius: 10, background: "var(--accent)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>
+                                {(ticket.ContactName || "?").charAt(0).toUpperCase()}
+                            </div>
+                            <div style={{ minWidth: 0 }}>
+                                <div style={{ fontWeight: 700, fontSize: "0.9rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ticket.ContactName || "Sem nome"}</div>
+                                <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 4 }}>
+                                    <Phone size={10} /> {formatWhatsApp(ticket.ExternalUserId || "")}
                                 </div>
                             </div>
-                        );
-                    })}
+                        </div>
+                    </div>
+
+                    {/* Metadata List */}
+                    <div style={{ marginBottom: 24 }}>
+                        <h3 style={{ margin: "0 0 12px", fontSize: "0.75rem", fontWeight: 800, color: "var(--text-secondary)", textTransform: "uppercase" }}>Atribuição</h3>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem" }}>
+                                <span style={{ color: "var(--text-secondary)" }}>Técnico:</span>
+                                <span style={{ fontWeight: 600 }}>{ticket.AssignedUserName || "—"}</span>
+                            </div>
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem" }}>
+                                <span style={{ color: "var(--text-secondary)" }}>Prioridade:</span>
+                                <span style={{ fontWeight: 700, color: ticket.Priority === "CRITICAL" ? "#ef4444" : "inherit" }}>{ticket.Priority}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Actions Area */}
+                    <div style={{ marginTop: 32, display: "flex", flexDirection: "column", gap: 10 }}>
+                        {canEscalate && ticket.Status !== "RESOLVED" && (
+                            <button onClick={openEscalateModal} className="btn" style={{ width: "100%", justifyContent: "center", gap: 8, background: "rgba(230,126,34,0.1)", color: "#e67e22", border: "1px solid rgba(230,126,34,0.2)", padding: "10px" }}>
+                                <ArrowUpRight size={16} /> Escalar Chamado
+                            </button>
+                        )}
+                        {canClose && ticket.Status !== "RESOLVED" && (
+                            <button onClick={() => setShowCloseConfirm(true)} className="btn" style={{ width: "100%", justifyContent: "center", gap: 8, background: "rgba(134,150,160,0.1)", color: "#8696a0", border: "1px solid rgba(134,150,160,0.2)", padding: "10px" }}>
+                                <CheckCircle size={16} /> Resolver Chamado
+                            </button>
+                        )}
+                        {ticket.Status === "RESOLVED" && (
+                            <button onClick={handleReopen} className="btn" style={{ width: "100%", justifyContent: "center", gap: 8, background: "rgba(0,168,132,0.1)", color: "#00a884", border: "1px solid rgba(0,168,132,0.2)", padding: "10px" }}>
+                                <RefreshCw size={16} /> Reabrir Chamado
+                            </button>
+                        )}
+                        {ticket.Status === "RESOLVED" && (
+                            <button onClick={openSaveToKB} className="btn" style={{ width: "100%", justifyContent: "center", gap: 8, background: "rgba(155,89,182,0.1)", color: "#9b59b6", border: "1px solid rgba(155,89,182,0.2)", padding: "10px" }}>
+                                <BookOpen size={16} /> Salvar na Base
+                            </button>
+                        )}
+                        {hasLogAccess && (
+                            <button onClick={openAuditLog} className="btn btn-ghost" style={{ width: "100%", justifyContent: "center", gap: 8, padding: "10px" }}>
+                                <ShieldAlert size={16} /> Log de Auditoria
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
 
-            {/* Comment box */}
-            {canComment && ticket.Status !== "RESOLVED" && (
-                <div style={{
-                    padding: "12px 24px", borderTop: "1px solid var(--border)",
-                    display: "flex", gap: 10, alignItems: "center", position: "relative"
-                }}>
-                    {showCannedMenu && (
-                        <div style={{ position: "absolute", bottom: "100%", left: 24, background: "var(--bg-secondary)", border: "1px solid var(--border)", borderRadius: 10, width: 300, maxHeight: 200, overflowY: "auto", zIndex: 10, boxShadow: "0 -4px 12px rgba(0,0,0,0.2)" }}>
-                            {cannedResponses.map(c => (
-                                <div key={c.CannedResponseId} onClick={() => { setComment(c.Content); setShowCannedMenu(false); }} style={{ padding: 12, borderBottom: "1px solid var(--border)", cursor: "pointer" }} className="table-row-hover">
-                                    <div style={{ fontWeight: 600, color: "#00a884" }}>/{c.Shortcut}</div>
-                                    <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.Content}</div>
-                                </div>
-                            ))}
-                            {cannedResponses.length === 0 && <div style={{ padding: 15, textAlign: "center", color: "var(--text-secondary)" }}>Nenhuma resposta rápida.</div>}
-                        </div>
-                    )}
-                    
-                    <button onClick={loadCannedResponses} title="Respostas Rápidas" style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", padding: 5 }}>
-                        <Zap size={20} />
-                    </button>
-                    <button onClick={loadKbArticles} title="Base de Conhecimento" style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", padding: 5 }}>
-                        <BookOpen size={20} />
-                    </button>
-
-                    <input
-                        value={comment}
-                        onChange={e => setComment(e.target.value)}
-                        placeholder="Adicionar comentário..."
-                        onKeyDown={e => e.key === "Enter" && handleComment()}
-                        style={{
-                            flex: 1, padding: "10px 14px", borderRadius: 10,
-                            background: "var(--bg-primary)", border: "1px solid var(--border)",
-                            color: "var(--text-primary)", fontSize: "0.88rem"
-                        }}
-                    />
-                    <button onClick={handleComment} disabled={actionLoading || !comment.trim()} className="btn btn-primary" style={{ padding: "10px 16px", borderRadius: 10 }}>
-                        <Send size={16} />
-                    </button>
-                </div>
-            )}
-
-            {/* Escalate Modal */}
+            {/* Modals (Escalate, Audit, Confirm, KB) */}
             {showEscalateModal && (
-                <div style={{
-                    position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-                    background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)",
-                    display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000
-                }}>
-                    <div style={{
-                        background: "var(--bg-secondary)", border: "1px solid var(--border)",
-                        width: "100%", maxWidth: 400, padding: 28, borderRadius: 16,
-                        boxShadow: "0 20px 40px rgba(0,0,0,0.4)"
-                    }}>
+                <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
+                    <div style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", width: "100%", maxWidth: 400, padding: 28, borderRadius: 16, boxShadow: "0 20px 40px rgba(0,0,0,0.4)" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                             <h3 style={{ margin: 0, fontSize: "1.1rem" }}>Escalar Chamado</h3>
-                            <button onClick={() => setShowEscalateModal(false)} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer" }}>
-                                <X size={20} />
-                            </button>
+                            <button onClick={() => setShowEscalateModal(false)} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer" }}><X size={20} /></button>
                         </div>
-                        <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem", marginBottom: 16 }}>
-                            Selecione o técnico/supervisor para escalar este chamado:
-                        </p>
                         <div style={{ maxHeight: 250, overflowY: "auto" }}>
                             {users.map(u => (
-                                <div
-                                    key={u.UserId}
-                                    onClick={() => handleEscalate(u.UserId)}
-                                    style={{
-                                        padding: "10px 14px", borderRadius: 10, cursor: "pointer",
-                                        border: "1px solid var(--border)", marginBottom: 8,
-                                        display: "flex", alignItems: "center", gap: 10,
-                                        transition: "background 0.15s"
-                                    }}
-                                    className="table-row-hover"
-                                >
-                                    <div style={{
-                                        width: 32, height: 32, borderRadius: 8,
-                                        background: "var(--bg-primary)", display: "flex",
-                                        alignItems: "center", justifyContent: "center"
-                                    }}>
-                                        <User size={16} />
-                                    </div>
+                                <div key={u.UserId} onClick={() => handleEscalate(u.UserId)} style={{ padding: "10px 14px", borderRadius: 10, cursor: "pointer", border: "1px solid var(--border)", marginBottom: 8, display: "flex", alignItems: "center", gap: 10 }} className="table-row-hover">
+                                    <div style={{ width: 32, height: 32, borderRadius: 8, background: "var(--bg-primary)", display: "flex", alignItems: "center", justifyContent: "center" }}><User size={16} /></div>
                                     <div>
                                         <div style={{ fontWeight: 600, fontSize: "0.88rem" }}>{u.AgentName || u.Name || u.Email}</div>
                                         <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>{u.Email}</div>
@@ -512,47 +551,28 @@ export function TicketDetail({ ticket, onBack, profile, onTicketUpdate }: Ticket
                 </div>
             )}
 
-            {/* Audit Log Modal */}
             {showAuditModal && (
-                <div style={{
-                    position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-                    background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)",
-                    display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000
-                }}>
-                    <div style={{
-                        background: "var(--bg-secondary)", border: "1px solid var(--border)",
-                        width: "100%", maxWidth: 550, padding: 28, borderRadius: 16, maxHeight: "70vh",
-                        boxShadow: "0 20px 40px rgba(0,0,0,0.4)", overflow: "hidden", display: "flex", flexDirection: "column"
-                    }}>
+                <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
+                    <div style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", width: "100%", maxWidth: 550, padding: 28, borderRadius: 16, maxHeight: "70vh", boxShadow: "0 20px 40px rgba(0,0,0,0.4)", overflow: "hidden", display: "flex", flexDirection: "column" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                             <h3 style={{ margin: 0, fontSize: "1.1rem" }}>📋 Log de Auditoria</h3>
-                            <button onClick={() => setShowAuditModal(false)} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer" }}>
-                                <X size={20} />
-                            </button>
+                            <button onClick={() => setShowAuditModal(false)} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer" }}><X size={20} /></button>
                         </div>
                         <div style={{ flex: 1, overflowY: "auto" }}>
                             {auditLogs.map((log, i) => (
-                                <div key={i} style={{
-                                    padding: "10px 14px", borderBottom: "1px solid var(--border)",
-                                    fontSize: "0.82rem"
-                                }}>
+                                <div key={i} style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", fontSize: "0.82rem" }}>
                                     <div style={{ display: "flex", justifyContent: "space-between" }}>
                                         <strong style={{ color: "var(--accent)" }}>{log.action}</strong>
                                         <span style={{ color: "var(--text-secondary)", fontSize: "0.72rem" }}>{formatDateTime(log.time)}</span>
                                     </div>
-                                    <div style={{ color: "var(--text-secondary)", marginTop: 4 }}>
-                                        Ator: {log.actor}
-                                        {log.meta && <span> · {JSON.stringify(log.meta)}</span>}
-                                    </div>
+                                    <div style={{ color: "var(--text-secondary)", marginTop: 4 }}>Ator: {log.actor} {log.meta && <span> · {JSON.stringify(log.meta)}</span>}</div>
                                 </div>
                             ))}
-                            {auditLogs.length === 0 && (
-                                <p style={{ textAlign: "center", color: "var(--text-secondary)", padding: 20 }}>Nenhum registro de auditoria.</p>
-                            )}
                         </div>
                     </div>
                 </div>
             )}
+
             {showCloseConfirm && (
                 <ConfirmModal 
                     title="Fechar Chamado"
@@ -569,32 +589,17 @@ export function TicketDetail({ ticket, onBack, profile, onTicketUpdate }: Ticket
                     <div style={{ background: "var(--bg-secondary)", padding: 25, borderRadius: 10, width: 700, maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
                             <h3 style={{ margin: 0 }}>Base de Conhecimento</h3>
-                            <button onClick={() => setShowKBModal(false)} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer" }}>
-                                <RotateCcw size={18} />
-                            </button>
+                            <button onClick={() => setShowKBModal(false)} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer" }}><RotateCcw size={18} /></button>
                         </div>
                         <div style={{ position: "relative", marginBottom: 15 }}>
                             <Search style={{ position: "absolute", left: 12, top: 10, color: "#8696a0" }} size={18} />
-                            <input 
-                                placeholder="Buscar artigos..." 
-                                value={kbSearch} 
-                                onChange={e => setKbSearch(e.target.value)}
-                                style={{ width: "100%", padding: "10px 10px 10px 40px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", boxSizing: "border-box" }}
-                            />
+                            <input placeholder="Buscar artigos..." value={kbSearch} onChange={e => setKbSearch(e.target.value)} style={{ width: "100%", padding: "10px 10px 10px 40px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", boxSizing: "border-box" }} />
                         </div>
                         <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 10 }}>
-                            {kbArticles.filter(a => a.Title.toLowerCase().includes(kbSearch.toLowerCase()) || a.Category?.toLowerCase().includes(kbSearch.toLowerCase())).map(article => (
-                                <div key={article.ArticleId} style={{ padding: 15, border: "1px solid var(--border)", borderRadius: 10, cursor: "pointer" }} 
-                                    className="table-row-hover"
-                                    onClick={() => {
-                                        setComment(comment + article.Content.replace(/<[^>]*>?/gm, ''));
-                                        setShowKBModal(false);
-                                    }}>
+                            {kbArticles.filter(a => a.Title.toLowerCase().includes(kbSearch.toLowerCase())).map(article => (
+                                <div key={article.ArticleId} style={{ padding: 15, border: "1px solid var(--border)", borderRadius: 10, cursor: "pointer" }} className="table-row-hover" onClick={() => { setComment(comment + article.Content.replace(/<[^>]*>?/gm, '')); setShowKBModal(false); }}>
                                     <div style={{ fontWeight: 600, color: "var(--accent)", fontSize: "0.8rem" }}>{article.Category || "Geral"}</div>
                                     <div style={{ fontWeight: 700, fontSize: "1rem", margin: "4px 0" }}>{article.Title}</div>
-                                    <div style={{ fontSize: "0.82rem", color: "var(--text-secondary)", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                                        {article.Content.replace(/<[^>]*>?/gm, '')}
-                                    </div>
                                 </div>
                             ))}
                         </div>
@@ -606,36 +611,10 @@ export function TicketDetail({ ticket, onBack, profile, onTicketUpdate }: Ticket
                 <div className="modal-overlay" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 }}>
                     <div style={{ background: "var(--bg-secondary)", padding: 25, borderRadius: 12, width: 500 }}>
                         <h3 style={{ marginTop: 0 }}>Salvar na Base de Conhecimento</h3>
-                        <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem" }}>Crie um novo artigo baseado na solução deste ticket.</p>
-                        
                         <div style={{ display: "flex", flexDirection: "column", gap: 15, marginTop: 20 }}>
-                            <div>
-                                <label style={{ display: "block", marginBottom: 6, fontSize: "0.85rem", color: "#8696a0" }}>Título</label>
-                                <input 
-                                    value={kbForm.title} 
-                                    onChange={e => setKbForm({ ...kbForm, title: e.target.value })}
-                                    style={{ width: "100%", padding: 10, borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)" }}
-                                />
-                            </div>
-                            <div>
-                                <label style={{ display: "block", marginBottom: 6, fontSize: "0.85rem", color: "#8696a0" }}>Categoria</label>
-                                <input 
-                                    value={kbForm.category} 
-                                    onChange={e => setKbForm({ ...kbForm, category: e.target.value })}
-                                    style={{ width: "100%", padding: 10, borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)" }}
-                                />
-                            </div>
-                            <div>
-                                <label style={{ display: "block", marginBottom: 6, fontSize: "0.85rem", color: "#8696a0" }}>Conteúdo da Solução</label>
-                                <textarea 
-                                    value={kbForm.content} 
-                                    onChange={e => setKbForm({ ...kbForm, content: e.target.value })}
-                                    rows={6}
-                                    style={{ width: "100%", padding: 10, borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", resize: "vertical" }}
-                                />
-                            </div>
+                            <input value={kbForm.title} onChange={e => setKbForm({ ...kbForm, title: e.target.value })} placeholder="Título" style={{ width: "100%", padding: 10, borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)" }} />
+                            <textarea value={kbForm.content} onChange={e => setKbForm({ ...kbForm, content: e.target.value })} rows={6} style={{ width: "100%", padding: 10, borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", resize: "vertical" }} />
                         </div>
-
                         <div style={{ display: "flex", gap: 10, marginTop: 25 }}>
                             <button onClick={() => setShowSaveToKB(false)} className="btn btn-ghost" style={{ flex: 1 }}>Cancelar</button>
                             <button onClick={handleSaveToKB} className="btn btn-primary" style={{ flex: 1 }} disabled={actionLoading}>Salvar Artigo</button>

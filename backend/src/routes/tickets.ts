@@ -178,12 +178,13 @@ router.get("/kanban", (async (req: AuthenticatedRequest, res: Response, next: Ne
                     WHERE etm.ConversationId = c.ConversationId
                 ) extMap
                 OUTER APPLY (
-                    SELECT TOP 1 req.Name
-                    FROM altdesk.Contact req
-                    WHERE req.TenantId = c.TenantId AND (
+                    SELECT TOP 1 ISNULL(req.Name, ru.DisplayName) as Name
+                    FROM (SELECT 1 as dummy) d
+                    LEFT JOIN altdesk.Contact req ON req.TenantId = c.TenantId AND (
                         req.Phone = extMap.ExternalUserId OR 
                         (TRY_CAST(extMap.ExternalUserId AS UNIQUEIDENTIFIER) IS NOT NULL AND req.ContactId = CAST(extMap.ExternalUserId AS UNIQUEIDENTIFIER))
                     )
+                    LEFT JOIN altdesk.[User] ru ON ru.UserId = c.RequesterUserId
                 ) reqContact
                 ${whereClause}
                 ORDER BY ISNULL(t.KanbanOrder, 0) ASC, c.LastMessageAt DESC

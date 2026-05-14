@@ -17,6 +17,8 @@ import {
   Ticket,
 } from "lucide-react";
 import LogoHorizontal from "./assets/logo/logo-horizontal.png";
+import { PasswordInput } from "./components/PasswordInput";
+import { PhoneMaskInput } from "./components/PhoneMaskInput";
 
 
 type PreloadModel = "empty" | "basic" | "demo";
@@ -92,10 +94,12 @@ function Step1({ data, onChange }: { data: OnboardingData; onChange: (d: Partial
             <input type="email" value={data.email} onChange={e => onChange({ email: e.target.value })} placeholder="contato@empresa.com" />
           </div>
         </div>
-        <div className="field">
-          <label>Telefone principal</label>
-          <input value={data.phone} onChange={e => onChange({ phone: e.target.value })} placeholder="(11) 3333-4444" />
-        </div>
+        <PhoneMaskInput
+          label="Telefone principal"
+          value={data.phone}
+          onChange={e => onChange({ phone: e.target.value })}
+          placeholder="(11) 3333-4444"
+        />
 
         <h3 style={{ marginTop: 24 }}><User size={18} /> Dados do Administrador</h3>
         <div className="onboarding-row">
@@ -108,19 +112,25 @@ function Step1({ data, onChange }: { data: OnboardingData; onChange: (d: Partial
             <input type="email" value={data.adminEmail} onChange={e => onChange({ adminEmail: e.target.value })} placeholder="seu@email.com" />
           </div>
         </div>
-        <div className="field">
-          <label>Telefone</label>
-          <input value={data.adminPhone} onChange={e => onChange({ adminPhone: e.target.value })} placeholder="(11) 99999-0000" />
-        </div>
+        <PhoneMaskInput
+          label="Telefone"
+          value={data.adminPhone}
+          onChange={e => onChange({ adminPhone: e.target.value })}
+          placeholder="(11) 99999-0000"
+        />
         <div className="onboarding-row">
-          <div className="field">
-            <label>Senha *</label>
-            <input type="password" value={data.password} onChange={e => onChange({ password: e.target.value })} placeholder="••••••" />
-          </div>
-          <div className="field">
-            <label>Confirmar senha *</label>
-            <input type="password" value={data.confirmPassword} onChange={e => onChange({ confirmPassword: e.target.value })} placeholder="••••••" />
-          </div>
+          <PasswordInput
+            label="Senha *"
+            value={data.password}
+            onChange={e => onChange({ password: e.target.value })}
+            placeholder="••••••"
+          />
+          <PasswordInput
+            label="Confirmar senha *"
+            value={data.confirmPassword}
+            onChange={e => onChange({ confirmPassword: e.target.value })}
+            placeholder="••••••"
+          />
         </div>
       </div>
     </div>

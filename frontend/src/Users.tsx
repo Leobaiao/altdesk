@@ -50,10 +50,19 @@ export function Users({ token, onBack, role }: Props) {
         settings: true
     });
     const [msg, setMsg] = useState("");
+    const [searchTerm, setSearchTerm] = useState("");
+
+    const [activeTab, setActiveTab] = useState<"TECH" | "COLLAB">("TECH");
 
     useEffect(() => {
         loadUsers();
     }, []);
+
+    const techUsers = users.filter(u => (u.Role === "ADMIN" || u.Role === "SUPERADMIN" || u.Role === "AGENT") && 
+        (u.Name?.toLowerCase().includes(searchTerm.toLowerCase()) || u.Email.toLowerCase().includes(searchTerm.toLowerCase())));
+    const collabUsers = users.filter(u => u.Role === "END_USER" && 
+        (u.Name?.toLowerCase().includes(searchTerm.toLowerCase()) || u.Email.toLowerCase().includes(searchTerm.toLowerCase())));
+    const displayedUsers = activeTab === "TECH" ? techUsers : collabUsers;
 
     async function loadUsers() {
         setLoading(true);
@@ -238,6 +247,44 @@ export function Users({ token, onBack, role }: Props) {
                 </div>
             )}
 
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 20, marginBottom: 20, padding: "0 20px" }}>
+                <div style={{ display: "flex", gap: 20 }}>
+                    <button 
+                        onClick={() => setActiveTab("TECH")}
+                        style={{ 
+                            background: "none", border: "none", borderBottom: activeTab === "TECH" ? "3px solid var(--accent)" : "3px solid transparent",
+                            padding: "10px 15px", cursor: "pointer", fontWeight: 700, fontSize: "0.95rem",
+                            color: activeTab === "TECH" ? "var(--accent)" : "var(--text-secondary)", transition: "all 0.2s"
+                        }}
+                    >
+                        Time Técnico ({techUsers.length})
+                    </button>
+                    <button 
+                        onClick={() => setActiveTab("COLLAB")}
+                        style={{ 
+                            background: "none", border: "none", borderBottom: activeTab === "COLLAB" ? "3px solid var(--accent)" : "3px solid transparent",
+                            padding: "10px 15px", cursor: "pointer", fontWeight: 700, fontSize: "0.95rem",
+                            color: activeTab === "COLLAB" ? "var(--accent)" : "var(--text-secondary)", transition: "all 0.2s"
+                        }}
+                    >
+                        Colaboradores ({collabUsers.length})
+                    </button>
+                </div>
+
+                <div style={{ position: "relative", flex: 1, maxWidth: 300 }}>
+                    <input 
+                        type="text" 
+                        placeholder="Buscar por nome ou email..." 
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        style={{ 
+                            width: "100%", padding: "10px 15px", borderRadius: 12, border: "1px solid var(--border)", 
+                            background: "var(--bg-secondary)", color: "var(--text-primary)", fontSize: "0.85rem" 
+                        }}
+                    />
+                </div>
+            </div>
+
             <div style={{
                 background: "var(--bg-secondary)",
                 borderRadius: 20,
@@ -264,7 +311,7 @@ export function Users({ token, onBack, role }: Props) {
                                 </td>
                             </tr>
                         )}
-                        {!loading && users.map(u => (
+                        {!loading && displayedUsers.map(u => (
                             <tr key={u.UserId} className="table-row-hover" style={{ borderBottom: "1px solid var(--border)", transition: "all 0.2s" }}>
                                 <td style={{ padding: "16px 20px" }}>
                                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>

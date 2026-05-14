@@ -150,4 +150,66 @@ router.post("/instances/:connectorId/assignments", validateBody(z.object({
     }
 });
 
+/**
+ * Configurações Gerais do Tenant (Kanban, Timezone, etc.)
+ */
+router.get("/tenant", async (req, res, next) => {
+    try {
+        const user = (req as any).user;
+        const pool = await getPool();
+        const result = await pool.request()
+            .input("tenantId", user.tenantId)
+            .query("SELECT * FROM altdesk.TenantSettings WHERE TenantId=@tenantId");
+        
+        if (result.recordset.length === 0) {
+            return res.json({
+                KanbanColumnsJson: JSON.stringify({
+                    NEW: 'Novo',
+                    TRIAGE: 'Triagem',
+                    IN_PROGRESS: 'Em atendimento',
+                    WAITING_CUSTOMER: 'Aguardando cliente',
+                    WAITING_THIRD_PARTY: 'Aguardando terceiro',
+                    ESCALATED: 'Escalado',
+                    RESOLVED: 'Resolvido'
+                }),
+                Timezone: 'America/Sao_Paulo'
+            });
+        }
+        res.json(result.recordset[0]);
+    } catch (error) {
+        next(error);
+    }
+});
+
+router.put("/tenant", validateBody(z.object({
+    kanbanColumns: z.record(z.string()).optional(),
+    timezone: z.string().optional()
+})), async (req, res, next) => {
+    try {
+        const user = (req as any).user;
+        const { kanbanColumns, timezone } = req.body;
+        const pool = await getPool();
+
+        await pool.request()
+            .input("tenantId", user.tenantId)
+            .input("kanban", kanbanColumns ? JSON.stringify(kanbanColumns) : null)
+            .input("tz", timezone || null)
+            .query(`
+                IF EXISTS (SELECT 1 FROM altdesk.TenantSettings WHERE TenantId=@tenantId)
+                    UPDATE altdesk.TenantSettings 
+                    SET KanbanColumnsJson = ISNULL(@kanban, KanbanColumnsJson), 
+                        Timezone = ISNULL(@tz, Timezone), 
+                        UpdatedAt = SYSUTCDATETIME() 
+                    WHERE TenantId=@tenantId
+                ELSE
+                    INSERT INTO altdesk.TenantSettings (TenantId, KanbanColumnsJson, Timezone) 
+                    VALUES (@tenantId, ISNULL(@kanban, '{}'), ISNULL(@tz, 'America/Sao_Paulo'))
+            `);
+        
+        res.json({ ok: true });
+    } catch (error) {
+        next(error);
+    }
+});
+
 export default router;

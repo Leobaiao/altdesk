@@ -405,8 +405,25 @@ export async function findOrCreateInternalConversation(tenantId: string, initiat
   }
 
   // Cria nova conversa interna
-  const targetUser = await pool.request().input("uid", targetId).query("SELECT DisplayName FROM altdesk.[User] WHERE UserId = @uid");
-  const title = `Chat: ${targetUser.recordset[0]?.DisplayName || 'Usuário'}`;
+  const targetUser = await pool.request().input("uid", targetId).query("SELECT DisplayName, Role FROM altdesk.[User] WHERE UserId = @uid");
+  const initiatorUser = await pool.request().input("uid", initiatorId).query("SELECT Role FROM altdesk.[User] WHERE UserId = @uid");
+  
+  const targetRole = targetUser.recordset[0]?.Role;
+  const initiatorRole = initiatorUser.recordset[0]?.Role;
+
+  let finalRequester = initiatorId;
+  let finalAssigned = targetId;
+
+  // Se o alvo for colaborador (END_USER) e o iniciador for Agente/Admin,
+  // invertemos: o colaborador é o Requester e o Agente é o Assigned.
+  if (targetRole === 'END_USER' && initiatorRole !== 'END_USER') {
+      finalRequester = targetId;
+      finalAssigned = initiatorId;
+  } 
+  // Se o iniciador for colaborador, ele já é o Requester (comportamento padrão), 
+  // mas garantimos que o alvo seja o Assigned.
+
+  const title = `Suporte: ${targetUser.recordset[0]?.DisplayName || 'Usuário'}`;
 
   // Buscar primeiro canal ativo para vincular (requisito do banco)
   const channelRes = await pool.request()
@@ -417,8 +434,8 @@ export async function findOrCreateInternalConversation(tenantId: string, initiat
 
   const created = await pool.request()
     .input("tenantId", tenantId)
-    .input("initiatorId", initiatorId)
-    .input("targetId", targetId)
+    .input("initiatorId", finalRequester)
+    .input("targetId", finalAssigned)
     .input("title", title)
     .input("channelId", channelId)
     .query(`
@@ -434,7 +451,7 @@ export async function findOrCreateInternalConversation(tenantId: string, initiat
     tenantId,
     conversationId: cid,
     action: "OPENED",
-    metadata: { source: "INTERNAL", initiatorId, targetId }
+    metadata: { source: "INTERNAL", initiatorId: finalRequester, targetId: finalAssigned }
   });
 
   return cid as string;

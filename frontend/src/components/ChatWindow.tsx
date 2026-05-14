@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
-import { MessageCircleOff, ArrowLeft, Trash2, CheckCircle, RotateCcw, Users as UsersIcon, Zap, ChevronDown, Smile, FileText, Send, UserPlus, StickyNote, MessageSquare, Mail, Monitor, BookOpen } from "lucide-react";
+import { MessageCircleOff, ArrowLeft, Trash2, CheckCircle, RotateCcw, Users as UsersIcon, Zap, ChevronDown, Smile, FileText, Send, UserPlus, StickyNote, MessageSquare, Mail, Monitor, BookOpen, ArrowUpRight } from "lucide-react";
 
 import { useChat } from "../contexts/ChatContext";
 import { AudioPlayer } from "./AudioPlayer";
@@ -21,7 +21,15 @@ function formatTime(iso: string) {
 
 function formatPhone(ext: string) {
     if (!ext) return "";
-    return ext.replace("@s.whatsapp.net", "").replace("@c.us", "");
+    let number = ext.replace("@s.whatsapp.net", "").replace("@c.us", "");
+    const digits = number.replace(/\D/g, "");
+    if (digits.startsWith("55") && (digits.length === 12 || digits.length === 13)) {
+        const ddd = digits.substring(2, 4);
+        const part1 = digits.length === 13 ? digits.substring(4, 9) : digits.substring(4, 8);
+        const part2 = digits.length === 13 ? digits.substring(9) : digits.substring(8);
+        return `+55 (${ddd}) ${part1}-${part2}`;
+    }
+    return number;
 }
 
 function getChannelIcon(source: string | undefined, kind?: string) {
@@ -33,19 +41,28 @@ function getChannelIcon(source: string | undefined, kind?: string) {
     if (s.includes("EMAIL")) return <Mail size={18} style={{ color: "#EA4335" }} />;
     return <Monitor size={18} style={{ color: "#8696a0" }} />;
 }
-function getConversationTitle(c: Conversation, currentUserId: string | undefined) {
+function getConversationTitle(c: Conversation, currentUserId: string | undefined, role: string) {
     if (c.Kind === "INTERNAL") {
-        if (c.RequesterUserId === currentUserId) return c.AssignedUserName || "Agente";
+        if (c.RequesterUserId === currentUserId) return c.AssignedUserName || "Atendimento";
         if (c.AssignedUserId === currentUserId) return c.ContactName || "Atendimento";
-        return c.Title || "Chat Interno";
+        return c.Title || "Suporte Interno";
     }
-    return c.Title || formatPhone(c.ExternalUserId);
+
+    // Se for o colaborador, o título é o assunto do ticket
+    if (role === 'END_USER') {
+        return c.Title || "Meu Chamado";
+    }
+
+    // Se for agente/admin, o título é o nome do contato
+    if (c.ContactName) return c.ContactName;
+    return c.Title || formatPhone(c.ExternalUserId) || "Cliente";
 }
 
 
-export function ChatWindow({ setView }: { setView: (v: any) => void }) {
+export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any) => void, hideHeader?: boolean }) {
     const { conversations, selectedConversationId, setSelectedConversationId, messages, refreshConversations, typingUsers, emitTyping, showToast, showConfirm } = useChat();
     const currentUserId = getUserIdFromToken();
+    const role = getUserRoleFromToken();
     const [text, setText] = useState("");
     const [sending, setSending] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -130,8 +147,7 @@ export function ChatWindow({ setView }: { setView: (v: any) => void }) {
     };
 
 
-    const userId = getUserIdFromToken();
-    const role = getUserRoleFromToken();
+
 
     const selectedConversation = conversations.find((c) => c.ConversationId === selectedConversationId);
 
@@ -311,46 +327,32 @@ export function ChatWindow({ setView }: { setView: (v: any) => void }) {
 
     return (
         <>
-            <div className="chat-header" style={{ height: "85px", background: "var(--bg-primary)", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 25px", flexShrink: 0 }}>
+            {!hideHeader && (
+                <div className="chat-header" style={{ height: "85px", background: "var(--bg-primary)", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 25px", flexShrink: 0 }}>
                 <div className="info" style={{ display: "flex", alignItems: "center", gap: 15, minWidth: 0 }}>
                     <button className="mobile-back-btn" onClick={() => setSelectedConversationId(null)} style={{ marginRight: 10 }}>
                         <ArrowLeft size={24} />
                     </button>
                     <div style={{ width: 44, height: 44, borderRadius: 12, background: "var(--bg-hover)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.2rem", fontWeight: 700, color: "var(--accent)", flexShrink: 0 }}>
-                        {(getConversationTitle(selectedConversation, currentUserId) || "?").charAt(0).toUpperCase()}
+                        {(getConversationTitle(selectedConversation, currentUserId, role) || "?").charAt(0).toUpperCase()}
                     </div>
                     <div style={{ minWidth: 0 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                             {getChannelIcon(selectedConversation.SourceChannel, selectedConversation.Kind)}
-                            <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                {getConversationTitle(selectedConversation, currentUserId)}
-                            </h2>
+                            <div className="title" style={{ fontWeight: 700, fontSize: "1.1rem" }}>{getConversationTitle(selectedConversation, currentUserId, role)}</div>
                         </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
-                            {selectedConversation.ContactName && selectedConversation.ContactName !== selectedConversation.Title && (
-                                <>
-                                    <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: 600 }}>
-                                        {selectedConversation.ContactName}
-                                    </span>
-                                    <span style={{ width: 4, height: 4, borderRadius: "50%", background: "var(--border)" }} />
-                                </>
+                        <div className="subtitle" style={{ fontSize: "0.82rem", opacity: 0.7, display: "flex", alignItems: "center", gap: 6, marginTop: 2, color: "var(--text-secondary)" }}>
+                            {selectedConversation.Title && selectedConversation.Title !== selectedConversation.ContactName && (
+                                <span style={{ fontWeight: 700, color: "var(--accent)" }}>{selectedConversation.Title}</span>
                             )}
-                            <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
-                                {formatPhone(selectedConversation.ExternalUserId).length > 20 
-                                    ? formatPhone(selectedConversation.ExternalUserId).substring(0, 8) + "..." 
-                                    : formatPhone(selectedConversation.ExternalUserId)}
-                            </span>
-                            <span style={{ width: 4, height: 4, borderRadius: "50%", background: "var(--border)" }} />
-                            <span style={{ fontSize: "0.8rem", textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 700, color: selectedConversation.Status === "OPEN" ? "#00a884" : "#8696a0" }}>
-                                {selectedConversation.Status}
-                            </span>
-                            {selectedConversation.QueueName && (
-                                <>
-                                    <span style={{ width: 4, height: 4, borderRadius: "50%", background: "var(--border)" }} />
-                                    <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>{selectedConversation.QueueName}</span>
-                                </>
+                            {selectedConversation.Title && selectedConversation.Title !== selectedConversation.ContactName && (selectedConversation.AssignedUserName || selectedConversation.Status) && (
+                                <span style={{ opacity: 0.5 }}>•</span>
                             )}
+                            {selectedConversation.AssignedUserName ? `Com ${selectedConversation.AssignedUserName}` : "Fila de Atendimento"} 
+                            {selectedConversation.Status && <span style={{ opacity: 0.5 }}>•</span>}
+                            <span style={{ fontWeight: 600 }}>{selectedConversation.Status === "OPEN" ? "ABERTO" : "RESOLVIDO"}</span>
                         </div>
+
                     </div>
                 </div>
 
@@ -397,6 +399,15 @@ export function ChatWindow({ setView }: { setView: (v: any) => void }) {
                     ) : (
                         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", background: "rgba(0, 168, 132, 0.1)", color: "#00a884", borderRadius: 10, fontSize: "0.85rem", fontWeight: 700, border: "1px solid rgba(0, 168, 132, 0.2)" }}>
                             TICKET #{activeTicket.TicketId?.substring(0, 5)}
+                            {setView && (
+                                <button 
+                                    onClick={() => setView({ type: "TICKET", id: activeTicket.TicketId })}
+                                    style={{ marginLeft: 8, background: "transparent", border: "none", color: "#00a884", cursor: "pointer", display: "flex", alignItems: "center", padding: 0 }}
+                                    title="Ir para o Ticket"
+                                >
+                                    <ArrowUpRight size={16} />
+                                </button>
+                            )}
                         </div>
                     )}
 
@@ -500,7 +511,7 @@ export function ChatWindow({ setView }: { setView: (v: any) => void }) {
                     )}
                 </div>
             </div>
-
+            )}
 
             <div className="chat-messages" ref={chatContainerRef} onScroll={handleScroll}>
                 {messages.filter(m => {
@@ -508,10 +519,14 @@ export function ChatWindow({ setView }: { setView: (v: any) => void }) {
                     if (role === 'END_USER') return false;
                     // Somente agentes atribuídos ou admins vêem notas
                     if (role === 'ADMIN' || role === 'SUPERADMIN') return true;
-                    return selectedConversation?.AssignedUserId === userId;
+                    return selectedConversation?.AssignedUserId === currentUserId;
                 }).map((m) => {
+                    // Lógica de Direção (Esquerda/Direita)
                     let isOut = m.Direction === "OUT";
-                    if (selectedConversation.Kind === "INTERNAL" && m.SenderUserId) {
+                    if (role === 'END_USER') {
+                        // Para o colaborador, suas mensagens (IN) são 'Out' e as do sistema (OUT) são 'In'
+                        isOut = m.Direction === "IN";
+                    } else if (selectedConversation.Kind === "INTERNAL" && m.SenderUserId) {
                         isOut = m.SenderUserId === currentUserId;
                     }
 
@@ -524,7 +539,7 @@ export function ChatWindow({ setView }: { setView: (v: any) => void }) {
                             {(!isOut && m.Direction !== "INTERNAL") && (
                                 <div className="sender">{
                                     selectedConversation.Kind === "INTERNAL" ? (m.SenderName || getConversationTitle(selectedConversation, currentUserId)) : 
-                                    (selectedConversation.Title && !selectedConversation.Title.startsWith("WhatsApp") ? selectedConversation.Title : formatPhone(m.SenderExternalId) || "Cliente")
+                                    (role === 'END_USER' ? (m.SenderName || selectedConversation.AssignedUserName || "Atendimento") : (selectedConversation.ContactName || "Cliente"))
                                 }</div>
                             )}
 

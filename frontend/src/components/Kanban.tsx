@@ -15,7 +15,7 @@ export interface KanbanTicket {
     requester?: { name: string } | null;
 }
 
-const columns = [
+const defaultColumns = [
     { key: 'NEW', title: 'Novo', accent: '#6366f1' },
     { key: 'TRIAGE', title: 'Em triagem', accent: '#8b5cf6' },
     { key: 'IN_PROGRESS', title: 'Em atendimento', accent: '#3b82f6' },
@@ -63,6 +63,7 @@ export function Kanban({ onSelectTicket, refreshKey, onStatsUpdate }: KanbanProp
     const [loading, setLoading] = useState(true);
     const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
     const [draggedId, setDraggedId] = useState<string | null>(null);
+    const [kanbanColumns, setKanbanColumns] = useState(defaultColumns);
 
     const fetchTickets = useCallback(() => {
         api.get('/api/tickets/kanban')
@@ -85,6 +86,19 @@ export function Kanban({ onSelectTicket, refreshKey, onStatsUpdate }: KanbanProp
     useEffect(() => {
         setLoading(true);
         fetchTickets();
+        
+        // Buscar configurações dinâmicas de colunas
+        api.get('/api/settings/tenant').then(res => {
+            if (res.data.KanbanColumnsJson) {
+                try {
+                    const customNames = JSON.parse(res.data.KanbanColumnsJson);
+                    setKanbanColumns(prev => prev.map(col => ({
+                        ...col,
+                        title: customNames[col.key] || col.title
+                    })));
+                } catch (e) { console.error("Error parsing kanban columns config", e); }
+            }
+        }).catch(err => console.warn("Could not load tenant settings for kanban", err));
     }, [refreshKey, fetchTickets]);
 
     const refreshSilent = () => {
@@ -140,7 +154,7 @@ export function Kanban({ onSelectTicket, refreshKey, onStatsUpdate }: KanbanProp
                     display: 'flex', gap: 12, height: '100%', minWidth: 'max-content',
                     paddingBottom: 4 /* room for scrollbar */
                 }}>
-                    {columns.map(column => {
+                    {kanbanColumns.map(column => {
                         const columnTickets = tickets.filter(t => {
                             if (column.key === 'NEW') return t.status === 'NEW' || t.status === 'OPEN';
                             return t.status === column.key;

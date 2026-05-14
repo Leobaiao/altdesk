@@ -47,13 +47,22 @@ function getChannelIcon(source: string | undefined, kind?: string) {
     return <Monitor size={14} style={{ color: "#8696a0" }} />;
 }
 
-function getConversationTitle(c: Conversation, currentUserId: string | undefined) {
+function getConversationTitle(c: Conversation, currentUserId: string | undefined, role: string) {
     if (c.Kind === "INTERNAL") {
-        if (c.RequesterUserId === currentUserId) return c.AssignedUserName || "Agente";
+        if (c.RequesterUserId === currentUserId) return c.AssignedUserName || "Atendimento";
         if (c.AssignedUserId === currentUserId) return c.ContactName || "Atendimento";
-        return c.Title || "Chat Interno";
+        return c.Title || "Suporte Interno";
     }
-    return c.Title || formatPhone(c.ExternalUserId);
+
+    // Se eu for o colaborador, o título deve ser o assunto do ticket (Title)
+    if (role === 'END_USER') {
+        return c.Title || "Meu Chamado";
+    }
+
+    // Se eu for agente/admin, o título deve ser o nome do cliente/colaborador
+    if (c.ContactName) return c.ContactName;
+    
+    return c.Title || formatPhone(c.ExternalUserId) || "Cliente";
 }
 
 
@@ -206,9 +215,9 @@ export function Sidebar({ setView }: { setView: (view: any) => void }) {
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
                                 {getChannelIcon(c.SourceChannel, c.Kind)}
-                                <span className="title" style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                    {getConversationTitle(c, userId)}
-                                </span>
+                                <div className="title" style={{ fontWeight: 700, color: "var(--text-primary)", fontSize: "0.95rem" }}>
+                                    {getConversationTitle(c, userId, role)}
+                                </div>
                             </div>
                             <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
                                 {/* SLA Badge */}
@@ -238,7 +247,12 @@ export function Sidebar({ setView }: { setView: (view: any) => void }) {
                             </div>
                         )}
                         <div className="meta" style={{ display: "flex", justifyContent: "space-between", color: "#8696a0", fontSize: "0.85rem", marginTop: 4 }}>
-                            <span className="preview">{formatPhone(c.ExternalUserId)}</span>
+                            <span className="preview" style={{ fontWeight: 400, opacity: 0.8 }}>
+                                {role === 'END_USER' 
+                                    ? (c.AssignedUserName ? `Técnico: ${c.AssignedUserName}` : "Aguardando técnico...")
+                                    : (c.Title && c.Title !== c.ContactName ? c.Title : formatPhone(c.ExternalUserId))
+                                }
+                            </span>
                             <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                                 {c.UnreadCount > 0 && (
                                     <span className="unread-badge" style={{ background: "var(--primary)", color: "white", borderRadius: "50%", padding: "2px 6px", fontSize: "0.7rem" }}>{c.UnreadCount}</span>

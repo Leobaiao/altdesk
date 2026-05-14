@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Search, Plus, MessageSquare, Edit2, Trash2, ArrowLeft, User, Phone, Mail, Contact as ContactsIcon } from "lucide-react";
 import { PageHeader } from "./components/PageHeader";
+import { PhoneMaskInput } from "./components/PhoneMaskInput";
 
 type Contact = {
     ContactId: string;
@@ -168,10 +169,12 @@ export function Contacts({ onBack, onStartChat }: { onBack: () => void, onStartC
                                 <label>Nome Completo</label>
                                 <input placeholder="Ex: João Silva" value={editing.Name || ""} onChange={e => setEditing({ ...editing, Name: e.target.value })} />
                             </div>
-                            <div className="field">
-                                <label>Telefone (WhatsApp)</label>
-                                <input placeholder="Ex: 5511999999999" value={editing.Phone || ""} onChange={e => setEditing({ ...editing, Phone: e.target.value })} />
-                            </div>
+                            <PhoneMaskInput 
+                                label="Telefone (WhatsApp)" 
+                                placeholder="(11) 99999-0000" 
+                                value={editing.Phone || ""} 
+                                onChange={e => setEditing({ ...editing, Phone: e.target.value })} 
+                            />
                             <div className="field">
                                 <label>Email (Opcional)</label>
                                 <input type="email" placeholder="Ex: joao@email.com" value={editing.Email || ""} onChange={e => setEditing({ ...editing, Email: e.target.value })} />

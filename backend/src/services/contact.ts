@@ -8,6 +8,10 @@ export type Contact = {
     Email: string | null;
     Tags: string[] | null;
     Notes: string | null;
+    Source: string | null;
+    ChannelType: string | null;
+    Campaign: string | null;
+    LastActivityAt: string | null;
     CreatedAt: string;
 };
 
@@ -35,7 +39,16 @@ export async function listContacts(tenantId: string, search?: string): Promise<C
     }));
 }
 
-export async function createContact(tenantId: string, data: { name: string, phone: string, email?: string, tags?: string[], notes?: string }) {
+export async function createContact(tenantId: string, data: { 
+    name: string, 
+    phone: string, 
+    email?: string, 
+    tags?: string[], 
+    notes?: string,
+    source?: string,
+    channelType?: string,
+    campaign?: string
+}) {
     const pool = await getPool();
     await pool.request()
         .input("tenantId", tenantId)
@@ -44,9 +57,12 @@ export async function createContact(tenantId: string, data: { name: string, phon
         .input("email", data.email ?? null)
         .input("tags", data.tags ? JSON.stringify(data.tags) : null)
         .input("notes", data.notes ?? null)
+        .input("source", data.source ?? null)
+        .input("channelType", data.channelType ?? null)
+        .input("campaign", data.campaign ?? null)
         .query(`
-      INSERT INTO altdesk.Contact (TenantId, Name, Phone, Email, Tags, Notes)
-      VALUES (@tenantId, @name, @phone, @email, @tags, @notes)
+      INSERT INTO altdesk.Contact (TenantId, Name, Phone, Email, Tags, Notes, Source, ChannelType, Campaign, LastActivityAt)
+      VALUES (@tenantId, @name, @phone, @email, @tags, @notes, @source, @channelType, @campaign, SYSUTCDATETIME())
     `);
 }
 
@@ -66,6 +82,11 @@ export async function updateContact(tenantId: string, contactId: string, data: {
     if (data.email !== undefined) { sets.push("Email = @email"); request.input("email", data.email); }
     if (data.tags !== undefined) { sets.push("Tags = @tags"); request.input("tags", JSON.stringify(data.tags)); }
     if (data.notes !== undefined) { sets.push("Notes = @notes"); request.input("notes", data.notes); }
+    if ((data as any).source !== undefined) { sets.push("Source = @source"); request.input("source", (data as any).source); }
+    if ((data as any).channelType !== undefined) { sets.push("ChannelType = @channelType"); request.input("channelType", (data as any).channelType); }
+    if ((data as any).campaign !== undefined) { sets.push("Campaign = @campaign"); request.input("campaign", (data as any).campaign); }
+    
+    sets.push("LastActivityAt = SYSUTCDATETIME()");
 
     if (sets.length === 0) return;
 

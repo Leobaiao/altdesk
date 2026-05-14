@@ -325,6 +325,7 @@ router.post("/:id/note", validateBody(z.object({ text: z.string().min(1) })), (a
 
         const { allowed, tenantId } = await checkConversationAccess(user, conversationId);
         if (!allowed) return res.status(403).json({ error: "Access denied" });
+        if (user.role === 'END_USER') return res.status(403).json({ error: "Colaboradores não podem adicionar notas internas." });
 
         const pool = await getPool();
         await pool.request()
@@ -336,6 +337,15 @@ router.post("/:id/note", validateBody(z.object({ text: z.string().min(1) })), (a
                 INSERT INTO altdesk.Message (TenantId, ConversationId, SenderExternalId, Direction, Body)
                 VALUES (@tenantId, @conversationId, @senderUserId, 'INTERNAL', @body)
             `);
+
+        // Registrar no histórico de interações para aparecer na Linha do Tempo
+        await recordConversationHistory({
+            tenantId: tenantId!,
+            conversationId,
+            action: 'COMMENTED',
+            actorUserId: user.userId,
+            metadata: { text }
+        });
 
         const io = req.app.get("io");
         if (io) {

@@ -3,6 +3,7 @@ import { TicketList } from "./components/TicketList";
 import { TicketDetail } from "./components/TicketDetail";
 import { Kanban } from "./components/Kanban";
 import type { TicketData } from "./components/TicketList";
+import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "./lib/api";
 import {
     LayoutList,
@@ -30,16 +31,27 @@ interface TicketStats {
 export function Tickets({ token, onBack, role }: Props) {
     const [selectedTicket, setSelectedTicket] = useState<TicketData | null>(null);
     const [profile, setProfile] = useState<any>(null);
-    const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
+    const [viewMode, setViewMode] = useState<'kanban' | 'list'>(role === 'END_USER' ? 'list' : 'kanban');
     const [refreshKey, setRefreshKey] = useState(0);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [stats, setStats] = useState<TicketStats>({ total: 0, breached: 0, warning: 0, onTime: 0 });
+
+    const location = useLocation();
+    const navigate = useNavigate();
 
     useEffect(() => {
         api.get("/api/profile")
             .then(res => setProfile(res.data))
             .catch(console.error);
     }, []);
+
+    useEffect(() => {
+        if (location.state?.ticketId) {
+            handleKanbanSelect(location.state.ticketId);
+            // Clear the state so it doesn't re-trigger if the user navigates back
+            window.history.replaceState({}, document.title);
+        }
+    }, [location.state?.ticketId]);
 
     const handleRefresh = useCallback(() => {
         setIsRefreshing(true);
@@ -63,10 +75,10 @@ export function Tickets({ token, onBack, role }: Props) {
         }
     }
 
-    async function handleKanbanSelect(conversationId: string) {
+    async function handleKanbanSelect(ticketOrConversationId: string) {
         try {
             const res = await api.get<TicketData[]>("/api/conversations");
-            const fullTicket = res.data?.find(t => t.ConversationId === conversationId);
+            const fullTicket = res.data?.find(t => t.ConversationId === ticketOrConversationId || t.id === ticketOrConversationId);
             if (fullTicket) {
                 setSelectedTicket(fullTicket);
             }
@@ -82,6 +94,7 @@ export function Tickets({ token, onBack, role }: Props) {
                     ticket={selectedTicket}
                     onBack={() => setSelectedTicket(null)}
                     profile={profile}
+                    role={role}
                     onTicketUpdate={handleTicketUpdate}
                 />
             </div>
@@ -156,47 +169,49 @@ export function Tickets({ token, onBack, role }: Props) {
 
                 {/* View Toggle + Refresh */}
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
-                    <div style={{
-                        display: 'flex', gap: 2,
-                        background: 'var(--bg-primary, #f3f4f6)',
-                        borderRadius: 10, padding: 3,
-                        border: '1px solid var(--border, #e5e7eb)'
-                    }}>
-                        <button
-                            onClick={() => setViewMode('kanban')}
-                            style={{
-                                padding: '6px 10px', borderRadius: 8,
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                gap: 5, cursor: 'pointer', border: 'none',
-                                fontSize: '0.78rem', fontWeight: 600,
-                                transition: 'all 0.2s ease',
-                                background: viewMode === 'kanban' ? 'var(--bg-secondary, #fff)' : 'transparent',
-                                color: viewMode === 'kanban' ? '#6366f1' : 'var(--text-secondary, #9ca3af)',
-                                boxShadow: viewMode === 'kanban' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none'
-                            }}
-                            title="Modo Kanban"
-                        >
-                            <KanbanSquare size={16} />
-                            <span className="hide-mobile">Kanban</span>
-                        </button>
-                        <button
-                            onClick={() => setViewMode('list')}
-                            style={{
-                                padding: '6px 10px', borderRadius: 8,
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                gap: 5, cursor: 'pointer', border: 'none',
-                                fontSize: '0.78rem', fontWeight: 600,
-                                transition: 'all 0.2s ease',
-                                background: viewMode === 'list' ? 'var(--bg-secondary, #fff)' : 'transparent',
-                                color: viewMode === 'list' ? '#6366f1' : 'var(--text-secondary, #9ca3af)',
-                                boxShadow: viewMode === 'list' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none'
-                            }}
-                            title="Modo Lista"
-                        >
-                            <LayoutList size={16} />
-                            <span className="hide-mobile">Lista</span>
-                        </button>
-                    </div>
+                    {role !== 'END_USER' && (
+                        <div style={{
+                            display: 'flex', gap: 2,
+                            background: 'var(--bg-primary, #f3f4f6)',
+                            borderRadius: 10, padding: 3,
+                            border: '1px solid var(--border, #e5e7eb)'
+                        }}>
+                            <button
+                                onClick={() => setViewMode('kanban')}
+                                style={{
+                                    padding: '6px 10px', borderRadius: 8,
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    gap: 5, cursor: 'pointer', border: 'none',
+                                    fontSize: '0.78rem', fontWeight: 600,
+                                    transition: 'all 0.2s ease',
+                                    background: viewMode === 'kanban' ? 'var(--bg-secondary, #fff)' : 'transparent',
+                                    color: viewMode === 'kanban' ? '#6366f1' : 'var(--text-secondary, #9ca3af)',
+                                    boxShadow: viewMode === 'kanban' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none'
+                                }}
+                                title="Modo Kanban"
+                            >
+                                <KanbanSquare size={16} />
+                                <span className="hide-mobile">Kanban</span>
+                            </button>
+                            <button
+                                onClick={() => setViewMode('list')}
+                                style={{
+                                    padding: '6px 10px', borderRadius: 8,
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    gap: 5, cursor: 'pointer', border: 'none',
+                                    fontSize: '0.78rem', fontWeight: 600,
+                                    transition: 'all 0.2s ease',
+                                    background: viewMode === 'list' ? 'var(--bg-secondary, #fff)' : 'transparent',
+                                    color: viewMode === 'list' ? '#6366f1' : 'var(--text-secondary, #9ca3af)',
+                                    boxShadow: viewMode === 'list' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none'
+                                }}
+                                title="Modo Lista"
+                            >
+                                <LayoutList size={16} />
+                                <span className="hide-mobile">Lista</span>
+                            </button>
+                        </div>
+                    )}
 
                     <button
                         onClick={handleRefresh}
