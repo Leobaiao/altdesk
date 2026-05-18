@@ -55,11 +55,9 @@ export function ConfirmModal({
                         background: variantBg, 
                         display: "flex", 
                         alignItems: "center", 
-                        justifyChild: "center", 
+                        justifyContent: "center", 
                         color: variantColor,
-                        marginBottom: 20,
-                        display: "flex",
-                        justifyContent: "center"
+                        marginBottom: 20
                     }}>
                         <AlertTriangle size={32} />
                     </div>
