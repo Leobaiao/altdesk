@@ -1088,14 +1088,33 @@ router.post("/tenants/:id/purge", (async (req: AuthenticatedRequest, res: Respon
         }
 
         const tenant = check.recordset[0];
-        // Adicionamos uma margem de 1 minuto a partir da data de onboarding (CreatedAt) para abranger todos os dados do seed demo/basic.
-        // Qualquer dado real criado após 1 minuto do onboarding será mantido.
-        const cutoffDate = tenant.CreatedAt ? new Date(new Date(tenant.CreatedAt).getTime() + 60 * 1000) : new Date();
+        
+        // Obter parâmetros de seleção opcionais do corpo da requisição
+        const { 
+            cutoffDate: customCutoffDate, 
+            purgeTickets = true, 
+            purgeContacts = true, 
+            purgeUsers = true, 
+            purgeChannels = true 
+        } = req.body || {};
 
-        // Executar a Stored Procedure de limpeza passando o cutoff_date
+        let cutoffDate: Date | null = null;
+        if (customCutoffDate) {
+            cutoffDate = new Date(customCutoffDate);
+        } else {
+            // Adicionamos uma margem de 1 minuto a partir da data de onboarding (CreatedAt) para abranger todos os dados do seed demo/basic.
+            // Qualquer dado real criado após 1 minuto do onboarding será mantido.
+            cutoffDate = tenant.CreatedAt ? new Date(new Date(tenant.CreatedAt).getTime() + 60 * 1000) : new Date();
+        }
+
+        // Executar a Stored Procedure de limpeza passando o cutoff_date e as flags de seleção
         await pool.request()
             .input("tenant_id", sql.UniqueIdentifier, tenantId)
             .input("cutoff_date", sql.DateTime2, cutoffDate)
+            .input("purge_tickets", sql.Bit, purgeTickets ? 1 : 0)
+            .input("purge_contacts", sql.Bit, purgeContacts ? 1 : 0)
+            .input("purge_users", sql.Bit, purgeUsers ? 1 : 0)
+            .input("purge_channels", sql.Bit, purgeChannels ? 1 : 0)
             .execute("altdesk.sp_altdesk_purge_tenant_data");
 
         // Audit Log
@@ -1105,7 +1124,14 @@ router.post("/tenants/:id/purge", (async (req: AuthenticatedRequest, res: Respon
             action: 'PURGE_TENANT_DATA',
             targetTable: 'Tenant',
             targetId: tenantId,
-            afterValues: { tenantName: tenant.Name }
+            afterValues: { 
+                tenantName: tenant.Name, 
+                purgeTickets, 
+                purgeContacts, 
+                purgeUsers, 
+                purgeChannels,
+                cutoffDate: cutoffDate.toISOString()
+            }
         });
 
         logger.info({ tenantId, tenantName: check.recordset[0].Name }, "[Admin] Tenant data purged successfully");
