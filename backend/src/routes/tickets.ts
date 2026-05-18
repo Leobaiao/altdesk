@@ -580,4 +580,45 @@ router.post("/escalation/policies", validateBody(z.object({
     }
 }) as any);
 
+// Quick Edit: Update Ticket/Conversation Title
+router.patch("/:id/title", validateBody(z.object({ title: z.string().min(1) })), (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const tenantId = req.user.tenantId;
+        const ticketId = req.params.id;
+        const { title } = req.body;
+
+        const pool = await getPool();
+
+        // Find the conversation linked to this ticket (ticketId could be TicketId or ConversationId)
+        const result = await pool.request()
+            .input("tenantId", tenantId)
+            .input("ticketId", ticketId)
+            .query(`
+                SELECT t.TicketId, t.ConversationId 
+                FROM altdesk.Ticket t
+                WHERE t.TenantId = @tenantId AND (t.TicketId = @ticketId OR t.ConversationId = @ticketId)
+            `);
+
+        if (result.recordset.length === 0) {
+            return res.status(404).json({ error: "Ticket not found" });
+        }
+
+        const conversationId = result.recordset[0].ConversationId;
+
+        await pool.request()
+            .input("tenantId", tenantId)
+            .input("conversationId", conversationId)
+            .input("title", title)
+            .query(`
+                UPDATE altdesk.Conversation 
+                SET Title = @title 
+                WHERE ConversationId = @conversationId AND TenantId = @tenantId
+            `);
+
+        res.json({ ok: true });
+    } catch (error) {
+        next(error);
+    }
+}) as any);
+
 export default router;

@@ -10,6 +10,10 @@ type Contact = {
     Email?: string;
     Tags?: string[];
     Notes?: string;
+    Source?: string;
+    ChannelType?: string;
+    Campaign?: string;
+    LastActivityAt?: string;
 };
 
 import { api } from "./lib/api";
@@ -62,7 +66,10 @@ export function Contacts({ onBack, onStartChat }: { onBack: () => void, onStartC
                 phone: editing.Phone,
                 email: editing.Email,
                 notes: editing.Notes,
-                tags: editing.Tags
+                tags: editing.Tags,
+                source: editing.Source,
+                channelType: editing.ChannelType,
+                campaign: editing.Campaign
             });
 
             setView("LIST");
@@ -142,6 +149,28 @@ export function Contacts({ onBack, onStartChat }: { onBack: () => void, onStartC
                                                 <span style={{ fontSize: "13px", color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 4 }}><Phone size={12} /> {c.Phone}</span>
                                                 {c.Email && <span style={{ fontSize: "13px", color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 4 }}><Mail size={12} /> {c.Email}</span>}
                                             </div>
+                                            <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap", alignItems: "center" }}>
+                                                {c.Source && (
+                                                    <span style={{ fontSize: "0.65rem", padding: "2px 8px", borderRadius: 6, background: "rgba(99,102,241,0.1)", color: "#6366f1", fontWeight: 700 }}>
+                                                        📍 {c.Source}
+                                                    </span>
+                                                )}
+                                                {c.ChannelType && (
+                                                    <span style={{ fontSize: "0.65rem", padding: "2px 8px", borderRadius: 6, background: "rgba(16,185,129,0.1)", color: "#10b981", fontWeight: 700 }}>
+                                                        📱 {c.ChannelType}
+                                                    </span>
+                                                )}
+                                                {c.Campaign && (
+                                                    <span style={{ fontSize: "0.65rem", padding: "2px 8px", borderRadius: 6, background: "rgba(245,158,11,0.1)", color: "#f59e0b", fontWeight: 700 }}>
+                                                        🏷️ {c.Campaign}
+                                                    </span>
+                                                )}
+                                                {c.LastActivityAt && (
+                                                    <span style={{ fontSize: "0.65rem", color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 3, opacity: 0.7 }}>
+                                                        🕐 {new Date(c.LastActivityAt).toLocaleDateString('pt-BR')} {new Date(c.LastActivityAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                     <div style={{ display: "flex", gap: 8 }}>
@@ -187,6 +216,35 @@ export function Contacts({ onBack, onStartChat }: { onBack: () => void, onStartC
                                     onChange={e => setEditing({ ...editing, Notes: e.target.value })}
                                     style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", fontSize: 14, outline: "none", resize: "vertical", minHeight: 100 }}
                                 />
+                            </div>
+
+                            <div style={{ borderTop: "1px solid var(--border)", paddingTop: 16, marginTop: 8 }}>
+                                <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--text-secondary)", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>Rastreamento CRM</div>
+                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                                    <div className="field">
+                                        <label>Origem</label>
+                                        <input placeholder="Ex: Google, Instagram, Indicação" value={(editing as any).Source || ""} onChange={e => setEditing({ ...editing, Source: e.target.value } as any)} />
+                                    </div>
+                                    <div className="field">
+                                        <label>Tipo de Canal</label>
+                                        <select
+                                            value={(editing as any).ChannelType || ""}
+                                            onChange={e => setEditing({ ...editing, ChannelType: e.target.value } as any)}
+                                            style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", fontSize: 14, outline: "none" }}
+                                        >
+                                            <option value="">Selecione...</option>
+                                            <option value="Whatsapp">Whatsapp</option>
+                                            <option value="Email">Email</option>
+                                            <option value="Web">Web</option>
+                                            <option value="Telefone">Telefone</option>
+                                            <option value="Presencial">Presencial</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div className="field" style={{ marginTop: 12 }}>
+                                    <label>Campanha / UTM</label>
+                                    <input placeholder="Ex: campanha_maio_2026" value={(editing as any).Campaign || ""} onChange={e => setEditing({ ...editing, Campaign: e.target.value } as any)} />
+                                </div>
                             </div>
 
                             <div style={{ display: "flex", gap: 10, marginTop: 10 }}>

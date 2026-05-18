@@ -24,7 +24,10 @@ const ContactSchema = z.object({
     phone: z.string(),
     email: z.string().email().optional().or(z.literal("")).or(z.null()),
     tags: z.array(z.string()).optional().nullable(),
-    notes: z.string().optional().nullable()
+    notes: z.string().optional().nullable(),
+    source: z.string().optional().nullable(),
+    channelType: z.string().optional().nullable(),
+    campaign: z.string().optional().nullable()
 });
 
 router.post("/", validateBody(ContactSchema), async (req, res, next) => {

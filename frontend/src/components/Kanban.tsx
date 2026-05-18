@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { api } from '../lib/api';
-import { Loader2, GripVertical, User, ArrowUpRight } from 'lucide-react';
+import { Loader2, GripVertical, User, ArrowUpRight, Edit3 } from 'lucide-react';
 
 export interface KanbanTicket {
     id: string;
@@ -64,6 +64,8 @@ export function Kanban({ onSelectTicket, refreshKey, onStatsUpdate }: KanbanProp
     const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
     const [draggedId, setDraggedId] = useState<string | null>(null);
     const [kanbanColumns, setKanbanColumns] = useState(defaultColumns);
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [editingTitle, setEditingTitle] = useState('');
 
     const fetchTickets = useCallback(() => {
         api.get('/api/tickets/kanban')
@@ -125,6 +127,19 @@ export function Kanban({ onSelectTicket, refreshKey, onStatsUpdate }: KanbanProp
             refreshSilent();
         } catch (error) {
             console.error('Failed to move ticket', error);
+            refreshSilent();
+        }
+    }
+
+    async function saveTitle(ticketId: string) {
+        const trimmed = editingTitle.trim();
+        if (!trimmed) { setEditingId(null); return; }
+        setTickets(prev => prev.map(t => t.id === ticketId ? { ...t, title: trimmed } : t));
+        setEditingId(null);
+        try {
+            await api.patch(`/api/tickets/${ticketId}/title`, { title: trimmed });
+        } catch (error) {
+            console.error('Failed to save title', error);
             refreshSilent();
         }
     }
@@ -284,15 +299,59 @@ export function Kanban({ onSelectTicket, refreshKey, onStatsUpdate }: KanbanProp
                                                     background: getPriorityDot(ticket.priority),
                                                     boxShadow: `0 0 0 3px ${getPriorityDot(ticket.priority)}20`
                                                 }} />
-                                                <div style={{
-                                                    fontSize: '0.85rem', fontWeight: 600,
-                                                    color: 'var(--text-primary, #1f2937)',
-                                                    lineHeight: 1.35,
-                                                    overflow: 'hidden', textOverflow: 'ellipsis',
-                                                    display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical'
-                                                }}>
-                                                    {ticket.title || ticket.requester?.name || 'Sem título'}
-                                                </div>
+                                                {editingId === ticket.id ? (
+                                                    <input
+                                                        autoFocus
+                                                        value={editingTitle}
+                                                        onChange={e => setEditingTitle(e.target.value)}
+                                                        onKeyDown={e => {
+                                                            if (e.key === 'Enter') saveTitle(ticket.id);
+                                                            if (e.key === 'Escape') setEditingId(null);
+                                                        }}
+                                                        onBlur={() => saveTitle(ticket.id)}
+                                                        onClick={e => e.stopPropagation()}
+                                                        style={{
+                                                            flex: 1, fontSize: '0.85rem', fontWeight: 600,
+                                                            color: 'var(--text-primary, #1f2937)',
+                                                            background: 'var(--bg-primary, #f3f4f6)',
+                                                            border: '1.5px solid #6366f1',
+                                                            borderRadius: 6, padding: '4px 8px',
+                                                            outline: 'none', minWidth: 0
+                                                        }}
+                                                    />
+                                                ) : (
+                                                    <div style={{
+                                                        flex: 1, display: 'flex', alignItems: 'flex-start', gap: 4,
+                                                        cursor: 'pointer'
+                                                    }}>
+                                                        <div
+                                                            onDoubleClick={e => {
+                                                                e.stopPropagation();
+                                                                setEditingId(ticket.id);
+                                                                setEditingTitle(ticket.title || '');
+                                                            }}
+                                                            style={{
+                                                                fontSize: '0.85rem', fontWeight: 600,
+                                                                color: 'var(--text-primary, #1f2937)',
+                                                                lineHeight: 1.35, flex: 1,
+                                                                overflow: 'hidden', textOverflow: 'ellipsis',
+                                                                display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical'
+                                                            }}
+                                                            title="Duplo-clique para editar"
+                                                        >
+                                                            {ticket.title || ticket.requester?.name || 'Sem título'}
+                                                        </div>
+                                                        <Edit3
+                                                            size={12}
+                                                            style={{ flexShrink: 0, marginTop: 2, opacity: 0.3, cursor: 'pointer' }}
+                                                            onClick={e => {
+                                                                e.stopPropagation();
+                                                                setEditingId(ticket.id);
+                                                                setEditingTitle(ticket.title || '');
+                                                            }}
+                                                        />
+                                                    </div>
+                                                )}
                                             </div>
 
                                             {/* Requester */}

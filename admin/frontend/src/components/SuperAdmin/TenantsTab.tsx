@@ -31,7 +31,7 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
     const [usersLoading, setUsersLoading] = useState(false);
     const [showUserModal, setShowUserModal] = useState(false);
     const [editUser, setEditUser] = useState<any>(null);
-    const [confirmAction, setConfirmAction] = useState<{ type: 'delete_tenant' | 'delete_user' | 'status_tenant', id: string, extra?: any } | null>(null);
+    const [confirmAction, setConfirmAction] = useState<{ type: 'delete_tenant' | 'delete_user' | 'status_tenant' | 'purge_tenant', id: string, extra?: any } | null>(null);
     const { notify } = useNotification();
 
     useEffect(() => {
@@ -171,6 +171,16 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
         }
     };
 
+    const handlePurge = async (tenantId: string) => {
+        try {
+            await api.post(`/api/admin/tenants/${tenantId}/purge`);
+            notify("Dados transacionais removidos com sucesso!", "success");
+            loadTenants();
+        } catch (err: any) {
+            notify(err.response?.data?.error || "Erro ao zerar dados", "error");
+        }
+    };
+
 
     const filteredTenants = tenants.filter(t => {
         const matchesSearch = !search || t.Name?.toLowerCase().includes(search.toLowerCase());
@@ -273,6 +283,7 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
                                                 )}
                                             </div>
                                             <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", marginTop: 2 }}>{t.UserCount} usuários • {t.InstanceCount || 0} inst.</div>
+                                            {t.CreatedAt && <div style={{ fontSize: "0.65rem", color: "var(--text-secondary)", marginTop: 2, opacity: 0.7 }}>📅 {new Date(t.CreatedAt).toLocaleDateString('pt-BR')}</div>}
                                         </div>
                                         {!t.IsActive ? <span style={{ color: "var(--danger)", fontSize: "0.6rem" }}>●</span> : expired ? <span style={{ color: "orange", fontSize: "0.6rem" }}>⚠</span> : null}
                                     </div>
@@ -326,6 +337,15 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
                                         style={{ padding: "8px 16px", borderRadius: 10, fontSize: "0.85rem", border: "1px solid var(--border)" }}
                                     >
                                         {selectedTenant.IsActive ? "🔴 Inativar" : "🟢 Reativar"}
+                                    </button>
+
+                                    <button
+                                        onClick={() => setConfirmAction({ type: 'purge_tenant', id: selectedTenant.TenantId })}
+                                        className="btn btn-ghost"
+                                        style={{ padding: "8px 16px", borderRadius: 10, fontSize: "0.85rem", border: "1px solid var(--border)", color: "#f59e0b" }}
+                                        title="Zerar dados transacionais (tickets, mensagens, contatos)"
+                                    >
+                                        🧹 Zerar Dados
                                     </button>
 
                                     <button
@@ -576,21 +596,27 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
                     title={
                         confirmAction.type === 'delete_tenant' ? "Mover Empresa para Lixeira?" :
                         confirmAction.type === 'delete_user' ? "Mover Usuário para Lixeira?" :
+                        confirmAction.type === 'purge_tenant' ? "⚠️ Zerar Dados Transacionais?" :
                         "Alterar Status da Empresa?"
                     }
                     message={
                         confirmAction.type === 'delete_tenant' ? "Esta empresa será desativada e ocultada da lista principal. Todos os seus dados serão preservados na lixeira." :
                         confirmAction.type === 'delete_user' ? "O usuário perderá o acesso imediatamente, mas poderá ser restaurado depois." :
+                        confirmAction.type === 'purge_tenant' ? "Esta ação irá REMOVER PERMANENTEMENTE todos os tickets, mensagens, conversas e contatos desta empresa. Usuários, configurações e canais serão preservados. Esta ação NÃO pode ser desfeita!" :
                         `Deseja realmente ${selectedTenant.IsActive ? 'inativar' : 'reativar'} esta empresa?`
                     }
                     onConfirm={() => {
                         if (confirmAction.type === 'delete_tenant') handleDelete(confirmAction.id);
                         if (confirmAction.type === 'delete_user') handleDeleteUser(confirmAction.id);
                         if (confirmAction.type === 'status_tenant') handleSetStatus(confirmAction.id, confirmAction.extra);
+                        if (confirmAction.type === 'purge_tenant') handlePurge(confirmAction.id);
                         setConfirmAction(null);
                     }}
                     onCancel={() => setConfirmAction(null)}
-                    confirmLabel={confirmAction.type.startsWith('delete') ? "Mover para Lixeira" : "Confirmar Alteração"}
+                    confirmLabel={
+                        confirmAction.type === 'purge_tenant' ? "Sim, Zerar Tudo" :
+                        confirmAction.type.startsWith('delete') ? "Mover para Lixeira" : "Confirmar Alteração"
+                    }
                 />
             )}
         </div>
