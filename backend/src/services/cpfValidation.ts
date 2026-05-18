@@ -64,7 +64,15 @@ export async function findUserByCpf(tenantId: string, cpf: string) {
 /**
  * Cria um contato novo com CPF.
  */
-export async function createContactWithCpf(tenantId: string, data: { name: string; phone: string; cpf: string; email?: string }) {
+export async function createContactWithCpf(tenantId: string, data: { 
+    name: string; 
+    phone: string; 
+    cpf: string; 
+    email?: string;
+    source?: string;
+    channelType?: string;
+    campaign?: string;
+}) {
     const pool = await getPool();
     const r = await pool.request()
         .input("tenantId", tenantId)
@@ -72,10 +80,13 @@ export async function createContactWithCpf(tenantId: string, data: { name: strin
         .input("phone", data.phone)
         .input("cpf", data.cpf.replace(/[.\-]/g, ""))
         .input("email", data.email ?? null)
+        .input("source", data.source ?? null)
+        .input("channelType", data.channelType ?? null)
+        .input("campaign", data.campaign ?? null)
         .query(`
-      INSERT INTO altdesk.Contact (TenantId, Name, Phone, CPF, Email)
+      INSERT INTO altdesk.Contact (TenantId, Name, Phone, CPF, Email, Source, ChannelType, Campaign, LastActivityAt)
       OUTPUT inserted.ContactId
-      VALUES (@tenantId, @name, @phone, @cpf, @email)
+      VALUES (@tenantId, @name, @phone, @cpf, @email, @source, @channelType, @campaign, SYSUTCDATETIME())
     `);
     return r.recordset[0].ContactId;
 }
@@ -178,7 +189,8 @@ export async function processCpfValidationFlow(
     tenantId: string,
     externalUserId: string,
     phone: string,
-    messageText: string
+    messageText: string,
+    tracking?: { source?: string; channelType?: string; campaign?: string }
 ): Promise<{ response: string; completed: boolean; contactId?: string }> {
     const session = await getPendingCpfSession(externalUserId);
 
@@ -262,7 +274,10 @@ export async function processCpfValidationFlow(
             name: session.partialData.name,
             phone: session.partialData.phone || phone,
             cpf: session.partialData.cpf,
-            email
+            email,
+            source: tracking?.source,
+            channelType: tracking?.channelType,
+            campaign: tracking?.campaign
         });
 
         await clearCpfSession(externalUserId);

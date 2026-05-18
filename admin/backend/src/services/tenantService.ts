@@ -193,3 +193,13 @@ export async function restoreTenant(tenantId: string) {
     }
 }
 
+
+/**
+ * Realiza a limpeza de dados demo do Tenant chamando a Stored Procedure
+ */
+export async function purgeTenantDemoData(tenantId: string) {
+    const pool = await getPool();
+    await pool.request()
+        .input("tenantId", tenantId)
+        .execute("altdesk.sp_altdesk_purge_demo_data");
+}

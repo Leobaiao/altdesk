@@ -107,9 +107,15 @@ export async function resolveConversationForInbound(inb: NormalizedInbound, conn
     .input("externalChatId", inb.externalChatId)
     .input("externalUserId", inb.externalUserId)
     .query(`
+      -- Tenta achar contato pelo telefone (externalUserId sem sufixo ou completo)
+      DECLARE @contactId UNIQUEIDENTIFIER = (
+        SELECT TOP 1 ContactId FROM altdesk.Contact 
+        WHERE TenantId = @tenantId AND (Phone = @externalUserId OR Phone = REPLACE(@externalUserId, '@s.whatsapp.net', ''))
+      );
+
       DECLARE @cid UNIQUEIDENTIFIER = NEWID();
-      INSERT INTO altdesk.Conversation (ConversationId, TenantId, ChannelId, Title, Kind, Status)
-      VALUES (@cid, @tenantId, @channelId, @title, 'DIRECT', 'OPEN');
+      INSERT INTO altdesk.Conversation (ConversationId, TenantId, ChannelId, Title, Kind, Status, OpenedByContactId)
+      VALUES (@cid, @tenantId, @channelId, @title, 'DIRECT', 'OPEN', @contactId);
 
       INSERT INTO altdesk.ExternalThreadMap (TenantId, ConnectorId, ExternalChatId, ExternalUserId, ConversationId)
       VALUES (@tenantId, @connectorId, @externalChatId, @externalUserId, @cid);
@@ -157,6 +163,11 @@ export async function saveInboundMessage(inb: NormalizedInbound, conversationId:
           Status = CASE WHEN Status = 'RESOLVED' THEN 'OPEN' ELSE Status END,
           ContextData = CASE WHEN @subject IS NOT NULL THEN JSON_MODIFY(ISNULL(ContextData, '{}'), '$.subject', CAST(@subject AS NVARCHAR(MAX))) ELSE ContextData END
       WHERE ConversationId=@conversationId;
+
+      -- Atualiza LastActivityAt no Contato vinculado
+      UPDATE altdesk.Contact
+      SET LastActivityAt = SYSUTCDATETIME()
+      WHERE ContactId = (SELECT OpenedByContactId FROM altdesk.Conversation WHERE ConversationId = @conversationId);
     `);
 
   const messageId = result.recordset[0]?.MessageId;
@@ -221,6 +232,12 @@ export async function saveOutboundMessage(tenantId: string, conversationId: stri
             ELSE SlaStatus 
           END
       WHERE ConversationId=@conversationId;
+
+      -- Atualiza LastActivityAt no Contato vinculado
+      UPDATE altdesk.Contact
+      SET LastActivityAt = SYSUTCDATETIME()
+      WHERE ContactId = (SELECT OpenedByContactId FROM altdesk.Conversation WHERE ConversationId = @conversationId);
+
 
       SELECT @msgId AS MessageId;
     `);

@@ -14,7 +14,10 @@ import {
     listTenants,
     createTenantWithAdmin,
     updateTenantSubscription,
-    setTenantStatus
+    setTenantStatus,
+    purgeTenantDemoData,
+    listDeletedTenants,
+    restoreTenant
 } from "../services/tenantService.js";
 import {
     listAllInstances,
@@ -33,10 +36,7 @@ import {
     restoreUser,
     listTenantUsers
 } from "../services/userService.js";
-import { 
-    listDeletedTenants,
-    restoreTenant
-} from "../services/tenantService.js";
+
 
 const router = Router();
 router.use(authMw as any, requireRole("SUPERADMIN") as any);
@@ -288,6 +288,27 @@ router.put("/tenants/:id/status", validateBody(z.object({ isActive: z.boolean() 
         writeAuditLog({
             ...reqInfo,
             action: isActive ? 'ACTIVATE_TENANT' : 'DEACTIVATE_TENANT',
+            targetTable: 'Tenant',
+            targetId: tenantId
+        });
+
+        res.json({ ok: true });
+    } catch (error) {
+        next(error);
+    }
+}) as any);
+
+
+router.post("/tenants/:id/purge", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const tenantId = req.params.id;
+        await purgeTenantDemoData(tenantId);
+
+        // Audit Log
+        const reqInfo = extractRequestInfo(req);
+        writeAuditLog({
+            ...reqInfo,
+            action: 'PURGE_TENANT_DEMO_DATA',
             targetTable: 'Tenant',
             targetId: tenantId
         });
@@ -1072,43 +1093,7 @@ router.delete("/users/:id/permanent", (async (req: AuthenticatedRequest, res: Re
     } catch (error) { next(error); }
 }) as any);
 
-// --- PURGE TENANT DATA (Reset de dados de teste) ---
-router.post("/tenants/:id/purge", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    try {
-        const tenantId = req.params.id;
-        const pool = await getPool();
 
-        // Verificar se o tenant existe
-        const check = await pool.request()
-            .input("tid", tenantId)
-            .query("SELECT TenantId, Name FROM altdesk.Tenant WHERE TenantId = @tid");
-
-        if (check.recordset.length === 0) {
-            return res.status(404).json({ error: "Empresa não encontrada." });
-        }
-
-        // Executar a Stored Procedure de limpeza
-        await pool.request()
-            .input("tenant_id", sql.UniqueIdentifier, tenantId)
-            .execute("altdesk.sp_altdesk_purge_tenant_data");
-
-        // Audit Log
-        const reqInfo = extractRequestInfo(req);
-        await writeAuditLog({
-            ...reqInfo,
-            action: 'PURGE_TENANT_DATA',
-            targetTable: 'Tenant',
-            targetId: tenantId,
-            afterValues: { tenantName: check.recordset[0].Name }
-        });
-
-        logger.info({ tenantId, tenantName: check.recordset[0].Name }, "[Admin] Tenant data purged successfully");
-
-        res.json({ ok: true, message: "Dados transacionais removidos com sucesso." });
-    } catch (error) {
-        next(error);
-    }
-}) as any);
 
 export default router;
 

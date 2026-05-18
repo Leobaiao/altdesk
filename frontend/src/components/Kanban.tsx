@@ -284,12 +284,16 @@ export function Kanban({ onSelectTicket, refreshKey, onStatsUpdate }: KanbanProp
                                                 (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(99,102,241,0.3)';
                                                 (e.currentTarget as HTMLDivElement).style.boxShadow = '0 4px 12px rgba(0,0,0,0.08)';
                                                 (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-1px)';
+                                                const btn = e.currentTarget.querySelector('.kanban-edit-btn') as HTMLElement;
+                                                if (btn) btn.style.opacity = '1';
                                             }}
                                             onMouseLeave={e => {
                                                 if (draggedId) return;
                                                 (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border, #e5e7eb)';
                                                 (e.currentTarget as HTMLDivElement).style.boxShadow = '0 1px 2px rgba(0,0,0,0.04)';
                                                 (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)';
+                                                const btn = e.currentTarget.querySelector('.kanban-edit-btn') as HTMLElement;
+                                                if (btn) btn.style.opacity = '0';
                                             }}
                                         >
                                             {/* Card header: priority dot + title */}

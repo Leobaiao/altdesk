@@ -41,34 +41,21 @@ Este documento resume as melhorias implementadas e o plano para os itens pendent
 
 ---
 
+## ✅ Concluído (15/05/2026)
+
+### 7. Gestão de Dados e Manutenção (Admin)
+*   **Data de Onboarding:** Adição do campo `CreatedAt` na visualização e no painel de gestão de tenants.
+*   **Botão "Zerar Dados":** Criação da Stored Procedure `sp_altdesk_purge_demo_data` e integração do botão "Reset Demo" no painel administrativo para limpar dados iniciais gerados automaticamente, preservando os registros criados manualmente após o onboarding.
+
+### 8. CRM e Inteligência de Dados
+*   **Rastreabilidade de Contatos:** Adição dos campos Origem (Source), Tipo de Canal (Whatsapp, Email, Web) e Campanha (UTM), com captura automática baseada no canal de entrada e integrações (GTI, Webchat, Email).
+*   **Timeline de Contato:** Exibição da data da "Última Atividade" (`LastActivityAt`) diretamente na listagem e no painel de contatos, com atualização automática a cada interação.
+
+### 9. Refinamentos de Interface
+*   **Edição de Kanban (Quick Edit):** Implementação de edição rápida (inline) do título dos cards diretamente no Kanban.
+
+---
+
 ## 🛠️ Em Progresso / Próximos Passos
 
-### 1. Gestão de Dados (Admin)
-*   **Data de Onboarding:** Adição do campo `CreatedAt` na visualização de tenants.
-*   **Reset de Dados de Teste:** Criação de Stored Procedure para "limpar" dados iniciais gerados automaticamente, mantendo apenas os registros criados manualmente após o onboarding.
-
-### 2. CRM e Inteligência de Dados
-*   **Rastreabilidade de Contatos:** Adição dos campos:
-    *   Origem (Source)
-    *   Tipo de Canal (Whatsapp, Email, Web)
-    *   Campanha (UTM)
-    *   Data da Última Atividade
-
----
-
-## 📅 Planejamento para Amanhã [15/05/2026]
-
-### 1. Automação e Manutenção (Admin)
-*   **Botão "Zerar Dados":** Implementação do botão no painel administrativo para chamar a SP `sp_altdesk_purge_tenant_data`.
-*   **Dashboard de Tenants:** Adição da coluna "Data de Onboarding" para acompanhamento comercial.
-
-### 2. CRM e Enriquecimento de Leads
-*   **Origem e Atividade:** Implementação dos campos de rastro (UTM, Canal, Origem) no cadastro de contatos.
-*   **Timeline de Contato:** Exibir a data da última interação diretamente no card do contato.
-
-### 3. Refinamentos de Interface
-*   **Edição de Kanban:** Permitir editar o título dos cards diretamente no Kanban (Quick Edit).
-
----
-
-**Prioridade Imediata:** Reset de dados de teste e enriquecimento da tabela de contatos.
+*(A definir)*

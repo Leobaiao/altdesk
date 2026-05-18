@@ -70,6 +70,8 @@ export class GtiAdapter implements ChannelAdapter {
       text,
       mediaUrl,
       mediaType,
+      source: "WhatsApp",
+      channelType: "Whatsapp",
       timestamp: Number(msg.messageTimestamp ?? Date.now()),
       raw: body
     };

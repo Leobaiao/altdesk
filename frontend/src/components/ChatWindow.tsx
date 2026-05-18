@@ -538,7 +538,7 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
                             )}
                             {(!isOut && m.Direction !== "INTERNAL") && (
                                 <div className="sender">{
-                                    selectedConversation.Kind === "INTERNAL" ? (m.SenderName || getConversationTitle(selectedConversation, currentUserId)) : 
+                                    selectedConversation.Kind === "INTERNAL" ? (m.SenderName || getConversationTitle(selectedConversation, currentUserId, role)) : 
                                     (role === 'END_USER' ? (m.SenderName || selectedConversation.AssignedUserName || "Atendimento") : (selectedConversation.ContactName || "Cliente"))
                                 }</div>
                             )}

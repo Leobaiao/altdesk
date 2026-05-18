@@ -148,6 +148,7 @@ export function Contacts({ onBack, onStartChat }: { onBack: () => void, onStartC
                                             <div style={{ display: "flex", alignItems: "center", gap: 15, marginTop: 4 }}>
                                                 <span style={{ fontSize: "13px", color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 4 }}><Phone size={12} /> {c.Phone}</span>
                                                 {c.Email && <span style={{ fontSize: "13px", color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 4 }}><Mail size={12} /> {c.Email}</span>}
+                                                {c.LastActivityAt && <span style={{ fontSize: "11px", color: "var(--text-tertiary)", display: "flex", alignItems: "center", gap: 4, background: "rgba(0,0,0,0.05)", padding: "2px 6px", borderRadius: 6 }}>Ativo em: {new Date(c.LastActivityAt).toLocaleDateString()}</span>}
                                             </div>
                                             <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap", alignItems: "center" }}>
                                                 {c.Source && (
@@ -214,7 +215,7 @@ export function Contacts({ onBack, onStartChat }: { onBack: () => void, onStartC
                                     placeholder="Observações sobre o contato..."
                                     value={editing.Notes || ""}
                                     onChange={e => setEditing({ ...editing, Notes: e.target.value })}
-                                    style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", fontSize: 14, outline: "none", resize: "vertical", minHeight: 100 }}
+                                    style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", fontSize: 14, outline: "none", resize: "vertical", minHeight: 80 }}
                                 />
                             </div>
 
@@ -246,7 +247,6 @@ export function Contacts({ onBack, onStartChat }: { onBack: () => void, onStartC
                                     <input placeholder="Ex: campanha_maio_2026" value={(editing as any).Campaign || ""} onChange={e => setEditing({ ...editing, Campaign: e.target.value } as any)} />
                                 </div>
                             </div>
-
                             <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
                                 <button onClick={() => setView("LIST")} className="btn btn-ghost" style={{ flex: 1 }}>Cancelar</button>
                                 <button onClick={handleSave} className="btn btn-primary" style={{ flex: 1 }}>{editing.ContactId ? "Salvar Alterações" : "Criar Contato"}</button>

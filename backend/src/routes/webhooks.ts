@@ -209,7 +209,12 @@ router.post("/whatsapp/:provider/:connectorId*", async (req, res, next) => {
                         inbound.tenantId,
                         inbound.externalUserId,
                         phone,
-                        inbound.text ?? ""
+                        inbound.text ?? "",
+                        { 
+                            source: inbound.source, 
+                            channelType: inbound.channelType, 
+                            campaign: inbound.campaign 
+                        }
                     );
 
                     // Enviar resposta do fluxo de CPF via adapter

@@ -3,6 +3,7 @@ import { api } from "../../lib/api";
 import { TenantModal } from "./Modals/TenantModal";
 import { LimitModal } from "./Modals/LimitModal";
 import { UserModal } from "./Modals/UserModal";
+import { ConfirmModal } from "./Modals/ConfirmModal";
 import { 
     Globe, Smartphone, User, ArrowLeft, MoreVertical, 
     ShieldCheck, Mail, Calendar, Hash, Edit2, 
@@ -31,7 +32,7 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
     const [usersLoading, setUsersLoading] = useState(false);
     const [showUserModal, setShowUserModal] = useState(false);
     const [editUser, setEditUser] = useState<any>(null);
-    const [confirmAction, setConfirmAction] = useState<{ type: 'delete_tenant' | 'delete_user' | 'status_tenant' | 'purge_tenant', id: string, extra?: any } | null>(null);
+    const [confirmAction, setConfirmAction] = useState<{ type: 'delete_tenant' | 'delete_user' | 'status_tenant' | 'purge_demo', id: string, extra?: any } | null>(null);
     const { notify } = useNotification();
 
     useEffect(() => {
@@ -171,13 +172,20 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
         }
     };
 
-    const handlePurge = async (tenantId: string) => {
+    const handlePurgeDemo = async (tenantId: string) => {
         try {
+            setLoading(true);
             await api.post(`/api/admin/tenants/${tenantId}/purge`);
-            notify("Dados transacionais removidos com sucesso!", "success");
+            notify("Dados de demonstração limpos com sucesso!", "success");
             loadTenants();
+            // Recarrega o tenant selecionado para atualizar contadores
+            const res = await api.get("/api/admin/tenants");
+            const updated = res.data.find((t: any) => t.TenantId === tenantId);
+            if (updated) setSelectedTenant(updated);
         } catch (err: any) {
-            notify(err.response?.data?.error || "Erro ao zerar dados", "error");
+            notify(err.response?.data?.error || "Erro ao limpar dados demo", "error");
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -282,8 +290,9 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
                                                     <span style={{ fontSize: "0.55rem", background: "rgba(255,165,0,0.15)", color: "orange", padding: "1px 4px", borderRadius: 4, fontWeight: 800 }}>TRIAL</span>
                                                 )}
                                             </div>
-                                            <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", marginTop: 2 }}>{t.UserCount} usuários • {t.InstanceCount || 0} inst.</div>
-                                            {t.CreatedAt && <div style={{ fontSize: "0.65rem", color: "var(--text-secondary)", marginTop: 2, opacity: 0.7 }}>📅 {new Date(t.CreatedAt).toLocaleDateString('pt-BR')}</div>}
+                                            <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", marginTop: 2 }}>
+                                                {new Date(t.CreatedAt).toLocaleDateString()} • {t.UserCount} usuários • {t.InstanceCount || 0} inst.
+                                            </div>
                                         </div>
                                         {!t.IsActive ? <span style={{ color: "var(--danger)", fontSize: "0.6rem" }}>●</span> : expired ? <span style={{ color: "orange", fontSize: "0.6rem" }}>⚠</span> : null}
                                     </div>
@@ -320,7 +329,11 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
                                             </span>
                                         )}
                                     </h2>
-                                    <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 4 }}>ID Global: {selectedTenant.TenantId}</div>
+                                    <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 4, display: "flex", gap: 16 }}>
+                                        <span>ID Global: {selectedTenant.TenantId}</span>
+                                        <span>•</span>
+                                        <span>Onboarding em: {new Date(selectedTenant.CreatedAt).toLocaleString()}</span>
+                                    </div>
                                 </div>
                                 <div style={{ display: "flex", gap: 10 }}>
                                     <button
@@ -340,12 +353,12 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
                                     </button>
 
                                     <button
-                                        onClick={() => setConfirmAction({ type: 'purge_tenant', id: selectedTenant.TenantId })}
+                                        onClick={() => setConfirmAction({ type: 'purge_demo', id: selectedTenant.TenantId })}
                                         className="btn btn-ghost"
-                                        style={{ padding: "8px 16px", borderRadius: 10, fontSize: "0.85rem", border: "1px solid var(--border)", color: "#f59e0b" }}
-                                        title="Zerar dados transacionais (tickets, mensagens, contatos)"
+                                        style={{ padding: "8px 16px", borderRadius: 10, fontSize: "0.85rem", border: "1px solid var(--border)", color: "orange" }}
+                                        title="Limpar dados de onboarding (mantendo manuais)"
                                     >
-                                        🧹 Zerar Dados
+                                        🧹 Reset Demo
                                     </button>
 
                                     <button
@@ -414,7 +427,7 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
                                         </h3>
                                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
                                             {[
-                                                { label: "Data de Início", value: new Date(selectedTenant.CreatedAt).toLocaleDateString(), icon: <Calendar size={14} /> },
+                                                { label: "Data de Onboarding", value: new Date(selectedTenant.CreatedAt).toLocaleString(), icon: <Calendar size={14} /> },
                                                 { label: "Expiração (Sistema)", value: new Date(selectedTenant.ExpiresAt).toLocaleDateString(), icon: <Calendar size={14} />, color: isExpired(selectedTenant.ExpiresAt) ? "var(--danger)" : "var(--text-primary)" },
                                                 { 
                                                     label: "Plano Asaas", 
@@ -596,26 +609,27 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
                     title={
                         confirmAction.type === 'delete_tenant' ? "Mover Empresa para Lixeira?" :
                         confirmAction.type === 'delete_user' ? "Mover Usuário para Lixeira?" :
-                        confirmAction.type === 'purge_tenant' ? "⚠️ Zerar Dados Transacionais?" :
+                        confirmAction.type === 'purge_demo' ? "Limpar Dados de Demonstração?" :
                         "Alterar Status da Empresa?"
                     }
                     message={
                         confirmAction.type === 'delete_tenant' ? "Esta empresa será desativada e ocultada da lista principal. Todos os seus dados serão preservados na lixeira." :
                         confirmAction.type === 'delete_user' ? "O usuário perderá o acesso imediatamente, mas poderá ser restaurado depois." :
-                        confirmAction.type === 'purge_tenant' ? "Esta ação irá REMOVER PERMANENTEMENTE todos os tickets, mensagens, conversas e contatos desta empresa. Usuários, configurações e canais serão preservados. Esta ação NÃO pode ser desfeita!" :
+                        confirmAction.type === 'purge_demo' ? "Isso removerá todos os tickets, conversas, contatos e usuários gerados AUTOMATICAMENTE durante o onboarding. Registros criados manualmente após o onboarding serão PRESERVADOS." :
                         `Deseja realmente ${selectedTenant.IsActive ? 'inativar' : 'reativar'} esta empresa?`
                     }
                     onConfirm={() => {
                         if (confirmAction.type === 'delete_tenant') handleDelete(confirmAction.id);
                         if (confirmAction.type === 'delete_user') handleDeleteUser(confirmAction.id);
                         if (confirmAction.type === 'status_tenant') handleSetStatus(confirmAction.id, confirmAction.extra);
-                        if (confirmAction.type === 'purge_tenant') handlePurge(confirmAction.id);
+                        if (confirmAction.type === 'purge_demo') handlePurgeDemo(confirmAction.id);
                         setConfirmAction(null);
                     }}
                     onCancel={() => setConfirmAction(null)}
                     confirmLabel={
-                        confirmAction.type === 'purge_tenant' ? "Sim, Zerar Tudo" :
-                        confirmAction.type.startsWith('delete') ? "Mover para Lixeira" : "Confirmar Alteração"
+                        confirmAction.type.startsWith('delete') ? "Mover para Lixeira" : 
+                        confirmAction.type === 'purge_demo' ? "Limpar Agora" : 
+                        "Confirmar Alteração"
                     }
                 />
             )}

@@ -110,6 +110,39 @@ router.delete("/:id/messages/:messageId", (async (req: AuthenticatedRequest, res
     }
 }) as any);
 
+router.patch("/:id/title", validateBody(z.object({ title: z.string().min(1) })), (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const user = req.user;
+        const conversationId = req.params.id;
+        const { title } = req.body;
+
+        const { allowed, tenantId } = await checkConversationAccess(user, conversationId);
+        if (!allowed) return res.status(403).json({ error: "Access denied" });
+
+        const pool = await getPool();
+        await pool.request()
+            .input("tenantId", tenantId)
+            .input("conversationId", conversationId)
+            .input("title", title)
+            .query(`UPDATE altdesk.Conversation SET Title = @title WHERE ConversationId = @conversationId AND TenantId = @tenantId`);
+
+        // Emit socket event
+        const io = req.app.get("io");
+        if (io) {
+            emitConversationEvent(io, tenantId!, conversationId, "conversation:updated", {
+                conversationId,
+                Title: title,
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        res.json({ ok: true });
+    } catch (error) {
+        next(error);
+    }
+}) as any);
+
+
 router.get("/:id", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const user = req.user;

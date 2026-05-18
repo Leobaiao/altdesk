@@ -20,6 +20,9 @@ export class WebChatAdapter implements ChannelAdapter {
             text: body.text,
             mediaUrl: body.mediaUrl,
             mediaType: body.mediaType,
+            source: body.source || "Webchat",
+            channelType: "Web",
+            campaign: body.campaign || body.utm_campaign,
             timestamp: body.timestamp || Date.now(),
             raw: body
         };

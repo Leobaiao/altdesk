@@ -41,6 +41,8 @@ export class EmailAdapter implements ChannelAdapter {
             senderName: from.split('<')[0].trim() || externalUserId,
             subject: subject,
             text: text || html?.replace(/<[^>]*>?/gm, '') || "", // Fallback simples para strip HTML
+            source: "Email",
+            channelType: "Email",
             timestamp: Date.now(),
             raw: body
         };

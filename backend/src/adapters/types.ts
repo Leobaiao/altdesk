@@ -14,6 +14,9 @@ export type NormalizedInbound = {
   inReplyTo?: string;
   references?: string;
   subject?: string;
+  source?: string;
+  channelType?: string;
+  campaign?: string;
   timestamp: number;
   raw: any;
 };
