@@ -1078,18 +1078,24 @@ router.post("/tenants/:id/purge", (async (req: AuthenticatedRequest, res: Respon
         const tenantId = req.params.id;
         const pool = await getPool();
 
-        // Verificar se o tenant existe
+        // Verificar se o tenant existe e obter a data de criação (onboarding)
         const check = await pool.request()
             .input("tid", tenantId)
-            .query("SELECT TenantId, Name FROM altdesk.Tenant WHERE TenantId = @tid");
+            .query("SELECT TenantId, Name, CreatedAt FROM altdesk.Tenant WHERE TenantId = @tid");
 
         if (check.recordset.length === 0) {
             return res.status(404).json({ error: "Empresa não encontrada." });
         }
 
-        // Executar a Stored Procedure de limpeza
+        const tenant = check.recordset[0];
+        // Adicionamos uma margem de 1 minuto a partir da data de onboarding (CreatedAt) para abranger todos os dados do seed demo/basic.
+        // Qualquer dado real criado após 1 minuto do onboarding será mantido.
+        const cutoffDate = tenant.CreatedAt ? new Date(new Date(tenant.CreatedAt).getTime() + 60 * 1000) : new Date();
+
+        // Executar a Stored Procedure de limpeza passando o cutoff_date
         await pool.request()
             .input("tenant_id", sql.UniqueIdentifier, tenantId)
+            .input("cutoff_date", sql.DateTime2, cutoffDate)
             .execute("altdesk.sp_altdesk_purge_tenant_data");
 
         // Audit Log
@@ -1099,7 +1105,7 @@ router.post("/tenants/:id/purge", (async (req: AuthenticatedRequest, res: Respon
             action: 'PURGE_TENANT_DATA',
             targetTable: 'Tenant',
             targetId: tenantId,
-            afterValues: { tenantName: check.recordset[0].Name }
+            afterValues: { tenantName: tenant.Name }
         });
 
         logger.info({ tenantId, tenantName: check.recordset[0].Name }, "[Admin] Tenant data purged successfully");

@@ -66,6 +66,8 @@ export function Kanban({ onSelectTicket, refreshKey, onStatsUpdate }: KanbanProp
     const [kanbanColumns, setKanbanColumns] = useState(defaultColumns);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editingTitle, setEditingTitle] = useState('');
+    const [editingColKey, setEditingColKey] = useState<string | null>(null);
+    const [editingColTitle, setEditingColTitle] = useState('');
 
     const fetchTickets = useCallback(() => {
         api.get('/api/tickets/kanban')
@@ -128,6 +130,25 @@ export function Kanban({ onSelectTicket, refreshKey, onStatsUpdate }: KanbanProp
         } catch (error) {
             console.error('Failed to move ticket', error);
             refreshSilent();
+        }
+    }
+
+    async function saveColumnTitle(columnKey: string) {
+        const trimmed = editingColTitle.trim();
+        if (!trimmed) { setEditingColKey(null); return; }
+        
+        setKanbanColumns(prev => prev.map(col => col.key === columnKey ? { ...col, title: trimmed } : col));
+        setEditingColKey(null);
+
+        try {
+            const updatedColumns = kanbanColumns.reduce((acc, col) => {
+                acc[col.key] = col.key === columnKey ? trimmed : col.title;
+                return acc;
+            }, {} as Record<string, string>);
+
+            await api.put('/api/settings/tenant', { kanbanColumns: updatedColumns });
+        } catch (error) {
+            console.error('Failed to save column title', error);
         }
     }
 
@@ -222,13 +243,64 @@ export function Kanban({ onSelectTicket, refreshKey, onStatsUpdate }: KanbanProp
                                         opacity: 0.8
                                     }} />
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                        <h2 style={{
-                                            margin: 0, fontWeight: 700,
-                                            color: 'var(--text-primary, #374151)',
-                                            fontSize: '0.82rem'
-                                        }}>
-                                            {column.title}
-                                        </h2>
+                                        {editingColKey === column.key ? (
+                                            <input
+                                                autoFocus
+                                                value={editingColTitle}
+                                                onChange={e => setEditingColTitle(e.target.value)}
+                                                onKeyDown={e => {
+                                                    if (e.key === 'Enter') saveColumnTitle(column.key);
+                                                    if (e.key === 'Escape') setEditingColKey(null);
+                                                }}
+                                                onBlur={() => saveColumnTitle(column.key)}
+                                                style={{
+                                                    fontSize: '0.82rem', fontWeight: 700,
+                                                    color: 'var(--text-primary, #374151)',
+                                                    background: 'var(--bg-primary, #f3f4f6)',
+                                                    border: '1.5px solid #6366f1',
+                                                    borderRadius: 6, padding: '2px 6px',
+                                                    outline: 'none', width: 140
+                                                }}
+                                            />
+                                        ) : (
+                                            <div 
+                                                style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}
+                                                onDoubleClick={() => {
+                                                    setEditingColKey(column.key);
+                                                    setEditingColTitle(column.title);
+                                                }}
+                                                onMouseEnter={e => {
+                                                    const pencil = e.currentTarget.querySelector('.col-edit-pencil') as HTMLElement;
+                                                    if (pencil) pencil.style.opacity = '0.7';
+                                                }}
+                                                onMouseLeave={e => {
+                                                    const pencil = e.currentTarget.querySelector('.col-edit-pencil') as HTMLElement;
+                                                    if (pencil) pencil.style.opacity = '0';
+                                                }}
+                                            >
+                                                <h2 style={{
+                                                    margin: 0, fontWeight: 700,
+                                                    color: 'var(--text-primary, #374151)',
+                                                    fontSize: '0.82rem'
+                                                }}>
+                                                    {column.title}
+                                                </h2>
+                                                <Edit3
+                                                    size={12}
+                                                    className="col-edit-pencil"
+                                                    style={{ 
+                                                        opacity: 0, cursor: 'pointer',
+                                                        color: '#6366f1', transition: 'all 0.2s'
+                                                    }}
+                                                    onClick={e => {
+                                                        e.stopPropagation();
+                                                        setEditingColKey(column.key);
+                                                        setEditingColTitle(column.title);
+                                                    }}
+                                                    title="Editar título da coluna"
+                                                />
+                                            </div>
+                                        )}
                                         <span style={{
                                             background: columnTickets.length > 0 ? column.accent : 'var(--bg-primary, #e5e7eb)',
                                             color: columnTickets.length > 0 ? '#fff' : 'var(--text-secondary, #9ca3af)',
@@ -264,7 +336,17 @@ export function Kanban({ onSelectTicket, refreshKey, onStatsUpdate }: KanbanProp
                                                 setDraggedId(ticket.id);
                                             }}
                                             onDragEnd={() => setDraggedId(null)}
-                                            onClick={() => onSelectTicket(ticket.conversationId)}
+                                            onClick={e => {
+                                                const target = e.target as HTMLElement;
+                                                if (
+                                                    target.closest('.no-select-card') || 
+                                                    target.closest('input') || 
+                                                    target.tagName === 'INPUT'
+                                                ) {
+                                                    return;
+                                                }
+                                                onSelectTicket(ticket.conversationId);
+                                            }}
                                             style={{
                                                 background: 'var(--bg-secondary, #fff)',
                                                 border: draggedId === ticket.id
@@ -284,12 +366,16 @@ export function Kanban({ onSelectTicket, refreshKey, onStatsUpdate }: KanbanProp
                                                 (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(99,102,241,0.3)';
                                                 (e.currentTarget as HTMLDivElement).style.boxShadow = '0 4px 12px rgba(0,0,0,0.08)';
                                                 (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-1px)';
+                                                const btn = e.currentTarget.querySelector('.edit-pencil') as HTMLElement;
+                                                if (btn) btn.style.opacity = '0.8';
                                             }}
                                             onMouseLeave={e => {
                                                 if (draggedId) return;
                                                 (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border, #e5e7eb)';
                                                 (e.currentTarget as HTMLDivElement).style.boxShadow = '0 1px 2px rgba(0,0,0,0.04)';
                                                 (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)';
+                                                const btn = e.currentTarget.querySelector('.edit-pencil') as HTMLElement;
+                                                if (btn) btn.style.opacity = '0.2';
                                             }}
                                         >
                                             {/* Card header: priority dot + title */}
@@ -320,10 +406,13 @@ export function Kanban({ onSelectTicket, refreshKey, onStatsUpdate }: KanbanProp
                                                         }}
                                                     />
                                                 ) : (
-                                                    <div style={{
-                                                        flex: 1, display: 'flex', alignItems: 'flex-start', gap: 4,
-                                                        cursor: 'pointer'
-                                                    }}>
+                                                    <div 
+                                                        className="no-select-card"
+                                                        style={{
+                                                            flex: 1, display: 'flex', alignItems: 'flex-start', gap: 6,
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
                                                         <div
                                                             onDoubleClick={e => {
                                                                 e.stopPropagation();
@@ -342,13 +431,19 @@ export function Kanban({ onSelectTicket, refreshKey, onStatsUpdate }: KanbanProp
                                                             {ticket.title || ticket.requester?.name || 'Sem título'}
                                                         </div>
                                                         <Edit3
-                                                            size={12}
-                                                            style={{ flexShrink: 0, marginTop: 2, opacity: 0.3, cursor: 'pointer' }}
+                                                            size={13}
+                                                            className="edit-pencil"
+                                                            style={{ 
+                                                                flexShrink: 0, marginTop: 2, 
+                                                                opacity: 0.2, cursor: 'pointer',
+                                                                color: '#6366f1', transition: 'all 0.2s'
+                                                            }}
                                                             onClick={e => {
                                                                 e.stopPropagation();
                                                                 setEditingId(ticket.id);
                                                                 setEditingTitle(ticket.title || '');
                                                             }}
+                                                            title="Editar título"
                                                         />
                                                     </div>
                                                 )}

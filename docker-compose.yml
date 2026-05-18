@@ -77,6 +77,12 @@ services:
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/31-requester-portal-seed.sql;
         echo 'Executando migration 32 (add sender userid)...';
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/32-add-sender-userid.sql;
+        echo 'Executando migration 33 (fix ticketevent tenantid)...';
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/33-fix-ticketevent-tenantid.sql;
+        echo 'Executando migration 34 (enterprise refinement)...';
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/34-enterprise-refinement.sql;
+        echo 'Executando migration 35 (enterprise refinement v2)...';
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/35-enterprise-refinement-v2.sql;
         echo 'Todas as migrations concluidas!';
       "
 

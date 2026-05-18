@@ -49,13 +49,19 @@ GO
 
 -- 4. Contacts Enhancements
 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('altdesk.Contact') AND name = 'Origin')
-BEGIN
-    ALTER TABLE altdesk.Contact ADD 
-        Origin NVARCHAR(100) NULL,
-        Channel NVARCHAR(50) NULL,
-        Campaign NVARCHAR(100) NULL,
-        LastActivityAt DATETIME2 NULL;
-END
+    ALTER TABLE altdesk.Contact ADD Origin NVARCHAR(100) NULL;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('altdesk.Contact') AND name = 'Channel')
+    ALTER TABLE altdesk.Contact ADD Channel NVARCHAR(50) NULL;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('altdesk.Contact') AND name = 'Campaign')
+    ALTER TABLE altdesk.Contact ADD Campaign NVARCHAR(255) NULL;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('altdesk.Contact') AND name = 'LastActivityAt')
+    ALTER TABLE altdesk.Contact ADD LastActivityAt DATETIME2(7) NULL;
 GO
 
 -- 5. Soft Delete Verification for Audit & Policies

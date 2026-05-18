@@ -3,6 +3,7 @@ import { api } from "../../lib/api";
 import { TenantModal } from "./Modals/TenantModal";
 import { LimitModal } from "./Modals/LimitModal";
 import { UserModal } from "./Modals/UserModal";
+import { ConfirmModal } from "./Modals/ConfirmModal";
 import { 
     Globe, Smartphone, User, ArrowLeft, MoreVertical, 
     ShieldCheck, Mail, Calendar, Hash, Edit2, 
