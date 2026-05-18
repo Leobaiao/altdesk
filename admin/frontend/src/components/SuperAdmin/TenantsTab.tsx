@@ -801,5 +801,3 @@ export function PurgeOptionsModal({ tenant, onClose, onSubmit }: PurgeOptionsMod
     );
 }
 
-// Pequeno mock de LimitModal inline ou importado (mantivemos o import mas por seguranca se o original quebrasse no sidebar)
-// Mas o original deve funcionar se referenciado corretamente.

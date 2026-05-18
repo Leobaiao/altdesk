@@ -1,4 +1,5 @@
 import { ChannelAdapter, NormalizedInbound } from "./types.js";
+import { logger } from "../lib/logger.js";
 
 /**
  * Placeholder WhatsApp Oficial (Cloud API/BSP).
@@ -58,7 +59,7 @@ export class OfficialAdapter implements ChannelAdapter {
         raw: body
       };
     } catch (e) {
-      console.error("[OFFICIAL] Parse error:", e);
+      logger.error({ err: e }, "[OFFICIAL] Parse error");
       return null;
     }
   }
@@ -97,7 +98,7 @@ export class OfficialAdapter implements ChannelAdapter {
 
     const resBody = await res.json();
     if (!res.ok) {
-      console.error("[OFFICIAL] Send error:", JSON.stringify(resBody, null, 2));
+      logger.error({ resBody }, "[OFFICIAL] Send error");
       throw new Error(`WhatsApp API Error: ${resBody.error?.message || res.statusText}`);
     }
 
