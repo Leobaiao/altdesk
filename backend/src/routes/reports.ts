@@ -1,206 +1,190 @@
 import { Router, Response, NextFunction } from "express";
-import { getPool } from "../db.js";
 import { authMw, requirePermission } from "../mw.js";
 import { AuthenticatedRequest } from "../types/index.js";
+import { parseReportFilters } from "../services/reportFilters.js";
+import {
+  getTicketsByStatusReport,
+  getTicketsByPriorityReport,
+  getTicketsByChannelReport,
+  getAgentPerformanceReport,
+  getSlaComplianceReport,
+  getConversationsReport,
+  getAgentsReport
+} from "../services/reportService.js";
+import {
+  exportToCSV,
+  exportToXLSX,
+  exportToPDF
+} from "../services/exportService.js";
 
 const router = Router();
 router.use(authMw);
+router.use(requirePermission('reports'));
 
-const HEADER_MAP: Record<string, string> = {
-    ConversationId: "ID_Conversa",
-    Status: "Situacao",
-    SourceChannel: "Canal",
-    CreatedAt: "Data_Criacao",
-    LastMessageAt: "Ultima_Mensagem",
-    AssignedAgent: "Atendente",
-    QueueName: "Fila",
-    MessageCount: "Total_Mensagens",
-    SlaStatus: "SLA_Status",
-    SlaDeadline: "SLA_Prazo",
-    Agent: "Agente",
-    Email: "Email",
-    Resolved: "Resolvidos",
-    Open: "Abertos",
-    Total: "Total",
-    SlaViolations: "SLA_Violacoes",
-    SlaOk: "SLA_No_Prazo",
-    SlaViolated: "SLA_Atrasados",
-    SlaPending: "SLA_Pendentes",
-    CompliancePercent: "Taxa_Sucesso_SLA_Pct"
-};
+/**
+ * Helper to process report requests and handle formatting (JSON, CSV, XLSX, PDF)
+ */
+async function handleReportRequest(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+  reportFn: (tenantId: string, filters: any) => Promise<any>,
+  reportTitle: string
+) {
+  try {
+    const tenantId = req.user.tenantId || "";
+    const rawFormat = req.query.format;
+    const format = (typeof rawFormat === "string" ? rawFormat : "json").toLowerCase();
+    const filters = parseReportFilters(req.query);
 
-function formatCSVDate(dateObj: any): string {
-    if (!(dateObj instanceof Date)) return String(dateObj);
-    if (isNaN(dateObj.getTime())) return "";
-    const p = (n: number) => n.toString().padStart(2, '0');
-    return `${p(dateObj.getDate())}/${p(dateObj.getMonth() + 1)}/${dateObj.getFullYear()} ${p(dateObj.getHours())}:${p(dateObj.getMinutes())}:${p(dateObj.getSeconds())}`;
-}
+    // If exporting, get all matching records without pagination limit
+    if (format !== "json") {
+      filters.limit = 1000000;
+      filters.page = 1;
+    }
 
-// Helper: convert recordset to CSV string
-function toCSV(rows: any[]): string {
-    if (!rows.length) return "";
-    const originalHeaders = Object.keys(rows[0]);
-    const translatedHeaders = originalHeaders.map(h => HEADER_MAP[h] || h);
+    const data = await reportFn(tenantId, filters);
 
-    const lines = [
-        translatedHeaders.join(","),
-        ...rows.map(row =>
-            originalHeaders.map(h => {
-                const v = row[h];
-                if (v === null || v === undefined) return "";
-                let str = "";
-                if (v instanceof Date) {
-                    str = formatCSVDate(v);
-                } else {
-                    str = String(v).replace(/"/g, '""');
-                }
-                return str.includes(",") || str.includes("\n") || str.includes('"') ? `"${str}"` : str;
-            }).join(",")
-        )
-    ];
-    return lines.join("\r\n");
+    if (format === "csv") {
+      const csv = exportToCSV(data.details);
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="${reportTitle}_${Date.now()}.csv"`);
+      return res.send(csv);
+    }
+
+    if (format === "xlsx") {
+      const xlsx = await exportToXLSX(data.details);
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", `attachment; filename="${reportTitle}_${Date.now()}.xlsx"`);
+      return res.send(xlsx);
+    }
+
+    if (format === "pdf") {
+      const pdf = await exportToPDF(data.details, reportTitle.replace(/_/g, " "));
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="${reportTitle}_${Date.now()}.pdf"`);
+      return res.send(pdf);
+    }
+
+    return res.json(data);
+  } catch (error) {
+    next(error);
+  }
 }
 
 /**
- * GET /api/reports/conversations
- * Export conversations as CSV with optional filters
+ * Universal export endpoint at /export
  */
-router.get("/conversations", requirePermission('reports'), (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    try {
-        const user = req.user;
-        const { from, to, status, format = "json" } = req.query as Record<string, string>;
-        const pool = await getPool();
-        const request = pool.request().input("tenantId", user.tenantId);
+router.get("/export", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const tenantId = req.user.tenantId || "";
+    const rawReportType = req.query.reportType;
+    const reportType = (typeof rawReportType === "string" ? rawReportType : "").toLowerCase();
+    const rawFormat = req.query.format;
+    const format = (typeof rawFormat === "string" ? rawFormat : "csv").toLowerCase();
+    const filters = parseReportFilters(req.query);
 
-        let where = "WHERE c.TenantId = @tenantId";
-        if (status) {
-            where += " AND c.Status = @status";
-            request.input("status", status);
-        }
-        if (from) {
-            where += " AND c.CreatedAt >= @from";
-            request.input("from", new Date(from));
-        }
-        if (to) {
-            where += " AND c.CreatedAt <= @to";
-            request.input("to", new Date(to));
-        }
+    // Export gets all records matching criteria
+    filters.limit = 1000000;
+    filters.page = 1;
 
-        const r = await request.query(`
-            SELECT
-                c.ConversationId,
-                c.Status,
-                c.SourceChannel,
-                c.CreatedAt,
-                c.LastMessageAt,
-                u.DisplayName AS AssignedAgent,
-                q.Name AS QueueName,
-                (SELECT COUNT(*) FROM altdesk.Message m WHERE m.ConversationId = c.ConversationId) AS MessageCount,
-                c.SlaStatus,
-                c.SlaDeadline
-            FROM altdesk.Conversation c
-            LEFT JOIN altdesk.[User] u ON u.UserId = c.AssignedUserId
-            LEFT JOIN altdesk.Queue q ON q.QueueId = c.QueueId
-            ${where}
-            ORDER BY c.CreatedAt DESC
-        `);
+    let reportFn;
+    let title = "Relatorio";
 
-        if (format === "csv") {
-            const csv = toCSV(r.recordset);
-            res.setHeader("Content-Type", "text/csv; charset=utf-8");
-            res.setHeader("Content-Disposition", `attachment; filename="conversations_${Date.now()}.csv"`);
-            return res.send("\uFEFF" + csv); // BOM para Excel aceitar UTF-8
-        }
-
-        res.json(r.recordset);
-    } catch (error) {
-        next(error);
+    switch (reportType) {
+      case "status":
+        reportFn = getTicketsByStatusReport;
+        title = "Tickets_Por_Status";
+        break;
+      case "priority":
+        reportFn = getTicketsByPriorityReport;
+        title = "Tickets_Por_Prioridade";
+        break;
+      case "channel":
+        reportFn = getTicketsByChannelReport;
+        title = "Tickets_Por_Canal";
+        break;
+      case "agent-performance":
+        reportFn = getAgentPerformanceReport;
+        title = "Desempenho_De_Agentes";
+        break;
+      case "sla":
+      case "sla-compliance":
+        reportFn = getSlaComplianceReport;
+        title = "Conformidade_SLA";
+        break;
+      case "conversations":
+        reportFn = getConversationsReport;
+        title = "Relatorio_De_Conversas";
+        break;
+      case "agents":
+        reportFn = getAgentsReport;
+        title = "Relatorio_De_Agentes";
+        break;
+      default:
+        return res.status(400).json({ error: "Tipo de relatório inválido ou não especificado." });
     }
+
+    const data = await reportFn(tenantId, filters);
+
+    if (format === "csv") {
+      const csv = exportToCSV(data.details);
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="${title}_${Date.now()}.csv"`);
+      return res.send(csv);
+    }
+
+    if (format === "xlsx") {
+      const xlsx = await exportToXLSX(data.details);
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", `attachment; filename="${title}_${Date.now()}.xlsx"`);
+      return res.send(xlsx);
+    }
+
+    if (format === "pdf") {
+      const pdf = await exportToPDF(data.details, title.replace(/_/g, " "));
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="${title}_${Date.now()}.pdf"`);
+      return res.send(pdf);
+    }
+
+    return res.status(400).json({ error: "Formato de exportação inválido. Use csv, xlsx ou pdf." });
+  } catch (error) {
+    next(error);
+  }
 }) as any);
 
-/**
- * GET /api/reports/agents
- * Agent productivity report (closed conversations, avg response time)
- */
-router.get("/agents", requirePermission('reports'), (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    try {
-        const user = req.user;
-        const { from, to, format = "json" } = req.query as Record<string, string>;
-        const pool = await getPool();
-        const request = pool.request().input("tenantId", user.tenantId);
-
-        let dateWhere = "";
-        if (from) { dateWhere += " AND c.CreatedAt >= @from"; request.input("from", new Date(from)); }
-        if (to) { dateWhere += " AND c.CreatedAt <= @to"; request.input("to", new Date(to)); }
-
-        const r = await request.query(`
-            SELECT
-                u.DisplayName AS Agent,
-                u.Email,
-                COUNT(CASE WHEN c.Status = 'RESOLVED' THEN 1 END) AS Resolved,
-                COUNT(CASE WHEN c.Status = 'OPEN' THEN 1 END) AS Open,
-                COUNT(*) AS Total,
-                COUNT(CASE WHEN c.SlaStatus = 'VIOLATED' THEN 1 END) AS SlaViolations
-            FROM altdesk.[User] u
-            LEFT JOIN altdesk.Conversation c ON c.AssignedUserId = u.UserId
-                AND c.TenantId = @tenantId ${dateWhere}
-            WHERE u.TenantId = @tenantId AND u.IsActive = 1
-            GROUP BY u.UserId, u.DisplayName, u.Email
-            ORDER BY Resolved DESC
-        `);
-
-        if (format === "csv") {
-            const csv = toCSV(r.recordset);
-            res.setHeader("Content-Type", "text/csv; charset=utf-8");
-            res.setHeader("Content-Disposition", `attachment; filename="agents_report_${Date.now()}.csv"`);
-            return res.send("\uFEFF" + csv);
-        }
-
-        res.json(r.recordset);
-    } catch (error) {
-        next(error);
-    }
+router.get("/status", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  await handleReportRequest(req, res, next, getTicketsByStatusReport, "Tickets_Por_Status");
 }) as any);
 
-/**
- * GET /api/reports/sla
- * SLA violations and compliance report
- */
-router.get("/sla", requirePermission('reports'), (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    try {
-        const user = req.user;
-        const { from, to, format = "json" } = req.query as Record<string, string>;
-        const pool = await getPool();
-        const request = pool.request().input("tenantId", user.tenantId);
+router.get("/priority", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  await handleReportRequest(req, res, next, getTicketsByPriorityReport, "Tickets_Por_Prioridade");
+}) as any);
 
-        let where = "WHERE c.TenantId = @tenantId";
-        if (from) { where += " AND c.CreatedAt >= @from"; request.input("from", new Date(from)); }
-        if (to) { where += " AND c.CreatedAt <= @to"; request.input("to", new Date(to)); }
+router.get("/channel", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  await handleReportRequest(req, res, next, getTicketsByChannelReport, "Tickets_Por_Canal");
+}) as any);
 
-        const r = await request.query(`
-            SELECT
-                COUNT(*) AS Total,
-                COUNT(CASE WHEN c.SlaStatus = 'OK' THEN 1 END) AS SlaOk,
-                COUNT(CASE WHEN c.SlaStatus = 'VIOLATED' THEN 1 END) AS SlaViolated,
-                COUNT(CASE WHEN c.SlaStatus = 'PENDING' THEN 1 END) AS SlaPending,
-                CAST(
-                    100.0 * COUNT(CASE WHEN c.SlaStatus = 'OK' THEN 1 END) / NULLIF(COUNT(*), 0)
-                AS DECIMAL(5,2)) AS CompliancePercent
-            FROM altdesk.Conversation c
-            ${where}
-        `);
+router.get("/agent-performance", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  await handleReportRequest(req, res, next, getAgentPerformanceReport, "Desempenho_De_Agentes");
+}) as any);
 
-        if (format === "csv") {
-            const csv = toCSV(r.recordset);
-            res.setHeader("Content-Type", "text/csv; charset=utf-8");
-            res.setHeader("Content-Disposition", `attachment; filename="sla_report_${Date.now()}.csv"`);
-            return res.send("\uFEFF" + csv);
-        }
+router.get("/sla-compliance", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  await handleReportRequest(req, res, next, getSlaComplianceReport, "Conformidade_SLA");
+}) as any);
 
-        res.json(r.recordset[0] || {});
-    } catch (error) {
-        next(error);
-    }
+// SLA compliance alias
+router.get("/sla", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  await handleReportRequest(req, res, next, getSlaComplianceReport, "Conformidade_SLA");
+}) as any);
+
+router.get("/conversations", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  await handleReportRequest(req, res, next, getConversationsReport, "Relatorio_De_Conversas");
+}) as any);
+
+router.get("/agents", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  await handleReportRequest(req, res, next, getAgentsReport, "Relatorio_De_Agentes");
 }) as any);
 
 export default router;

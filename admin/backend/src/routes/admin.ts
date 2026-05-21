@@ -839,9 +839,33 @@ router.get("/instances/gti-info", (async (req: AuthenticatedRequest, res: Respon
             logger.warn({ rawBaseUrl }, "GTI Info: URL do provedor não autorizada");
             return res.status(400).json({ error: "URL do provedor não autorizada." });
         }
-        const baseUrl = rawBaseUrl;
-        
-        const url = `${baseUrl}/instance/status`;
+        const parsed = new URL(rawBaseUrl);
+        let safeHost = "api.gtiapi.workers.dev";
+        const hostLower = parsed.hostname.toLowerCase();
+
+        if (hostLower === "api.gtiapi.workers.dev" || hostLower === "api.uazapi.com" || hostLower === "api.gtiapi.com") {
+            safeHost = hostLower;
+        } else {
+            const parts = hostLower.split(".");
+            if (hostLower.endsWith(".gtiapi.workers.dev")) {
+                const subdomain = parts.slice(0, -3).join("");
+                if (/^[a-z0-9]+$/i.test(subdomain)) {
+                    safeHost = `${subdomain}.gtiapi.workers.dev`;
+                }
+            } else if (hostLower.endsWith(".uazapi.com")) {
+                const subdomain = parts.slice(0, -2).join("");
+                if (/^[a-z0-9]+$/i.test(subdomain)) {
+                    safeHost = `${subdomain}.uazapi.com`;
+                }
+            } else if (hostLower.endsWith(".gtiapi.com")) {
+                const subdomain = parts.slice(0, -2).join("");
+                if (/^[a-z0-9]+$/i.test(subdomain)) {
+                    safeHost = `${subdomain}.gtiapi.com`;
+                }
+            }
+        }
+
+        const url = `https://${safeHost}/instance/status`;
         const response = await fetch(url, {
             method: "GET",
             headers: {

@@ -128,26 +128,20 @@ export async function bulkDeleteInstances(connectorIds: string[]) {
     await transaction.begin();
 
     try {
-        const request = transaction.request();
-        validIds.forEach((id, index) => {
-            request.input(`id${index}`, id);
-        });
-        const idParams = validIds.map((_, index) => `@id${index}`).join(",");
+        const idsJson = JSON.stringify(validIds);
 
-        // Safe: using parameterized IN clause
+        // Safe: using parameterized OPENJSON lookup instead of dynamically built query string
         await transaction.request()
-            .input("ids", validIds.join(",")) // Alternative if DB supports it, but @idN is safer for mssql
-            .query(`DELETE FROM altdesk.InstanceAssignment WHERE ConnectorId IN (${idParams})`);
+            .input("idsJson", idsJson)
+            .query(`DELETE FROM altdesk.InstanceAssignment WHERE ConnectorId IN (SELECT value FROM OPENJSON(@idsJson))`);
 
-        const bulkRequest = transaction.request();
-        validIds.forEach((id, index) => {
-            bulkRequest.input(`id${index}`, id);
-        });
-        await bulkRequest.query(`
-        UPDATE altdesk.ChannelConnector 
-        SET IsActive = 0, DeletedAt = SYSUTCDATETIME()
-        WHERE ConnectorId IN (${idParams})
-    `);
+        await transaction.request()
+            .input("idsJson", idsJson)
+            .query(`
+                UPDATE altdesk.ChannelConnector 
+                SET IsActive = 0, DeletedAt = SYSUTCDATETIME()
+                WHERE ConnectorId IN (SELECT value FROM OPENJSON(@idsJson))
+            `);
 
         await transaction.commit();
         return validIds.length;
@@ -173,13 +167,11 @@ export async function assignUsersToInstance(connectorId: string, userIds: string
         const validUserIds = userIds.filter(id => uuidRegex.test(id));
 
         if (validUserIds.length > 0) {
-            const request = transaction.request();
-            validUserIds.forEach((uid, index) => request.input(`uid${index}`, uid));
-            const uidParams = validUserIds.map((_, index) => `@uid${index}`).join(",");
-
-            const validCount = await request
+            const idsJson = JSON.stringify(validUserIds);
+            const validCount = await transaction.request()
                 .input("tenantId", tenantId)
-                .query(`SELECT COUNT(*) as count FROM altdesk.[User] WHERE TenantId = @tenantId AND UserId IN (${uidParams})`);
+                .input("idsJson", idsJson)
+                .query(`SELECT COUNT(*) as count FROM altdesk.[User] WHERE TenantId = @tenantId AND UserId IN (SELECT value FROM OPENJSON(@idsJson))`);
             
             if (validCount.recordset[0].count !== validUserIds.length) {
                 throw new Error("Alguns IDs de usuário são inválidos ou pertencem a outro tenant.");

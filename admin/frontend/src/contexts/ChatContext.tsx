@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import io, { Socket } from "socket.io-client";
 
-import type { Conversation, Message } from "../../../shared/types";
+import type { Conversation, Message } from "../../../../shared/types";
 
 type ChatContextType = {
     socket: Socket | null;

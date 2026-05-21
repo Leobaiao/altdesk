@@ -105,7 +105,9 @@ export async function updateInstanceTenant(connectorId: string, tenantId: string
 export async function bulkDeleteInstances(connectorIds: string[]) {
     if (!connectorIds.length) return 0;
 
-    const validIds = connectorIds.filter(id => id && id.length > 0);
+    // Critical: Validate that all IDs are valid UUIDs to prevent any SQLi attempt
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const validIds = connectorIds.filter(id => id && uuidRegex.test(id));
     if (validIds.length === 0) return 0;
 
     const pool = await getPool();
@@ -113,17 +115,16 @@ export async function bulkDeleteInstances(connectorIds: string[]) {
     await transaction.begin();
 
     try {
-        const request = transaction.request();
-        validIds.forEach((id, index) => {
-            request.input(`id${index}`, id);
-        });
-        const idParams = validIds.map((_, index) => `@id${index}`).join(",");
+        const idsJson = JSON.stringify(validIds);
 
-        await request.query(`
-        UPDATE altdesk.ChannelConnector 
-        SET IsActive = 0, DeletedAt = SYSUTCDATETIME()
-        WHERE ConnectorId IN (${idParams})
-    `);
+        // Safe: using parameterized OPENJSON lookup instead of dynamically built query string
+        await transaction.request()
+            .input("idsJson", idsJson)
+            .query(`
+                UPDATE altdesk.ChannelConnector 
+                SET IsActive = 0, DeletedAt = SYSUTCDATETIME()
+                WHERE ConnectorId IN (SELECT value FROM OPENJSON(@idsJson))
+            `);
 
         await transaction.commit();
         return validIds.length;

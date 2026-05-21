@@ -346,14 +346,14 @@ export function Users({ token, onBack, role }: Props) {
                                 </td>
                                 <td style={{ padding: "16px 20px", textAlign: "right" }}>
                                     <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
-                                        <button
-                                            onClick={() => window.location.href = `mailto:${u.Email}`}
+                                        <a
+                                            href={`mailto:${/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(u.Email) ? u.Email : ""}`}
                                             className="btn btn-ghost"
-                                            style={{ padding: 8, borderRadius: 8 }}
+                                            style={{ padding: 8, borderRadius: 8, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
                                             title="Enviar Email"
                                         >
                                             <Mail size={18} />
-                                        </button>
+                                        </a>
 
                                         <button
                                             onClick={() => handleStartChat(u)}
