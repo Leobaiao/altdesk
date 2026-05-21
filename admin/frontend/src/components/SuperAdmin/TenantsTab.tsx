@@ -32,7 +32,8 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
     const [usersLoading, setUsersLoading] = useState(false);
     const [showUserModal, setShowUserModal] = useState(false);
     const [editUser, setEditUser] = useState<any>(null);
-    const [confirmAction, setConfirmAction] = useState<{ type: 'delete_tenant' | 'delete_user' | 'status_tenant' | 'purge_demo', id: string, extra?: any } | null>(null);
+    const [confirmAction, setConfirmAction] = useState<{ type: 'delete_tenant' | 'delete_user' | 'status_tenant', id: string, extra?: any } | null>(null);
+    const [showPurgeModal, setShowPurgeModal] = useState<any>(null);
     const { notify } = useNotification();
 
     useEffect(() => {
@@ -150,28 +151,17 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
         }
     };
 
-    const handleDelete = async (tenantId: string) => {
+    const handlePurge = async (tenantId: string, options: any = {}) => {
         try {
-            await api.delete(`/api/admin/tenants/${tenantId}`);
+            await api.post(`/api/admin/tenants/${tenantId}/purge`, options);
+            notify("Dados transacionais removidos com sucesso!", "success");
             loadTenants();
-            setSelectedTenant(null);
-        } catch (err) {
-            console.error(err);
-        }
+            setShowPurgeModal(null);
+        } catch (err: any) {
+            notify(err.response?.data?.error || "Erro ao limpar dados demo", "error");
     };
 
-    const handleSetStatus = async (tenantId: string, active: boolean) => {
-        try {
-            await api.put(`/api/admin/tenants/${tenantId}/status`, { isActive: active });
-            loadTenants();
-            if (selectedTenant?.TenantId === tenantId) {
-                setSelectedTenant({ ...selectedTenant, IsActive: active });
-            }
-        } catch (err) {
-            console.error(err);
-        }
-    };
-
+<<<<<<< HEAD
     const handlePurgeDemo = async (tenantId: string) => {
         try {
             setLoading(true);
@@ -182,6 +172,14 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
             const res = await api.get("/api/admin/tenants");
             const updated = res.data.find((t: any) => t.TenantId === tenantId);
             if (updated) setSelectedTenant(updated);
+=======
+    const handlePurge = async (tenantId: string, options: any = {}) => {
+        try {
+            await api.post(`/api/admin/tenants/${tenantId}/purge`, options);
+            notify("Dados transacionais removidos com sucesso!", "success");
+            loadTenants();
+            setShowPurgeModal(null);
+>>>>>>> d721c5d516a8cae9c9907b7a6f00e50ecaebc36a
         } catch (err: any) {
             notify(err.response?.data?.error || "Erro ao limpar dados demo", "error");
         } finally {
@@ -244,8 +242,8 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
                                     }}
                                 >
                                     {s === "ALL" ? "TODAS" : s === "TRIAL" ? "TESTE" : "REAL"}
-                                </button>
-                            ))}
+                                    <button
+                                        onClick={() => setShowPurgeModal(selectedTenant)}
                         </div>
                     </div>
                     <button
@@ -353,7 +351,11 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
                                     </button>
 
                                     <button
+<<<<<<< HEAD
                                         onClick={() => setConfirmAction({ type: 'purge_demo', id: selectedTenant.TenantId })}
+=======
+                                        onClick={() => setShowPurgeModal(selectedTenant)}
+>>>>>>> d721c5d516a8cae9c9907b7a6f00e50ecaebc36a
                                         className="btn btn-ghost"
                                         style={{ padding: "8px 16px", borderRadius: 10, fontSize: "0.85rem", border: "1px solid var(--border)", color: "orange" }}
                                         title="Limpar dados de onboarding (mantendo manuais)"
@@ -604,32 +606,39 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
                 </div>
             )}
 
+            {showPurgeModal && (
+                <div style={{
+                    position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000
+                }}>
+                    <PurgeOptionsModal 
+                        tenant={showPurgeModal} 
+                        onClose={() => setShowPurgeModal(null)} 
+                        onSubmit={(options) => handlePurge(showPurgeModal.TenantId, options)} 
+                    />
+                </div>
+            )}
+
             {confirmAction && (
                 <ConfirmModal
                     title={
                         confirmAction.type === 'delete_tenant' ? "Mover Empresa para Lixeira?" :
                         confirmAction.type === 'delete_user' ? "Mover Usuário para Lixeira?" :
-                        confirmAction.type === 'purge_demo' ? "Limpar Dados de Demonstração?" :
                         "Alterar Status da Empresa?"
                     }
                     message={
                         confirmAction.type === 'delete_tenant' ? "Esta empresa será desativada e ocultada da lista principal. Todos os seus dados serão preservados na lixeira." :
                         confirmAction.type === 'delete_user' ? "O usuário perderá o acesso imediatamente, mas poderá ser restaurado depois." :
-                        confirmAction.type === 'purge_demo' ? "Isso removerá todos os tickets, conversas, contatos e usuários gerados AUTOMATICAMENTE durante o onboarding. Registros criados manualmente após o onboarding serão PRESERVADOS." :
                         `Deseja realmente ${selectedTenant.IsActive ? 'inativar' : 'reativar'} esta empresa?`
                     }
                     onConfirm={() => {
                         if (confirmAction.type === 'delete_tenant') handleDelete(confirmAction.id);
                         if (confirmAction.type === 'delete_user') handleDeleteUser(confirmAction.id);
                         if (confirmAction.type === 'status_tenant') handleSetStatus(confirmAction.id, confirmAction.extra);
-                        if (confirmAction.type === 'purge_demo') handlePurgeDemo(confirmAction.id);
                         setConfirmAction(null);
                     }}
                     onCancel={() => setConfirmAction(null)}
                     confirmLabel={
-                        confirmAction.type.startsWith('delete') ? "Mover para Lixeira" : 
-                        confirmAction.type === 'purge_demo' ? "Limpar Agora" : 
-                        "Confirmar Alteração"
+                        confirmAction.type.startsWith('delete') ? "Mover para Lixeira" : "Confirmar Alteração"
                     }
                 />
             )}
@@ -637,5 +646,170 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
     );
 }
 
-// Pequeno mock de LimitModal inline ou importado (mantivemos o import mas por seguranca se o original quebrasse no sidebar)
-// Mas o original deve funcionar se referenciado corretamente.
+interface PurgeOptionsModalProps {
+    tenant: any;
+    onClose: () => void;
+    onSubmit: (options: any) => void;
+}
+
+export function PurgeOptionsModal({ tenant, onClose, onSubmit }: PurgeOptionsModalProps) {
+    const [cutoffType, setCutoffType] = useState<"ONBOARDING" | "NONE" | "CUSTOM">("ONBOARDING");
+    const [customDate, setCustomDate] = useState("");
+    const [purgeTickets, setPurgeTickets] = useState(true);
+    const [purgeContacts, setPurgeContacts] = useState(true);
+    const [purgeUsers, setPurgeUsers] = useState(true);
+    const [purgeChannels, setPurgeChannels] = useState(true);
+
+    const onboardingDate = tenant.CreatedAt ? new Date(tenant.CreatedAt) : new Date();
+
+    const handleConfirm = () => {
+        let cutoffDate: string | null = null;
+        if (cutoffType === "ONBOARDING") {
+            cutoffDate = new Date(onboardingDate.getTime() + 60 * 1000).toISOString();
+        } else if (cutoffType === "CUSTOM") {
+            if (!customDate) {
+                alert("Por favor, selecione uma data limite.");
+                return;
+            }
+            cutoffDate = new Date(customDate).toISOString();
+        }
+        
+        onSubmit({
+            cutoffDate,
+            purgeTickets,
+            purgeContacts,
+            purgeUsers,
+            purgeChannels
+        });
+    };
+
+    return (
+        <div style={{
+            background: "var(--bg-secondary)",
+            border: "1px solid var(--border)",
+            borderRadius: 16,
+            padding: 24,
+            width: 480,
+            maxWidth: "90%",
+            display: "flex",
+            flexDirection: "column",
+            gap: 16,
+            boxShadow: "0 10px 25px rgba(0,0,0,0.3)",
+            animation: "scaleUp 0.15s ease-out"
+        }}>
+            <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 800, color: "var(--text-primary)" }}>
+                🧹 Zerar Dados Transacionais
+            </h3>
+            <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+                Limpe os dados transacionais de <strong>{tenant.Name}</strong> escolhendo o que remover e o que manter.
+            </p>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, background: "var(--bg-primary)", padding: 16, borderRadius: 12, border: "1px solid var(--border)" }}>
+                <div style={{ fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", color: "var(--text-secondary)", marginBottom: 4 }}>
+                    1. Data de Corte (Manter dados depois disso)
+                </div>
+                
+                <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: "0.85rem", cursor: "pointer" }}>
+                    <input type="radio" name="cutoffType" checked={cutoffType === "ONBOARDING"} onChange={() => setCutoffType("ONBOARDING")} style={{ marginTop: 3 }} />
+                    <div>
+                        <strong>Manter dados criados após o Onboarding</strong>
+                        <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", marginTop: 2 }}>
+                            📅 Onboarding: {onboardingDate.toLocaleString('pt-BR')} (Margem de +1 min)
+                        </div>
+                    </div>
+                </label>
+
+                <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: "0.85rem", cursor: "pointer", marginTop: 8 }}>
+                    <input type="radio" name="cutoffType" checked={cutoffType === "NONE"} onChange={() => setCutoffType("NONE")} style={{ marginTop: 3 }} />
+                    <div>
+                        <strong>Zerar tudo</strong>
+                        <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", marginTop: 2 }}>
+                            Apaga todos os dados selecionados, ignorando a data de criação.
+                        </div>
+                    </div>
+                </label>
+
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.85rem", cursor: "pointer", marginTop: 8 }}>
+                    <input type="radio" name="cutoffType" checked={cutoffType === "CUSTOM"} onChange={() => setCutoffType("CUSTOM")} />
+                    <div>
+                        <strong>Definir data de corte personalizada</strong>
+                    </div>
+                </label>
+
+                {cutoffType === "CUSTOM" && (
+                    <input
+                        type="datetime-local"
+                        value={customDate}
+                        onChange={(e) => setCustomDate(e.target.value)}
+                        style={{
+                            width: "100%",
+                            padding: "8px 12px",
+                            fontSize: "0.85rem",
+                            borderRadius: 8,
+                            border: "1px solid var(--border)",
+                            background: "var(--bg-secondary)",
+                            color: "var(--text-primary)",
+                            marginTop: 4,
+                            outline: "none"
+                        }}
+                    />
+                )}
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, background: "var(--bg-primary)", padding: 16, borderRadius: 12, border: "1px solid var(--border)" }}>
+                <div style={{ fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", color: "var(--text-secondary)", marginBottom: 4 }}>
+                    2. Selecione o que remover
+                </div>
+                
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.85rem", cursor: "pointer" }}>
+                    <input type="checkbox" checked={purgeTickets} onChange={(e) => setPurgeTickets(e.target.checked)} />
+                    Tickets, Mensagens e Conversas
+                </label>
+
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.85rem", cursor: "pointer" }}>
+                    <input type="checkbox" checked={purgeContacts} onChange={(e) => setPurgeContacts(e.target.checked)} />
+                    Contatos (Clientes e Leads)
+                </label>
+
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.85rem", cursor: "pointer" }}>
+                    <input type="checkbox" checked={purgeUsers} onChange={(e) => setPurgeUsers(e.target.checked)} />
+                    Usuários e Agentes criados (exceto Admin)
+                </label>
+
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.85rem", cursor: "pointer" }}>
+                    <input type="checkbox" checked={purgeChannels} onChange={(e) => setPurgeChannels(e.target.checked)} />
+                    Canais de Comunicação
+                </label>
+            </div>
+
+            <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", marginTop: 8 }}>
+                <button
+                    onClick={onClose}
+                    className="btn btn-ghost"
+                    style={{ padding: "10px 16px", borderRadius: 10, fontSize: "0.85rem", border: "1px solid var(--border)", height: "auto" }}
+                >
+                    Cancelar
+                </button>
+                <button
+                    onClick={handleConfirm}
+                    className="btn"
+                    style={{
+                        padding: "10px 16px",
+                        borderRadius: 10,
+                        fontSize: "0.85rem",
+                        background: "#f59e0b",
+                        border: "none",
+                        color: "#fff",
+                        cursor: "pointer",
+                        height: "auto",
+                        fontWeight: 700
+                    }}
+                    disabled={!purgeTickets && !purgeContacts && !purgeUsers && !purgeChannels}
+                >
+                    Confirmar Limpeza
+                </button>
+            </div>
+        </div>
+    );
+}
+

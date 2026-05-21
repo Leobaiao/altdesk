@@ -10,6 +10,7 @@ import { recordConversationHistory, getConversationHistory } from "../services/c
 import { sendCsatIfEnabled } from "../services/csatService.js";
 import { AuthenticatedRequest } from "../types/index.js";
 import { Response, NextFunction } from "express";
+import { logger } from "../lib/logger.js";
 
 import {
     checkConversationAccess,
@@ -100,14 +101,14 @@ router.post("/:id/reply", validateBody(z.object({ text: z.string().min(1) })), (
         const { text } = req.body;
         const user = req.user;
 
-        console.log(`[REPLY DEBUG] Starting reply to ${conversationId}`);
+        logger.debug({ conversationId }, "[Chat] Starting reply");
 
         const { allowed, tenantId } = await checkConversationAccess(user, conversationId);
         if (!allowed) {
             return res.status(403).json({ error: "Você não tem permissão para responder nesta conversa." });
         }
         
-        console.log(`[REPLY DEBUG] Access verified. Getting metadata...`);
+        logger.debug({ conversationId }, "[Chat] Access verified, getting metadata");
         const metadata = await getReplyMetadata(conversationId, tenantId);
         if (!metadata) {
             return res.status(404).json({ error: "Conversa não encontrada ou sem canal externo" });
@@ -120,19 +121,18 @@ router.post("/:id/reply", validateBody(z.object({ text: z.string().min(1) })), (
             return res.status(400).json({ error: `Provider "${metadata.connector.Provider}" não suportado` });
         }
 
-        console.log(`[REPLY DEBUG] Adapters loaded, starting adapter.sendText...`);
+        logger.debug({ conversationId }, "[Chat] Sending via adapter");
         let externalMessageId: string | undefined;
         try {
             externalMessageId = await adapter.sendText(metadata.connector, metadata.externalUserId, text);
-            console.log(`[REPLY DEBUG] adapter.sendText finished successfully. ID: ${externalMessageId}`);
+            logger.debug({ conversationId, externalMessageId }, "[Chat] adapter.sendText success");
         } catch (adapterErr) {
-            console.error(`[REPLY DEBUG] adapter.sendText threw an error:`, adapterErr);
+            logger.error({ conversationId, err: adapterErr }, "[Chat] adapter.sendText failed");
             throw adapterErr;
         }
 
-        console.log(`[REPLY DEBUG] Starting saveOutboundMessage...`);
         const messageId = await saveOutboundMessage(user.tenantId || "", conversationId, text, externalMessageId);
-        console.log(`[REPLY DEBUG] saveOutboundMessage finished successfully. Local ID: ${messageId}`);
+        logger.debug({ conversationId, messageId }, "[Chat] Outbound message saved");
 
         const io = req.app.get("io");
         if (io) {
@@ -152,11 +152,9 @@ router.post("/:id/reply", validateBody(z.object({ text: z.string().min(1) })), (
             });
         }
         
-        console.log(`[REPLY DEBUG] Response OK via socket. Sending HTTP response.`);
-
         res.json({ ok: true, conversationId });
     } catch (error) {
-        console.error(`[REPLY DEBUG] Outer catch hit:`, error);
+        logger.error({ err: error }, "[Chat] Reply failed");
         next(error);
     }
 }) as any);

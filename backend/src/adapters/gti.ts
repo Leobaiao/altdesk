@@ -1,4 +1,5 @@
 import { ChannelAdapter, NormalizedInbound, StatusUpdate } from "./types.js";
+import { logger } from "../lib/logger.js";
 
 /**
  * GTI Adapter (uazapi)
@@ -19,7 +20,7 @@ export class GtiAdapter implements ChannelAdapter {
   parseInbound(body: any, connector: any): NormalizedInbound | null {
     // Só processar eventos de mensagem
     if (body?.EventType !== "messages") {
-      console.log(`[GTI] Evento ignorado: ${body?.EventType}`);
+      logger.debug({ eventType: body?.EventType }, "[GTI] Evento ignorado");
       return null;
     }
 
@@ -55,7 +56,7 @@ export class GtiAdapter implements ChannelAdapter {
       text = msg.caption ?? msg.fileName ?? text;
     }
 
-    console.log(`[GTI] Mensagem de ${body.chat?.name ?? externalUserId}: ${type} "${text ?? '[media]'}"}`);
+    logger.debug({ sender: body.chat?.name ?? externalUserId, type, text: text ?? '[media]' }, "[GTI] Mensagem recebida");
 
     const senderName = body.chat?.name || msg.senderName || undefined;
 
@@ -97,11 +98,11 @@ export class GtiAdapter implements ChannelAdapter {
     }
 
     if (!status) {
-      console.log(`[GTI] Status update ignorado para msg ${msgId}: status="${rawStatus}"`);
+      logger.debug({ msgId, rawStatus }, "[GTI] Status update ignorado");
       return null;
     }
 
-    console.log(`[GTI] Status update: msg ${msgId} → ${status}`);
+    logger.debug({ msgId, status }, "[GTI] Status update");
 
     return {
       tenantId: connector.TenantId,
@@ -145,14 +146,14 @@ export class GtiAdapter implements ChannelAdapter {
 
       if (!response.ok) {
         const errBody = await response.text();
-        console.error(`[GTI] sendText falhou (${response.status}): ${errBody}`);
+        logger.error({ status: response.status, errBody }, "[GTI] sendText falhou");
         throw new Error(`GTI sendText() falhou: ${response.status} - ${errBody}`);
       }
 
       const respJson = await response.json();
       return respJson.messageid || respJson.id;
     } catch (err: any) {
-      console.error(`[GTI] Erro no sendText:`, err);
+      logger.error({ err }, "[GTI] Erro no sendText");
       // Repassar o erro para que a UI mostre que falhou, já que o usuário confirmou que não enviou
       throw err;
     }

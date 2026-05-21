@@ -1,4 +1,5 @@
 import { ChannelAdapter, NormalizedInbound } from "./types.js";
+import { logger } from "../lib/logger.js";
 
 /**
  * WebChat Adapter
@@ -31,12 +32,8 @@ export class WebChatAdapter implements ChannelAdapter {
     async sendText(connector: any, toExternalUserId: string, text: string, options?: { inReplyTo?: string }): Promise<string | undefined> {
         // No WebChat, a resposta é enviada via Socket.IO para o cliente conectado.
         // O backend já faz emit("message:new", ...) no index.ts.
-        // Portanto, este método pode ser "no-op" ou usar um mecanismo de push específico se o widget não estiver conectado.
-        // Para MVP, assumimos que o widget está conectado via socket na sala da conversa.
-        // Mas o 'index.ts' chama adapter.sendText().
-        // Se deixarmos vazio, o 'index.ts' ainda vai emitir o evento socket.
-        // Então, ok.
-        console.log(`[WEBCHAT] Enviando para ${toExternalUserId}: ${text}`);
+        logger.debug({ toExternalUserId }, "[WEBCHAT] Enviando mensagem");
         return undefined;
     }
 }
+
