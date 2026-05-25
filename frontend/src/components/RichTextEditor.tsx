@@ -164,6 +164,13 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
     },
   });
 
+  // Keep editor content in sync with the prop
+  React.useEffect(() => {
+    if (editor && content !== editor.getHTML()) {
+      editor.commands.setContent(content);
+    }
+  }, [content, editor]);
+
   // Estilos globais injetados para o Tiptap
   // Isso garante que tags como parágrafos e listas tenham espaçamento dentro do editor
   React.useEffect(() => {

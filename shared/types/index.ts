@@ -102,3 +102,17 @@ export interface ChannelConnector {
     IsActive: boolean;
     CreatedAt?: string;
 }
+
+export interface HelpArticle {
+    HelpArticleId: string;
+    TenantId?: string | null;
+    ContextKey: string;
+    Title: string;
+    Content: string;
+    Category?: string | null;
+    PagePath?: string | null;
+    IsActive: boolean;
+    CreatedAt?: string;
+    UpdatedAt?: string;
+}
+

@@ -97,6 +97,7 @@ export function Dashboard({ token, onBack }: { token: string; onBack: () => void
                         subtitle="Bem-vindo ao seu painel de suporte. Aqui você pode abrir novos chamados e acompanhar os existentes."
                         icon={LayoutDashboard}
                         onBack={onBack}
+                        contextKey="dashboard.index"
                     />
 
                     <div style={{ padding: "0 20px", marginBottom: 30 }}>
@@ -225,6 +226,7 @@ export function Dashboard({ token, onBack }: { token: string; onBack: () => void
                     subtitle="Visão geral da operação em tempo real"
                     icon={LayoutDashboard}
                     onBack={onBack}
+                    contextKey="dashboard.index"
                     helpText={
                         <div>
                             <p>O Painel de Controle oferece uma visão panorâmica e em tempo real de toda a sua operação de atendimento.</p>

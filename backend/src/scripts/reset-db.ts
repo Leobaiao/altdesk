@@ -101,6 +101,7 @@ async function main() {
     execSync("npx tsx src/scripts/migrate-knowledge.ts", { stdio: "inherit" });
     execSync("npx tsx src/scripts/migrate-business-hours.ts", { stdio: "inherit" });
     execSync("npx tsx src/scripts/migrate-csat.ts", { stdio: "inherit" });
+    execSync("npx tsx src/scripts/migrate-help-articles.ts", { stdio: "inherit" });
 
     console.log("✅ Database reset and seeded successfully!");
   } catch (err) {

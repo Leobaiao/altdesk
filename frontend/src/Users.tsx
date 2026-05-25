@@ -211,6 +211,7 @@ export function Users({ token, onBack, role }: Props) {
                 subtitle={isAdmin ? "Gerencie os membros da sua empresa e suas permissões." : "Conheça seus colegas de equipe."}
                 icon={UsersIcon}
                 onBack={onBack}
+                contextKey="users.management"
                 helpText={
                     <div>
                         <p>Gerencie quem tem acesso à plataforma e quais níveis de permissão cada membro possui.</p>

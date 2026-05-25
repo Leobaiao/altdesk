@@ -1389,3 +1389,18 @@ body.light-theme .success-item {
   align-items: center;
   gap: 15px;
 }
+
+/* Tiptap / Help Content Typography & Wrap Fixes */
+.tiptap, 
+.help-drawer-content, 
+.article-content-box, 
+.help-drawer-content *, 
+.article-content-box * {
+  word-break: break-word;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+.kb-view {
+  width: 100%;
+  box-sizing: border-box;
+}

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { ArrowLeft, HelpCircle, X } from "lucide-react";
 import DOMPurify from "dompurify";
+import { useHelp } from "../contexts/HelpContext";
 
 interface PageHeaderProps {
     title: string;
@@ -9,10 +10,18 @@ interface PageHeaderProps {
     onBack?: () => void;
     actionNode?: React.ReactNode;
     helpText?: React.ReactNode;
+    contextKey?: string;
 }
 
-export function PageHeader({ title, subtitle, icon: Icon, onBack, actionNode, helpText }: PageHeaderProps) {
+export function PageHeader({ title, subtitle, icon: Icon, onBack, actionNode, helpText, contextKey }: PageHeaderProps) {
     const [showHelp, setShowHelp] = useState(false);
+    
+    let helpContext: any = null;
+    try {
+        helpContext = useHelp();
+    } catch (e) {
+        // Fallback when outside HelpProvider
+    }
 
     return (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 32, flexWrap: "wrap", gap: 15, position: "relative" }}>
@@ -41,7 +50,41 @@ export function PageHeader({ title, subtitle, icon: Icon, onBack, actionNode, he
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                {helpText && (
+                {contextKey && helpContext ? (
+                    <button
+                        onClick={(e) => {
+                            if (e.nativeEvent && !e.nativeEvent.isTrusted) {
+                                console.warn("[PageHeader] Blocked automated click from script/extension");
+                                return;
+                            }
+                            helpContext.openHelp(contextKey);
+                        }}
+                        style={{ 
+                            background: "rgba(0,168,132,0.1)", 
+                            border: "1px solid rgba(0,168,132,0.2)", 
+                            padding: "8px 12px", 
+                            cursor: "pointer", 
+                            display: "flex", 
+                            alignItems: "center", 
+                            gap: 8,
+                            borderRadius: 10,
+                            opacity: 0.8, 
+                            transition: "all 0.2s" 
+                        }}
+                        onMouseEnter={e => {
+                            e.currentTarget.style.opacity = "1";
+                            e.currentTarget.style.background = "rgba(0,168,132,0.15)";
+                        }}
+                        onMouseLeave={e => {
+                            e.currentTarget.style.opacity = "0.8";
+                            e.currentTarget.style.background = "rgba(0,168,132,0.1)";
+                        }}
+                        title="Ajuda do sistema nesta tela"
+                    >
+                        <HelpCircle size={18} className="text-accent" />
+                        <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "var(--accent)" }}>AJUDA</span>
+                    </button>
+                ) : helpText ? (
                     <button
                         onClick={() => setShowHelp(true)}
                         style={{ 
@@ -79,7 +122,7 @@ export function PageHeader({ title, subtitle, icon: Icon, onBack, actionNode, he
                         <HelpCircle size={18} className="text-accent" style={{ display: 'none' }} />
                         <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "var(--accent)" }}>AJUDA</span>
                     </button>
-                )}
+                ) : null}
                 {actionNode && (
                     <div>
                         {actionNode}

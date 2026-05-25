@@ -222,7 +222,7 @@ export function Reports({ onBack }: { onBack: () => void }) {
     },
     {
       id: "sla-compliance" as ReportType,
-      label: "SLA Compliance",
+      label: "Conformidade de SLA",
       description: "Indicadores de tempo limite de resposta e resolução.",
       icon: ShieldAlert
     },
@@ -830,10 +830,11 @@ export function Reports({ onBack }: { onBack: () => void }) {
   return (
     <div className="settings-page" style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
       <PageHeader
-        title="Relatórios & Business Intelligence"
+        title="Relatórios & Indicadores"
         subtitle="Analise métricas de suporte, conformidade de SLA e performance da equipe."
         icon={BarChart3}
         onBack={onBack}
+        contextKey="reports.index"
       />
 
       <div style={{ display: "flex", flex: 1, overflow: "hidden", marginTop: 16, gap: 16 }}>

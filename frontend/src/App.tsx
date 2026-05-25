@@ -43,7 +43,11 @@ import {
   Bot,
   LogOut,
   Search,
+  HelpCircle,
 } from "lucide-react";
+import { HelpProvider, useHelp } from "./contexts/HelpContext";
+import { HelpDrawer } from "./components/HelpDrawer";
+import { HelpAdmin } from "./HelpAdmin";
 function NavIcon({ icon, label, active, onClick }: any) {
   const IconComponent = icon;
   return (
@@ -159,6 +163,7 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
   const navigate = useNavigate();
   const location = useLocation();
   const decoded = useMemo(() => parseJwt(token), [token]);
+  const { openHelp } = useHelp();
 
   const getPageTitle = (path: string) => {
     if (path.startsWith("/chat")) return "Central de Mensagens";
@@ -265,20 +270,55 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
         <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
         </div>
 
-        {/* Direita: Perfil do Usuário */}
-        <div style={{ display: "flex", alignItems: "center", cursor: "pointer" }} onClick={() => navigate("/settings")}>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", marginRight: 12 }}>
-                <span style={{ fontWeight: 700, fontSize: "0.85rem", lineHeight: 1.2 }}>{profile?.Name || "Usuário"}</span>
-                <span style={{ fontSize: "0.72rem", color: "var(--accent)", fontWeight: 600, opacity: 0.9 }}>{profile?.TenantName || "Empresa"}</span>
-            </div>
+        {/* Direita: Perfil do Usuário + Botão de Ajuda Contextual */}
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            {isChat && (
+                <button
+                    onClick={(e) => {
+                        if (e.nativeEvent && !e.nativeEvent.isTrusted) {
+                            console.warn("[App] Blocked automated click from script/extension");
+                            return;
+                        }
+                        openHelp("chat.index");
+                    }}
+                    style={{
+                        background: "rgba(0,168,132,0.1)",
+                        border: "1px solid rgba(0,168,132,0.2)",
+                        padding: "6px 12px",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        borderRadius: 10,
+                        transition: "all 0.2s"
+                    }}
+                    onMouseEnter={e => {
+                        e.currentTarget.style.background = "rgba(0,168,132,0.15)";
+                    }}
+                    onMouseLeave={e => {
+                        e.currentTarget.style.background = "rgba(0,168,132,0.1)";
+                    }}
+                    title="Ajuda desta tela"
+                >
+                    <HelpCircle size={16} className="text-accent" />
+                    <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "var(--accent)" }} className="hide-mobile">AJUDA</span>
+                </button>
+            )}
 
-           {profile?.Avatar ? (
-               <img src={profile.Avatar} alt="Profile" style={{ width: 36, height: 36, borderRadius: 10, objectFit: "cover", border: "2px solid var(--border)" }} />
-           ) : (
-               <div style={{ width: 36, height: 36, borderRadius: 10, background: "var(--accent)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: "1rem" }}>
-                   {profile?.Name ? profile.Name.charAt(0).toUpperCase() : role.charAt(0)}
-               </div>
-           )}
+            <div style={{ display: "flex", alignItems: "center", cursor: "pointer" }} onClick={() => navigate("/settings")}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", marginRight: 12 }}>
+                    <span style={{ fontWeight: 700, fontSize: "0.85rem", lineHeight: 1.2 }}>{profile?.Name || "Usuário"}</span>
+                    <span style={{ fontSize: "0.72rem", color: "var(--accent)", fontWeight: 600, opacity: 0.9 }}>{profile?.TenantName || "Empresa"}</span>
+                </div>
+
+               {profile?.Avatar ? (
+                   <img src={profile.Avatar} alt="Profile" style={{ width: 36, height: 36, borderRadius: 10, objectFit: "cover", border: "2px solid var(--border)" }} />
+               ) : (
+                   <div style={{ width: 36, height: 36, borderRadius: 10, background: "var(--accent)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: "1rem" }}>
+                       {profile?.Name ? profile.Name.charAt(0).toUpperCase() : role.charAt(0)}
+                   </div>
+               )}
+            </div>
         </div>
     </div>
   );
@@ -367,6 +407,7 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
                 <Route path="/tags" element={<TagsSettings onBack={() => navigate("/settings")} />} />
                 <Route path="/knowledge" element={<KnowledgeBase onBack={() => navigate("/settings")} />} />
                 <Route path="/business-hours" element={<BusinessHours onBack={() => navigate("/settings")} />} />
+                <Route path="/help-admin" element={<HelpAdmin onBack={() => navigate("/settings")} />} />
                 <Route path="/tickets" element={<Tickets token={token} onBack={() => navigate("/chat")} role={role || 'AGENT'} />} />
                 <Route path="/reports" element={<Reports onBack={() => navigate("/chat")} />} />
                 <Route path="/billing" element={<Billing onBack={() => navigate("/settings")} />} />
@@ -378,6 +419,7 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
           </div>
         </div>
       </div>
+      <HelpDrawer />
     </div>
   );
 }
@@ -444,7 +486,9 @@ function AppContent() {
 
   return (
     <ChatProvider token={token} onLogout={handleLogout}>
-      <MainLayout token={token} role={role || 'AGENT'} onLogout={handleLogout} />
+      <HelpProvider>
+        <MainLayout token={token} role={role || 'AGENT'} onLogout={handleLogout} />
+      </HelpProvider>
     </ChatProvider>
   );
 }

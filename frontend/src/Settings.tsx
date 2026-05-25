@@ -164,6 +164,7 @@ export function Settings({ token, onBack, role, livePermissions }: Props) {
         { label: "Calendário (Horários)", path: "/business-hours", desc: "Cronograma e expedientes", perm: "settings" },
         { label: "Respostas Rápidas", path: "/canned", desc: "Atalhos de texto", perm: "settings" },
         { label: "Base de Conhecimento", path: "/knowledge", desc: "Arquivos e links", perm: "settings" },
+        { label: "Sistema de Ajuda", path: "/help-admin", desc: "Gerenciar ajuda contextual", perm: "settings" },
         { label: "Filas de Atendimento", path: "/queues", desc: "Roteamento de chats", perm: "settings" },
         { label: "Tags", path: "/tags", desc: "Categorização", perm: "settings" },
         { label: "Faturamento", path: "/billing", desc: "Gestão de assinaturas", perm: "billing" },
@@ -181,6 +182,7 @@ export function Settings({ token, onBack, role, livePermissions }: Props) {
                 subtitle="Ajuste dados básicos da sua conta e preferências globais."
                 icon={SettingsIcon}
                 onBack={onBack}
+                contextKey="settings.index"
                 helpText={
                     <div>
                         <p>Configure as preferências do seu perfil e o comportamento global da plataforma para sua empresa.</p>

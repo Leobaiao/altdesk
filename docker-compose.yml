@@ -91,6 +91,8 @@ services:
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/37-add-contact-tracking-fields.sql;
         echo 'Executando migration 38 (reports indexes)...';
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/38-reports-indexes.sql;
+        echo 'Executando migration 39 (help articles)...';
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/39-help-articles.sql;
         echo 'Todas as migrations concluidas!';
       "
 

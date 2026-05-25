@@ -38,6 +38,8 @@ import billingRouter from "./modules/billing/billing.controller.js";
 import onboardingRouter from "./routes/onboarding.js";
 import emailChannelsRouter from "./routes/emailChannels.js";
 import { startEmailWorker, setIoInstance } from "./services/emailWorker.js";
+import helpRouter from "./routes/help.js";
+
 
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(",")
@@ -189,6 +191,7 @@ app.use("/api/dashboard", dashboardRouter);
 app.use("/api/roles", rolesRouter);
 app.use("/api/tags", tagsRouter);
 app.use("/api/knowledge", knowledgeRouter);
+app.use("/api/help", helpRouter);
 app.use("/api/business-hours", businessHoursRouter);
 app.use("/api/audit", auditRouter);
 app.use("/api/reports", reportsRouter);

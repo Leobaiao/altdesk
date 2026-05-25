@@ -184,6 +184,7 @@ export function KnowledgeBase({ onBack }: Props) {
                 title="Base de Conhecimento"
                 icon={Book}
                 onBack={onBack}
+                contextKey="knowledge.index"
                 helpText={
                     <div>
                         <p>A Base de Conhecimento é onde você armazena artigos, FAQs e guias para seu time e clientes.</p>

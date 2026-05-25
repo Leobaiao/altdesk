@@ -12,8 +12,10 @@ import {
     Ticket,
     AlertTriangle,
     Clock,
-    CheckCircle2
+    CheckCircle2,
+    HelpCircle
 } from "lucide-react";
+import { useHelp } from "./contexts/HelpContext";
 
 interface Props {
     token: string;
@@ -29,6 +31,7 @@ interface TicketStats {
 }
 
 export function Tickets({ token, onBack, role }: Props) {
+    const { openHelp } = useHelp();
     const [selectedTicket, setSelectedTicket] = useState<TicketData | null>(null);
     const [profile, setProfile] = useState<any>(null);
     const [viewMode, setViewMode] = useState<'kanban' | 'list'>(role === 'END_USER' ? 'list' : 'kanban');
@@ -235,6 +238,29 @@ export function Tickets({ token, onBack, role }: Props) {
                                 animation: isRefreshing ? 'spin 0.8s linear infinite' : 'none'
                             }}
                         />
+                    </button>
+                    
+                    <button
+                        onClick={(e) => {
+                            console.log("[Tickets] Help button clicked, isTrusted:", e.nativeEvent?.isTrusted);
+                            if (e.nativeEvent && !e.nativeEvent.isTrusted) {
+                                console.warn("[Tickets] Blocked automated click from script/extension");
+                                return;
+                            }
+                            openHelp(viewMode === 'kanban' ? "kanban.index" : "tickets.index");
+                        }}
+                        style={{
+                            width: 36, height: 36, borderRadius: 10,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            cursor: 'pointer',
+                            border: '1px solid var(--border, #e5e7eb)',
+                            background: 'rgba(0, 168, 132, 0.1)',
+                            color: 'var(--accent)',
+                            transition: 'all 0.2s ease',
+                        }}
+                        title="Ajuda desta tela"
+                    >
+                        <HelpCircle size={16} />
                     </button>
                 </div>
             </div>
