@@ -243,22 +243,12 @@ export function Reports({ onBack }: { onBack: () => void }) {
   // Fetch filter selections data on mount
   useEffect(() => {
     async function loadFiltersData() {
-      // 1. Fetch Agents (Fallback to users?agentsOnly=true if needed)
+      // 1. Fetch Agents
       try {
-        const res = await api.get("/api/agents");
-        if (Array.isArray(res.data)) {
-          setAgents(res.data);
-        } else {
-          const resUsers = await api.get("/api/users", { params: { agentsOnly: true } });
-          setAgents(resUsers.data || []);
-        }
-      } catch (e) {
-        try {
-          const resUsers = await api.get("/api/users", { params: { agentsOnly: true } });
-          setAgents(resUsers.data || []);
-        } catch (err) {
-          console.warn("Could not load agents list", err);
-        }
+        const resUsers = await api.get("/api/users", { params: { agentsOnly: true } });
+        setAgents(resUsers.data || []);
+      } catch (err) {
+        console.warn("Could not load agents list", err);
       }
 
       // 2. Fetch Queues
@@ -668,7 +658,7 @@ export function Reports({ onBack }: { onBack: () => void }) {
               <Tooltip content={<CustomTooltip />} />
               <Bar dataKey="value" name="Tickets" radius={[6, 6, 0, 0]}>
                 {chartData.map((entry: any, index: number) => {
-                  const labelUpper = entry.label.toUpperCase();
+                  const labelUpper = (entry.label || "").toUpperCase();
                   const color = STATUS_COLORS[labelUpper] || "#3b82f6";
                   return <Cell key={`cell-${index}`} fill={color} />;
                 })}
@@ -687,7 +677,7 @@ export function Reports({ onBack }: { onBack: () => void }) {
               <Tooltip content={<CustomTooltip />} />
               <Bar dataKey="value" name="Tickets" radius={[6, 6, 0, 0]}>
                 {chartData.map((entry: any, index: number) => {
-                  const labelUpper = entry.label.toUpperCase();
+                  const labelUpper = (entry.label || "").toUpperCase();
                   const color = PRIORITY_COLORS[labelUpper] || "#3b82f6";
                   return <Cell key={`cell-${index}`} fill={color} />;
                 })}
@@ -714,7 +704,7 @@ export function Reports({ onBack }: { onBack: () => void }) {
                     nameKey="label"
                   >
                     {chartData.map((entry: any, index: number) => {
-                      const labelUpper = entry.label.toUpperCase();
+                      const labelUpper = (entry.label || "").toUpperCase();
                       const color = CHANNEL_COLORS[labelUpper] || ["#3b82f6", "#10b981", "#8b5cf6", "#f59e0b", "#ec4899", "#14b8a6"][index % 6];
                       return <Cell key={`cell-${index}`} fill={color} />;
                     })}
@@ -725,12 +715,12 @@ export function Reports({ onBack }: { onBack: () => void }) {
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 150, padding: 12 }}>
               {chartData.map((entry: any, index: number) => {
-                const labelUpper = entry.label.toUpperCase();
+                const labelUpper = (entry.label || "").toUpperCase();
                 const color = CHANNEL_COLORS[labelUpper] || ["#3b82f6", "#10b981", "#8b5cf6", "#f59e0b", "#ec4899", "#14b8a6"][index % 6];
                 return (
-                  <div key={entry.label} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: "0.8rem" }}>
+                  <div key={entry.label || "Outros"} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: "0.8rem" }}>
                     <div style={{ width: 12, height: 12, borderRadius: "50%", background: color }} />
-                    <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{entry.label}:</span>
+                    <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{entry.label || "Outros"}:</span>
                     <span style={{ color: "var(--text-secondary)" }}>{entry.value}</span>
                   </div>
                 );
@@ -756,7 +746,7 @@ export function Reports({ onBack }: { onBack: () => void }) {
                     nameKey="label"
                   >
                     {chartData.map((entry: any, index: number) => {
-                      const labelUpper = entry.label.toUpperCase();
+                      const labelUpper = (entry.label || "").toUpperCase();
                       let color = "#00a884"; // ON_TIME / OK
                       if (labelUpper.includes("VIOLAT") || labelUpper.includes("BREACH")) {
                         color = "#ea4335";
@@ -774,9 +764,9 @@ export function Reports({ onBack }: { onBack: () => void }) {
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 150, padding: 12 }}>
               {chartData.map((entry: any, index: number) => {
-                const labelUpper = entry.label.toUpperCase();
+                const labelUpper = (entry.label || "").toUpperCase();
                 let color = "#00a884";
-                let labelText = entry.label;
+                let labelText = entry.label || "Outros";
                 if (labelUpper.includes("VIOLAT") || labelUpper.includes("BREACH")) {
                   color = "#ea4335";
                   labelText = "Fora do SLA";
@@ -791,7 +781,7 @@ export function Reports({ onBack }: { onBack: () => void }) {
                   labelText = "No Prazo";
                 }
                 return (
-                  <div key={entry.label} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: "0.8rem" }}>
+                  <div key={entry.label || "Outros"} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: "0.8rem" }}>
                     <div style={{ width: 12, height: 12, borderRadius: "50%", background: color }} />
                     <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{labelText}:</span>
                     <span style={{ color: "var(--text-secondary)" }}>{entry.value}</span>

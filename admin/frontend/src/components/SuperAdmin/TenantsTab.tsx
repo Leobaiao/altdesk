@@ -153,33 +153,15 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
 
     const handlePurge = async (tenantId: string, options: any = {}) => {
         try {
+            setLoading(true);
             await api.post(`/api/admin/tenants/${tenantId}/purge`, options);
             notify("Dados transacionais removidos com sucesso!", "success");
             loadTenants();
             setShowPurgeModal(null);
-        } catch (err: any) {
-            notify(err.response?.data?.error || "Erro ao limpar dados demo", "error");
-    };
-
-<<<<<<< HEAD
-    const handlePurgeDemo = async (tenantId: string) => {
-        try {
-            setLoading(true);
-            await api.post(`/api/admin/tenants/${tenantId}/purge`);
-            notify("Dados de demonstração limpos com sucesso!", "success");
-            loadTenants();
             // Recarrega o tenant selecionado para atualizar contadores
             const res = await api.get("/api/admin/tenants");
             const updated = res.data.find((t: any) => t.TenantId === tenantId);
             if (updated) setSelectedTenant(updated);
-=======
-    const handlePurge = async (tenantId: string, options: any = {}) => {
-        try {
-            await api.post(`/api/admin/tenants/${tenantId}/purge`, options);
-            notify("Dados transacionais removidos com sucesso!", "success");
-            loadTenants();
-            setShowPurgeModal(null);
->>>>>>> d721c5d516a8cae9c9907b7a6f00e50ecaebc36a
         } catch (err: any) {
             notify(err.response?.data?.error || "Erro ao limpar dados demo", "error");
         } finally {
@@ -242,8 +224,8 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
                                     }}
                                 >
                                     {s === "ALL" ? "TODAS" : s === "TRIAL" ? "TESTE" : "REAL"}
-                                    <button
-                                        onClick={() => setShowPurgeModal(selectedTenant)}
+                                </button>
+                            ))}
                         </div>
                     </div>
                     <button
@@ -351,11 +333,7 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
                                     </button>
 
                                     <button
-<<<<<<< HEAD
-                                        onClick={() => setConfirmAction({ type: 'purge_demo', id: selectedTenant.TenantId })}
-=======
                                         onClick={() => setShowPurgeModal(selectedTenant)}
->>>>>>> d721c5d516a8cae9c9907b7a6f00e50ecaebc36a
                                         className="btn btn-ghost"
                                         style={{ padding: "8px 16px", borderRadius: 10, fontSize: "0.85rem", border: "1px solid var(--border)", color: "orange" }}
                                         title="Limpar dados de onboarding (mantendo manuais)"

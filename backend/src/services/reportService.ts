@@ -472,14 +472,22 @@ export async function getConversationsReport(
   const reqKpis = pool.request();
   const convWhereKpis = buildConversationWhereClause(reqKpis, filters, tenantId, "c");
   const kpiResult = await reqKpis.query(`
+    WITH ConvMessageCounts AS (
+      SELECT
+        c.ConversationId,
+        c.Status,
+        c.CsatScore,
+        (SELECT COUNT(*) FROM altdesk.Message m WHERE m.ConversationId = c.ConversationId) AS MsgCount
+      FROM altdesk.Conversation c
+      WHERE ${convWhereKpis}
+    )
     SELECT
       COUNT(*) AS TotalConversations,
-      COUNT(CASE WHEN c.Status = 'OPEN' THEN 1 END) AS OpenConversations,
-      COUNT(CASE WHEN c.Status IN ('RESOLVED', 'CLOSED') THEN 1 END) AS ClosedConversations,
-      AVG(CAST((SELECT COUNT(*) FROM altdesk.Message m WHERE m.ConversationId = c.ConversationId) AS FLOAT)) AS AvgMessageCount,
-      AVG(CAST(c.CsatScore AS FLOAT)) AS AvgCsatScore
-    FROM altdesk.Conversation c
-    WHERE ${convWhereKpis}
+      COUNT(CASE WHEN Status = 'OPEN' THEN 1 END) AS OpenConversations,
+      COUNT(CASE WHEN Status IN ('RESOLVED', 'CLOSED') THEN 1 END) AS ClosedConversations,
+      AVG(CAST(MsgCount AS FLOAT)) AS AvgMessageCount,
+      AVG(CAST(CsatScore AS FLOAT)) AS AvgCsatScore
+    FROM ConvMessageCounts
   `);
 
   const reqChart = pool.request();

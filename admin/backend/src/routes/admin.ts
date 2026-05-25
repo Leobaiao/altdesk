@@ -299,25 +299,7 @@ router.put("/tenants/:id/status", validateBody(z.object({ isActive: z.boolean() 
 }) as any);
 
 
-router.post("/tenants/:id/purge", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    try {
-        const tenantId = req.params.id;
-        await purgeTenantDemoData(tenantId);
 
-        // Audit Log
-        const reqInfo = extractRequestInfo(req);
-        writeAuditLog({
-            ...reqInfo,
-            action: 'PURGE_TENANT_DEMO_DATA',
-            targetTable: 'Tenant',
-            targetId: tenantId
-        });
-
-        res.json({ ok: true });
-    } catch (error) {
-        next(error);
-    }
-}) as any);
 
 // --- TRASH (LIXEIRA) ---
 router.get("/trash/tenants", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
@@ -1116,6 +1098,11 @@ router.delete("/users/:id/permanent", (async (req: AuthenticatedRequest, res: Re
         }
     } catch (error) { next(error); }
 }) as any);
+
+router.post("/tenants/:id/purge", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const tenantId = req.params.id;
+        const pool = await getPool();
 
         // Verificar se o tenant existe e obter a data de criação (onboarding)
         const check = await pool.request()

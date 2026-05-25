@@ -369,7 +369,6 @@ export function Kanban({ onSelectTicket, refreshKey, onStatsUpdate }: KanbanProp
                                                 const btn = e.currentTarget.querySelector('.edit-pencil') as HTMLElement;
                                                 if (btn) btn.style.opacity = '0.8';
                                             }}
-                                            }}
                                             onMouseLeave={e => {
                                                 if (draggedId) return;
                                                 (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border, #e5e7eb)';
