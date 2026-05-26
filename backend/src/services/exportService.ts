@@ -167,10 +167,58 @@ export async function exportToXLSX(data: any[]): Promise<Buffer> {
   return buffer;
 }
 
+// Translations for cell values in PDF export
+const VALUE_TRANSLATIONS: Record<string, Record<string, string>> = {
+  Status: {
+    NEW: "Novo",
+    OPEN: "Aberto",
+    TRIAGE: "Em Triagem",
+    IN_PROGRESS: "Em Atendimento",
+    WAITING_CUSTOMER: "Aguardando Cliente",
+    WAITING_THIRD_PARTY: "Aguardando Terceiro",
+    ESCALATED: "Escalado",
+    RESOLVED: "Resolvido",
+    CLOSED: "Fechado",
+  },
+  Priority: {
+    LOW: "Baixa",
+    MEDIUM: "Média",
+    HIGH: "Alta",
+    CRITICAL: "Crítica",
+    URGENT: "Urgente",
+  },
+  SlaStatus: {
+    OK: "No Prazo",
+    ON_TIME: "No Prazo",
+    WARNING: "Atenção",
+    VIOLATED: "Fora do SLA",
+    BREACHED: "Fora do SLA",
+    PENDING: "Pendente",
+  },
+};
+
 /**
- * Exports data to PDF using pdfkit, rendering up to the first 100 rows nicely
+ * Translates a cell value to Portuguese if a translation exists
  */
-export async function exportToPDF(data: any[], reportTitle = "Relatório"): Promise<Buffer> {
+function translateCellValue(header: string, val: any): string {
+  if (val === null || val === undefined) return "";
+  if (val instanceof Date) return formatExportDate(val);
+  const str = String(val);
+  const translations = VALUE_TRANSLATIONS[header];
+  if (translations) {
+    return translations[str.toUpperCase()] || str;
+  }
+  // Detect and format dates
+  if (typeof val === "string" && val.includes("T") && !isNaN(Date.parse(val))) {
+    return formatExportDate(new Date(val));
+  }
+  return str;
+}
+
+/**
+ * Exports data to PDF using pdfkit with company branding, pagination, and Portuguese translations
+ */
+export async function exportToPDF(data: any[], reportTitle = "Relatório", companyName = ""): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     try {
       const limitRows = data.slice(0, 100);
@@ -181,10 +229,24 @@ export async function exportToPDF(data: any[], reportTitle = "Relatório"): Prom
 
       const numCols = originalHeaders.length;
       const isLandscape = numCols > 5;
+      const pageWidth = isLandscape ? 842 : 595;
+      const pageHeight = isLandscape ? 595 : 842;
+      const margin = 40;
+      const printableWidth = pageWidth - (margin * 2);
+      const colWidth = numCols > 0 ? printableWidth / numCols : printableWidth;
+      const footerY = pageHeight - 30;
+      const maxContentY = footerY - 20;
+
+      // Use company name if provided, otherwise just the report title
+      const displayName = companyName || "Relatório";
+      const titleText = companyName ? `${companyName} - ${reportTitle}` : reportTitle;
+
+      // We'll use bufferPages to add page numbers after all content is rendered
       const doc = new PDFDocument({
         size: "A4",
         layout: isLandscape ? "landscape" : "portrait",
-        margin: 40
+        margins: { top: 40, bottom: 20, left: 40, right: 40 },
+        bufferPages: true
       });
 
       const buffers: Buffer[] = [];
@@ -192,21 +254,28 @@ export async function exportToPDF(data: any[], reportTitle = "Relatório"): Prom
       doc.on("end", () => resolve(Buffer.concat(buffers)));
       doc.on("error", err => reject(err));
 
-      // Title header
-      doc.fontSize(16).font("Helvetica-Bold").text(`Altdesk - ${reportTitle}`, { align: "center" });
-      doc.fontSize(9).font("Helvetica").text(`Gerado em: ${formatExportDate(new Date())}`, { align: "center" });
+      // Title header - left-aligned
+      doc.fontSize(16).font("Helvetica-Bold").text(titleText, margin, margin, { align: "left" });
+      doc.fontSize(9).font("Helvetica").fillColor("#666666").text(`Gerado em: ${formatExportDate(new Date())}`, margin, doc.y, { align: "left" });
+      doc.fillColor("#000000");
       doc.moveDown(2);
 
       if (limitRows.length === 0) {
         doc.fontSize(12).text("Nenhum dado encontrado para exportação.", { align: "center" });
+
+        // Add footer and page numbers to all pages
+        const totalPages = doc.bufferedPageRange().count;
+        for (let i = 0; i < totalPages; i++) {
+          doc.switchToPage(i);
+          doc.fontSize(7).fillColor("#999999").font("Helvetica")
+            .text("Produzido por Altdesk", margin, footerY, { align: "left", width: printableWidth / 2 });
+          doc.fontSize(7).fillColor("#999999").font("Helvetica")
+            .text(`Página ${i + 1} de ${totalPages}`, margin + printableWidth / 2, footerY, { align: "right", width: printableWidth / 2 });
+        }
+
         doc.end();
         return;
       }
-
-      const pageWidth = isLandscape ? 842 : 595;
-      const margin = 40;
-      const printableWidth = pageWidth - (margin * 2);
-      const colWidth = printableWidth / numCols;
 
       // Draw table header helper
       const drawHeader = (y: number) => {
@@ -230,10 +299,10 @@ export async function exportToPDF(data: any[], reportTitle = "Relatório"): Prom
       let currentY = startY + 20;
 
       limitRows.forEach((row) => {
-        // Page boundary check
-        if (currentY > (isLandscape ? 500 : 750)) {
+        // Page boundary check — leave room for footer
+        if (currentY > maxContentY) {
           doc.addPage();
-          currentY = 40;
+          currentY = margin;
           drawHeader(currentY);
           currentY += 20;
           doc.font("Helvetica");
@@ -241,14 +310,7 @@ export async function exportToPDF(data: any[], reportTitle = "Relatório"): Prom
 
         originalHeaders.forEach((header, colIndex) => {
           const val = row[header];
-          let textVal = "";
-          if (val instanceof Date) {
-            textVal = formatExportDate(val);
-          } else if (val === null || val === undefined) {
-            textVal = "";
-          } else {
-            textVal = String(val);
-          }
+          const textVal = translateCellValue(header, val);
 
           doc.fontSize(8).text(
             textVal,
@@ -261,6 +323,17 @@ export async function exportToPDF(data: any[], reportTitle = "Relatório"): Prom
         doc.moveTo(margin, currentY + 12).lineTo(margin + printableWidth, currentY + 12).strokeColor("#eeeeee").stroke();
         currentY += 16;
       });
+
+      // Add footer and page numbers to ALL pages
+      const range = doc.bufferedPageRange();
+      const totalPages = range.count;
+      for (let i = 0; i < totalPages; i++) {
+        doc.switchToPage(i);
+        doc.fontSize(7).fillColor("#999999").font("Helvetica")
+          .text("Produzido por Altdesk", margin, footerY, { align: "left", width: printableWidth / 2 });
+        doc.fontSize(7).fillColor("#999999").font("Helvetica")
+          .text(`Página ${i + 1} de ${totalPages}`, margin + printableWidth / 2, footerY, { align: "right", width: printableWidth / 2 });
+      }
 
       doc.end();
     } catch (error) {

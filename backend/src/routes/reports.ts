@@ -16,6 +16,23 @@ import {
   exportToXLSX,
   exportToPDF
 } from "../services/exportService.js";
+import { getPool } from "../db.js";
+
+/**
+ * Retrieves the tenant company name for use in PDF export headers
+ */
+async function getTenantName(tenantId: string): Promise<string> {
+  try {
+    if (!tenantId) return "";
+    const pool = await getPool();
+    const result = await pool.request()
+      .input("tid", tenantId)
+      .query("SELECT Name FROM altdesk.Tenant WHERE TenantId = @tid");
+    return result.recordset[0]?.Name || "";
+  } catch {
+    return "";
+  }
+}
 
 const router = Router();
 router.use(authMw);
@@ -60,7 +77,8 @@ async function handleReportRequest(
     }
 
     if (format === "pdf") {
-      const pdf = await exportToPDF(data.details, reportTitle.replace(/_/g, " "));
+      const companyName = await getTenantName(tenantId);
+      const pdf = await exportToPDF(data.details, reportTitle.replace(/_/g, " "), companyName);
       res.setHeader("Content-Type", "application/pdf");
       res.setHeader("Content-Disposition", `attachment; filename="${reportTitle}_${Date.now()}.pdf"`);
       return res.send(pdf);
@@ -142,7 +160,8 @@ router.get("/export", (async (req: AuthenticatedRequest, res: Response, next: Ne
     }
 
     if (format === "pdf") {
-      const pdf = await exportToPDF(data.details, title.replace(/_/g, " "));
+      const companyName = await getTenantName(tenantId);
+      const pdf = await exportToPDF(data.details, title.replace(/_/g, " "), companyName);
       res.setHeader("Content-Type", "application/pdf");
       res.setHeader("Content-Disposition", `attachment; filename="${title}_${Date.now()}.pdf"`);
       return res.send(pdf);

@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
+import html2canvas from "html2canvas";
+import { jsPDF } from "jspdf";
 import { api } from "./lib/api";
 import { useNavigate } from "react-router-dom";
 import { PageHeader } from "./components/PageHeader";
@@ -194,6 +196,10 @@ export function Reports({ onBack }: { onBack: () => void }) {
   const [page, setPage] = useState(1);
   const limit = 10;
   const [exportLoading, setExportLoading] = useState<"csv" | "xlsx" | "pdf" | null>(null);
+  const [chartExporting, setChartExporting] = useState(false);
+  const chartRef = useRef<HTMLDivElement>(null);
+  const chartImgRef = useRef<HTMLDivElement>(null);
+  const [profile, setProfile] = useState<any>(null);
 
   const REPORTS_SIDEBAR = useMemo(() => [
     {
@@ -305,6 +311,13 @@ export function Reports({ onBack }: { onBack: () => void }) {
     loadFiltersData();
   }, []);
 
+  // Fetch user profile on mount to get the Tenant/Company name
+  useEffect(() => {
+    api.get("/api/profile")
+      .then(res => setProfile(res.data))
+      .catch(err => console.warn("Could not load user profile in reports", err));
+  }, []);
+
   // Fetch report data function
   const loadReport = async (pageNumber: number = 1) => {
     setLoading(true);
@@ -410,6 +423,97 @@ export function Reports({ onBack }: { onBack: () => void }) {
       alert("Falha ao exportar o arquivo. Verifique se o backend está ativo.");
     } finally {
       setExportLoading(null);
+    }
+  };
+
+  // Export chart to PDF
+  const handleExportChartPDF = async () => {
+    if (!chartImgRef.current) return;
+    setChartExporting(true);
+    try {
+      const canvas = await html2canvas(chartImgRef.current, {
+        backgroundColor: null,
+        scale: 2,
+        useCORS: true,
+      });
+      const imgData = canvas.toDataURL("image/png");
+      const reportLabel = REPORTS_SIDEBAR.find(r => r.id === report)?.label || report;
+      const companyName = profile?.TenantName || "Relatório";
+
+      // A4 Landscape standard dimensions in points (pt): 841.89 x 595.28 (A4 Landscape)
+      const pdf = new jsPDF({
+        orientation: "landscape",
+        unit: "pt",
+        format: "a4"
+      });
+
+      const pageWidth = 841.89;
+      const pageHeight = 595.28;
+      const margin = 40;
+
+      // 1. Draw elegant dark slate header band
+      pdf.setFillColor(30, 41, 59); // #1e293b
+      pdf.rect(0, 0, pageWidth, 80, "F");
+
+      // 2. Draw Altdesk accent green bar under header
+      pdf.setFillColor(0, 168, 132); // #00a884
+      pdf.rect(0, 80, pageWidth, 4, "F");
+
+      // 3. Header Text
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(20);
+      pdf.setTextColor(255, 255, 255);
+      pdf.text(`${companyName} - ${reportLabel}`, margin, 42);
+
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(10);
+      pdf.setTextColor(148, 163, 184); // #94a3b8
+      pdf.text(`Resumo Gráfico • Gerado em: ${new Date().toLocaleString("pt-BR")}`, margin, 62);
+
+      // 4. Calculate best size and center position for standard A4 Landscape print area
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+      const maxWidth = 700;
+      const maxHeight = 340;
+      let width = maxWidth;
+      let height = (imgHeight * maxWidth) / imgWidth;
+
+      if (height > maxHeight) {
+        height = maxHeight;
+        width = (imgWidth * maxHeight) / imgHeight;
+      }
+
+      const xPos = (pageWidth - width) / 2;
+      const yPos = 84 + (pageHeight - 84 - 60 - height) / 2;
+
+      // 5. Draw container card with rounded corners and border
+      pdf.setDrawColor(226, 232, 240); // slate-200
+      pdf.setLineWidth(1);
+      pdf.setFillColor(255, 255, 255);
+      pdf.roundedRect(xPos - 20, yPos - 20, width + 40, height + 40, 12, 12, "FD");
+
+      // 6. Draw captured chart image
+      pdf.addImage(imgData, "PNG", xPos, yPos, width, height);
+
+      // 7. Draw footer separator line and page numbers
+      pdf.setDrawColor(241, 245, 249); // slate-100
+      pdf.setLineWidth(1);
+      pdf.line(margin, pageHeight - 50, pageWidth - margin, pageHeight - 50);
+
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(8);
+      pdf.setTextColor(148, 163, 184); // #94a3b8
+      pdf.text("Produzido por Altdesk", margin, pageHeight - 32);
+      pdf.text("Página 1 de 1", pageWidth - margin - 50, pageHeight - 32);
+
+      const dateStr = new Date().toISOString().split("T")[0];
+      const safeName = String(reportLabel).replace(/[^a-zA-Z0-9_\u00C0-\u00FF -]/g, "").replace(/\s+/g, "_");
+      pdf.save(`${safeName}_Grafico_${dateStr}.pdf`);
+    } catch (err) {
+      console.error("Erro ao exportar gráfico:", err);
+      alert("Falha ao exportar o gráfico como PDF.");
+    } finally {
+      setChartExporting(false);
     }
   };
 
@@ -1271,16 +1375,36 @@ export function Reports({ onBack }: { onBack: () => void }) {
               )}
 
               {/* Chart Container */}
-              <div style={{
+              <div ref={chartRef} style={{
                 background: "var(--bg-secondary)",
                 borderRadius: 16,
                 border: "1px solid var(--border)",
                 padding: "20px 24px"
               }}>
-                <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--text-primary)", borderBottom: "1px solid var(--border)", paddingBottom: 8, display: "block", marginBottom: 16 }}>
-                  Resumo Gráfico
-                </span>
-                {renderChart()}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border)", paddingBottom: 8, marginBottom: 16 }}>
+                  <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--text-primary)" }}>
+                    Resumo Gráfico
+                  </span>
+                  {result && result.chartData && result.chartData.length > 0 && (
+                    <button
+                      onClick={handleExportChartPDF}
+                      disabled={chartExporting}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 6, padding: "6px 12px",
+                        background: "var(--bg-primary)", border: "1px solid var(--border)",
+                        borderRadius: 6, fontSize: "0.75rem", fontWeight: 700,
+                        color: "var(--text-secondary)", cursor: "pointer", transition: "all 0.2s"
+                      }}
+                      title="Exportar gráfico como PDF"
+                    >
+                      <FileDown size={13} style={{ color: "#ea4335" }} />
+                      {chartExporting ? "Exportando..." : "Exportar Gráfico PDF"}
+                    </button>
+                  )}
+                </div>
+                <div ref={chartImgRef} style={{ width: "100%", background: "var(--bg-secondary)" }}>
+                  {renderChart()}
+                </div>
               </div>
 
               {/* Detailed Table */}
