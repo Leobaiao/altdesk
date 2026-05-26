@@ -7,7 +7,8 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/backend/src/index.js",
     "db:reset": "node dist/backend/src/scripts/reset-db.js",
-    "db:seed": "node dist/backend/src/scripts/seed-channels.js"
+    "db:seed": "node dist/backend/src/scripts/seed-channels.js",
+    "db:migrate-help": "node dist/backend/src/scripts/migrate-help-articles.js"
   },
   "dependencies": {
     "@types/pdfkit": "^0.17.6",
