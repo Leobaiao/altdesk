@@ -210,11 +210,15 @@ router.get("/kanban", (async (req: AuthenticatedRequest, res: Response, next: Ne
 }) as any);
 
 // Update Status
-router.patch("/:id/status", validateBody(z.object({ status: z.string(), kanbanOrder: z.number().optional() })), (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+router.patch("/:id/status", validateBody(z.object({ 
+    status: z.string(), 
+    kanbanOrder: z.number().optional(),
+    resolution: z.string().optional()
+})), (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const tenantId = req.user.tenantId;
         const ticketId = req.params.id; // Could be TicketId or ConversationId
-        const { status, kanbanOrder } = req.body;
+        const { status, kanbanOrder, resolution } = req.body;
         
         const pool = await getPool();
         
@@ -256,6 +260,15 @@ router.patch("/:id/status", validateBody(z.object({ status: z.string(), kanbanOr
             resolvedAt = new Date();
         }
 
+        let resolutionVal = oldTicket?.ResolutionDescription ?? null;
+        if (status === 'RESOLVED') {
+            if (resolution !== undefined) {
+                resolutionVal = resolution;
+            }
+        } else {
+            resolutionVal = null; // Clear resolution if ticket is reopened/status is changed away from RESOLVED
+        }
+ 
         // Use MERGE to update or insert the ticket
         await pool.request()
             .input("tenantId", tenantId)
@@ -268,6 +281,7 @@ router.patch("/:id/status", validateBody(z.object({ status: z.string(), kanbanOr
             .input("slaFirstResponseDue", slaFirstResponseDue)
             .input("slaResolutionDue", slaResolutionDue)
             .input("resolvedAt", resolvedAt)
+            .input("resolution", resolutionVal)
             .query(`
                 MERGE altdesk.Ticket AS target
                 USING (SELECT @ticketId AS Id) AS source
@@ -282,10 +296,24 @@ router.patch("/:id/status", validateBody(z.object({ status: z.string(), kanbanOr
                         SLAFirstResponseDue = @slaFirstResponseDue,
                         SLAResolutionDue = @slaResolutionDue,
                         ResolvedAt = @resolvedAt,
+                        ResolutionDescription = @resolution,
                         UpdatedAt = SYSUTCDATETIME()
                 WHEN NOT MATCHED THEN
-                    INSERT (TicketId, TenantId, ConversationId, Priority, Status, EscalationLevel, SlaStatus, SlaPaused, SlaPauseDurationMinutes, KanbanOrder, CreatedAt, UpdatedAt)
-                    VALUES (NEWID(), @tenantId, @ticketId, 'MEDIUM', @status, 0, 'ON_TIME', @slaPaused, @slaPauseDurationMinutes, @kanbanOrder, SYSUTCDATETIME(), SYSUTCDATETIME());
+                    INSERT (TicketId, TenantId, ConversationId, Priority, Status, EscalationLevel, SlaStatus, SlaPaused, SlaPauseDurationMinutes, KanbanOrder, ResolutionDescription, CreatedAt, UpdatedAt)
+                    VALUES (NEWID(), @tenantId, @ticketId, 'MEDIUM', @status, 0, 'ON_TIME', @slaPaused, @slaPauseDurationMinutes, @kanbanOrder, @resolution, SYSUTCDATETIME(), SYSUTCDATETIME());
+            `);
+
+        // Keep associated Conversation status in sync!
+        const conversationId = oldTicket?.ConversationId || ticketId;
+        await pool.request()
+            .input("tenantId", tenantId)
+            .input("conversationId", conversationId)
+            .input("status", status)
+            .query(`
+                UPDATE altdesk.Conversation
+                SET Status = @status,
+                    ClosedAt = CASE WHEN @status = 'RESOLVED' THEN SYSUTCDATETIME() ELSE NULL END
+                WHERE TenantId = @tenantId AND ConversationId = @conversationId
             `);
             
         if (oldTicket) {
@@ -331,6 +359,16 @@ router.patch("/:id/assign", validateBody(z.object({ userId: z.string().nullable(
         // Resolve UserId -> AgentId (FK references Agent table)
         let agentId: string | null = null;
         if (userId) {
+            const userCheck = await pool.request()
+                .input("userId", userId)
+                .query(`SELECT Role FROM altdesk.[User] WHERE UserId = @userId`);
+            if (userCheck.recordset.length === 0) {
+                return res.status(404).json({ error: "User not found" });
+            }
+            if (userCheck.recordset[0].Role === 'END_USER') {
+                return res.status(400).json({ error: "Colaboradores não fazem parte do corpo técnico e não podem ser atribuídos a tickets." });
+            }
+
             const agentResult = await pool.request()
                 .input("userId", userId)
                 .query(`SELECT AgentId FROM altdesk.Agent WHERE UserId = @userId`);

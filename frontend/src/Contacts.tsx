@@ -97,6 +97,7 @@ export function Contacts({ onBack, onStartChat }: { onBack: () => void, onStartC
                 title={view === "LIST" ? "Contatos" : editing.ContactId ? "Editar Contato" : "Novo Contato"}
                 icon={ContactsIcon}
                 onBack={view === "LIST" ? onBack : () => setView("LIST")}
+                contextKey="contacts.index"
                 helpText={
                     <div>
                         <p>Esta tela permite o gerenciamento centralizado de seus contatos e clientes.</p>

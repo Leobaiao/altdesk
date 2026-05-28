@@ -299,16 +299,19 @@ router.post("/:id/reply", validateBody(z.object({ text: z.string().min(1) })), (
     }
 }) as any);
 
-router.post("/:id/status", validateBody(z.object({ status: z.enum(["OPEN", "RESOLVED", "PENDING"]) })), (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+router.post("/:id/status", validateBody(z.object({ 
+    status: z.enum(["OPEN", "RESOLVED", "PENDING"]),
+    resolution: z.string().optional()
+})), (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const user = req.user;
-        const { status } = req.body;
+        const { status, resolution } = req.body;
         const conversationId = req.params.id;
 
         const { allowed, tenantId } = await checkConversationAccess(user, conversationId);
         if (!allowed) return res.status(403).json({ error: "Access denied" });
 
-        await updateConversationStatus(conversationId, tenantId, status);
+        await updateConversationStatus(conversationId, tenantId, status, resolution);
 
         // Registrar no histórico de interações
         const action = status === 'RESOLVED' ? 'CLOSED' : 'STATUS_CHANGED';
@@ -317,7 +320,7 @@ router.post("/:id/status", validateBody(z.object({ status: z.enum(["OPEN", "RESO
             conversationId,
             action,
             actorUserId: user.userId,
-            metadata: { newStatus: status }
+            metadata: { newStatus: status, resolution }
         });
 
         // Audit log
@@ -532,16 +535,37 @@ router.get("/:id/ticket", (async (req: AuthenticatedRequest, res: Response, next
     }
 }) as any);
 
-router.post("/:id/ticket", validateBody(z.object({ priority: z.string() })), (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+router.post("/:id/ticket", validateBody(z.object({ priority: z.string(), title: z.string().optional() })), (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const user = req.user;
         const conversationId = req.params.id;
-        const { priority } = req.body;
+        const { priority, title } = req.body;
         const { allowed, tenantId } = await checkConversationAccess(user, conversationId);
         if (!allowed) return res.status(403).json({ error: "Access denied" });
+
+        const pool = await getPool();
+        if (title && title.trim()) {
+            await pool.request()
+                .input("tenantId", tenantId)
+                .input("conversationId", conversationId)
+                .input("title", title.trim())
+                .query(`UPDATE altdesk.Conversation SET Title = @title WHERE ConversationId = @conversationId AND TenantId = @tenantId`);
+        }
         
         const { createTicketForConversation } = await import("../services/ticketService.js");
         const ticket = await createTicketForConversation(tenantId!, conversationId, priority, user.userId);
+
+        if (title && title.trim()) {
+            const io = req.app.get("io");
+            if (io) {
+                emitConversationEvent(io, tenantId!, conversationId, "conversation:updated", {
+                    conversationId,
+                    Title: title.trim(),
+                    timestamp: new Date().toISOString()
+                });
+            }
+        }
+
         res.json(ticket);
     } catch (error) {
         next(error);

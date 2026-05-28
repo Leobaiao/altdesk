@@ -285,20 +285,21 @@ export function Kanban({ onSelectTicket, refreshKey, onStatsUpdate }: KanbanProp
                                                 }}>
                                                     {column.title}
                                                 </h2>
-                                                <Edit3
-                                                    size={12}
-                                                    className="col-edit-pencil"
-                                                    style={{ 
-                                                        opacity: 0, cursor: 'pointer',
-                                                        color: '#6366f1', transition: 'all 0.2s'
-                                                    }}
-                                                    onClick={e => {
-                                                        e.stopPropagation();
-                                                        setEditingColKey(column.key);
-                                                        setEditingColTitle(column.title);
-                                                    }}
-                                                    title="Editar título da coluna"
-                                                />
+                                                <span title="Editar título da coluna" style={{ display: 'inline-flex' }}>
+                                                    <Edit3
+                                                        size={12}
+                                                        className="col-edit-pencil"
+                                                        style={{ 
+                                                            opacity: 0, cursor: 'pointer',
+                                                            color: '#6366f1', transition: 'all 0.2s'
+                                                        }}
+                                                        onClick={e => {
+                                                            e.stopPropagation();
+                                                            setEditingColKey(column.key);
+                                                            setEditingColTitle(column.title);
+                                                        }}
+                                                    />
+                                                </span>
                                             </div>
                                         )}
                                         <span style={{
@@ -430,21 +431,21 @@ export function Kanban({ onSelectTicket, refreshKey, onStatsUpdate }: KanbanProp
                                                         >
                                                             {ticket.title || ticket.requester?.name || 'Sem título'}
                                                         </div>
-                                                        <Edit3
-                                                            size={13}
-                                                            className="edit-pencil"
-                                                            style={{ 
-                                                                flexShrink: 0, marginTop: 2, 
-                                                                opacity: 0.2, cursor: 'pointer',
-                                                                color: '#6366f1', transition: 'all 0.2s'
-                                                            }}
-                                                            onClick={e => {
-                                                                e.stopPropagation();
-                                                                setEditingId(ticket.id);
-                                                                setEditingTitle(ticket.title || '');
-                                                            }}
-                                                            title="Editar título"
-                                                        />
+                                                        <span title="Editar título" style={{ display: 'inline-flex', flexShrink: 0, marginTop: 2 }}>
+                                                            <Edit3
+                                                                size={13}
+                                                                className="edit-pencil"
+                                                                style={{ 
+                                                                    opacity: 0.2, cursor: 'pointer',
+                                                                    color: '#6366f1', transition: 'all 0.2s'
+                                                                }}
+                                                                onClick={e => {
+                                                                    e.stopPropagation();
+                                                                    setEditingId(ticket.id);
+                                                                    setEditingTitle(ticket.title || '');
+                                                                }}
+                                                            />
+                                                        </span>
                                                     </div>
                                                 )}
                                             </div>

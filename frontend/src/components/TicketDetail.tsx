@@ -17,7 +17,9 @@ import {
     RotateCcw,
     ShieldAlert,
     Timer,
-    Phone
+    Phone,
+    Loader2,
+    History
 } from "lucide-react";
 import { api } from "../lib/api";
 import type { TicketData } from "./TicketList";
@@ -83,9 +85,10 @@ interface TicketDetailProps {
     profile: any;
     role: string;
     onTicketUpdate: () => void;
+    onSelectTicket?: (ticket: TicketData) => void;
 }
 
-export function TicketDetail({ ticket, onBack, profile, role, onTicketUpdate }: TicketDetailProps) {
+export function TicketDetail({ ticket, onBack, profile, role, onTicketUpdate, onSelectTicket }: TicketDetailProps) {
     const { showToast, setSelectedConversationId } = useChat();
     const [history, setHistory] = useState<HistoryEntry[]>([]);
     const [loading, setLoading] = useState(true);
@@ -104,6 +107,31 @@ export function TicketDetail({ ticket, onBack, profile, role, onTicketUpdate }: 
     const [showSaveToKB, setShowSaveToKB] = useState(false);
     const [kbForm, setKbForm] = useState({ title: "", content: "", category: "Resolvidos" });
     const [activeTab, setActiveTab] = useState<"CHAT" | "TIMELINE">("CHAT");
+    const [showHistoryDrawer, setShowHistoryDrawer] = useState(false);
+    const [historyTickets, setHistoryTickets] = useState<TicketData[]>([]);
+    const [loadingHistoryTickets, setLoadingHistoryTickets] = useState(false);
+    const [resolutionDescription, setResolutionDescription] = useState("");
+
+    async function loadContactTicketsHistory() {
+        setLoadingHistoryTickets(true);
+        try {
+            const res = await api.get<TicketData[]>("/api/conversations");
+            const allTickets = Array.isArray(res.data) ? res.data : [];
+            const filtered = allTickets.filter(t => 
+                t.ConversationId !== ticket.ConversationId && (
+                    (ticket.ExternalUserId && t.ExternalUserId === ticket.ExternalUserId) ||
+                    (ticket.ContactPhone && t.ContactPhone === ticket.ContactPhone) ||
+                    (ticket.ContactCPF && ticket.ContactCPF !== "—" && t.ContactCPF === ticket.ContactCPF) ||
+                    (ticket.RequesterUserId && t.RequesterUserId === ticket.RequesterUserId)
+                )
+            );
+            setHistoryTickets(filtered);
+        } catch (e) {
+            console.error("Error loading contact ticket history:", e);
+        } finally {
+            setLoadingHistoryTickets(false);
+        }
+    }
 
     useEffect(() => {
         if (ticket.ConversationId) {
@@ -151,9 +179,14 @@ export function TicketDetail({ ticket, onBack, profile, role, onTicketUpdate }: 
     const hasLogAccess = profile?.HasLogAccess || profile?.Role === "ADMIN" || profile?.Role === "SUPERADMIN";
 
     async function handleClose() {
+        if (!resolutionDescription.trim()) return;
         setActionLoading(true);
         try {
-            await api.post(`/api/conversations/${ticket.ConversationId}/status`, { status: "RESOLVED" });
+            await api.post(`/api/conversations/${ticket.ConversationId}/status`, { 
+                status: "RESOLVED",
+                resolution: resolutionDescription
+            });
+            setResolutionDescription("");
             onTicketUpdate();
             loadHistory();
         } catch (e: any) {
@@ -208,7 +241,7 @@ export function TicketDetail({ ticket, onBack, profile, role, onTicketUpdate }: 
 
     async function openEscalateModal() {
         try {
-            const res = await api.get<UserOption[]>("/api/users");
+            const res = await api.get<UserOption[]>("/api/users?agentsOnly=true");
             setUsers(Array.isArray(res.data) ? res.data : []);
         } catch (e) {
             console.error(e);
@@ -283,7 +316,7 @@ export function TicketDetail({ ticket, onBack, profile, role, onTicketUpdate }: 
                             </div>
                         </div>
                     </div>
-                    <div style={{ display: "flex", background: "var(--bg-primary)", padding: 4, borderRadius: 10, gap: 4 }}>
+                    <div style={{ display: "flex", background: "var(--bg-primary)", padding: 4, borderRadius: 10, gap: 4, alignItems: "center" }}>
                         <button 
                             onClick={() => setActiveTab("CHAT")}
                             style={{ padding: "6px 14px", borderRadius: 8, border: "none", fontSize: "0.8rem", fontWeight: 700, cursor: "pointer", background: activeTab === "CHAT" ? "var(--bg-secondary)" : "transparent", color: activeTab === "CHAT" ? "var(--accent)" : "var(--text-secondary)", boxShadow: activeTab === "CHAT" ? "0 2px 6px rgba(0,0,0,0.05)" : "none" }}
@@ -295,6 +328,29 @@ export function TicketDetail({ ticket, onBack, profile, role, onTicketUpdate }: 
                             style={{ padding: "6px 14px", borderRadius: 8, border: "none", fontSize: "0.8rem", fontWeight: 700, cursor: "pointer", background: activeTab === "TIMELINE" ? "var(--bg-secondary)" : "transparent", color: activeTab === "TIMELINE" ? "var(--accent)" : "var(--text-secondary)", boxShadow: activeTab === "TIMELINE" ? "0 2px 6px rgba(0,0,0,0.05)" : "none" }}
                         >
                             Linha do Tempo
+                        </button>
+                        <button 
+                            onClick={() => {
+                                loadContactTicketsHistory();
+                                setShowHistoryDrawer(true);
+                            }}
+                            style={{ 
+                                background: "none", 
+                                border: "none", 
+                                display: "flex", 
+                                alignItems: "center", 
+                                justifyContent: "center", 
+                                cursor: "pointer", 
+                                color: "var(--text-secondary)", 
+                                padding: "4px 8px",
+                                borderRadius: 6,
+                                transition: "background-color 0.2s"
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.backgroundColor = "var(--bg-secondary)"}
+                            onMouseLeave={e => e.currentTarget.style.backgroundColor = "transparent"}
+                            title="Histórico de Chamados do Cliente"
+                        >
+                            <History size={16} />
                         </button>
                     </div>
                 </div>
@@ -338,6 +394,20 @@ export function TicketDetail({ ticket, onBack, profile, role, onTicketUpdate }: 
                                                         whiteSpace: "pre-wrap"
                                                     }}>
                                                         {meta.text || meta.body}
+                                                    </div>
+                                                )}
+                                                {h.Action === 'CLOSED' && meta.resolution && (
+                                                    <div style={{ 
+                                                        marginTop: 10, 
+                                                        padding: "10px 14px", 
+                                                        background: "rgba(0, 168, 132, 0.05)", 
+                                                        borderRadius: 8, 
+                                                        fontSize: "0.85rem",
+                                                        color: "var(--text-primary)",
+                                                        borderLeft: "3px solid #00a884",
+                                                        whiteSpace: "pre-wrap"
+                                                    }}>
+                                                        <strong>Resolução:</strong> {meta.resolution}
                                                     </div>
                                                 )}
                                             </div>
@@ -482,6 +552,15 @@ export function TicketDetail({ ticket, onBack, profile, role, onTicketUpdate }: 
                         </div>
                     </div>
 
+                    {ticket.Status === 'RESOLVED' && ticket.ResolutionDescription && (
+                        <div style={{ marginBottom: 24, padding: 16, background: "rgba(0,168,132,0.05)", borderRadius: 12, border: "1px solid rgba(0,168,132,0.2)" }}>
+                            <h3 style={{ margin: "0 0 8px", fontSize: "0.75rem", fontWeight: 800, color: "#00a884", textTransform: "uppercase" }}>Resolução</h3>
+                            <div style={{ fontSize: "0.85rem", color: "var(--text-primary)", whiteSpace: "pre-wrap" }}>
+                                {ticket.ResolutionDescription}
+                            </div>
+                        </div>
+                    )}
+
                     {/* Metadata List */}
                     <div style={{ marginBottom: 24 }}>
                         <h3 style={{ margin: "0 0 12px", fontSize: "0.75rem", fontWeight: 800, color: "var(--text-secondary)", textTransform: "uppercase" }}>Atribuição</h3>
@@ -574,14 +653,56 @@ export function TicketDetail({ ticket, onBack, profile, role, onTicketUpdate }: 
             )}
 
             {showCloseConfirm && (
-                <ConfirmModal 
-                    title="Fechar Chamado"
-                    description="Deseja realmente marcar este chamado como resolvido? O cliente será notificado."
-                    confirmLabel="Sim, Fechar"
-                    onConfirm={handleClose}
-                    onCancel={() => setShowCloseConfirm(false)}
-                    loading={actionLoading}
-                />
+                <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
+                    <div style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", width: "100%", maxWidth: 450, padding: 28, borderRadius: 16, boxShadow: "0 20px 40px rgba(0,0,0,0.4)" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                            <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700 }}>Resolver Chamado</h3>
+                            <button onClick={() => setShowCloseConfirm(false)} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer" }}><X size={20} /></button>
+                        </div>
+                        <p style={{ fontSize: "0.88rem", color: "var(--text-secondary)", marginBottom: 16 }}>
+                            Deseja realmente marcar este chamado como resolvido? Por favor, descreva como o problema foi resolvido.
+                        </p>
+                        <div style={{ marginBottom: 20 }}>
+                            <label style={{ display: "block", marginBottom: 8, fontSize: "0.82rem", fontWeight: 600 }}>Descrição da Resolução</label>
+                            <textarea
+                                value={resolutionDescription}
+                                onChange={e => setResolutionDescription(e.target.value)}
+                                placeholder="Descreva como o problema foi resolvido..."
+                                rows={4}
+                                style={{
+                                    width: "100%",
+                                    padding: 12,
+                                    borderRadius: 10,
+                                    border: "1px solid var(--border)",
+                                    background: "var(--bg-primary)",
+                                    color: "var(--text-primary)",
+                                    fontSize: "0.88rem",
+                                    outline: "none",
+                                    resize: "none",
+                                    boxSizing: "border-box"
+                                }}
+                            />
+                        </div>
+                        <div style={{ display: "flex", gap: 12 }}>
+                            <button
+                                onClick={() => { setShowCloseConfirm(false); setResolutionDescription(""); }}
+                                className="btn btn-ghost"
+                                style={{ flex: 1, padding: "10px 16px", borderRadius: 10, border: "1px solid var(--border)", cursor: "pointer" }}
+                                disabled={actionLoading}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handleClose}
+                                className="btn btn-primary"
+                                style={{ flex: 1, padding: "10px 16px", borderRadius: 10, background: "var(--accent)", color: "#fff", border: "none", cursor: "pointer", fontWeight: 700 }}
+                                disabled={!resolutionDescription.trim() || actionLoading}
+                            >
+                                {actionLoading ? "Resolvendo..." : "Confirmar Resolução"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
 
             {showKBModal && (
@@ -621,6 +742,139 @@ export function TicketDetail({ ticket, onBack, profile, role, onTicketUpdate }: 
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Customer History Sliding Drawer */}
+            {showHistoryDrawer && (
+                <>
+                    {/* Backdrop */}
+                    <div
+                        onClick={() => setShowHistoryDrawer(false)}
+                        style={{
+                            position: "fixed",
+                            inset: 0,
+                            background: "rgba(0,0,0,0.5)",
+                            backdropFilter: "blur(4px)",
+                            zIndex: 9998
+                        }}
+                    />
+
+                    {/* Drawer Content */}
+                    <aside
+                        style={{
+                            position: "fixed",
+                            top: 0,
+                            right: 0,
+                            height: "100%",
+                            width: "min(400px, 100vw)",
+                            zIndex: 9999,
+                            display: "flex",
+                            flexDirection: "column",
+                            background: "var(--bg-secondary)",
+                            color: "var(--text-primary)",
+                            borderLeft: "1px solid var(--border)",
+                            boxShadow: "-8px 0 40px rgba(0, 0, 0, 0.3)",
+                            transform: "translateX(0)",
+                            transition: "transform 0.35s cubic-bezier(0.32, 0.72, 0, 1)"
+                        }}
+                    >
+                        {/* Header */}
+                        <div style={{
+                            padding: "20px 24px",
+                            borderBottom: "1px solid var(--border)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            background: "var(--bg-primary)",
+                            flexShrink: 0
+                        }}>
+                            <div>
+                                <h3 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 700 }}>Histórico do Cliente</h3>
+                                <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
+                                    {ticket.ContactName || "Cliente"}
+                                </span>
+                            </div>
+                            <button
+                                onClick={() => setShowHistoryDrawer(false)}
+                                style={{
+                                    background: "none",
+                                    border: "none",
+                                    color: "var(--text-secondary)",
+                                    cursor: "pointer",
+                                    padding: 4,
+                                    borderRadius: "50%",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    transition: "background-color 0.2s"
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.backgroundColor = "var(--bg-primary)"}
+                                onMouseLeave={e => e.currentTarget.style.backgroundColor = "transparent"}
+                                title="Fechar histórico"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        {/* List Area */}
+                        <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px" }}>
+                            {loadingHistoryTickets && (
+                                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 40, gap: 12 }}>
+                                    <Loader2 size={24} style={{ animation: "spin 1s linear infinite", color: "var(--accent)" }} />
+                                    <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>Buscando histórico...</span>
+                                </div>
+                            )}
+                            {!loadingHistoryTickets && historyTickets.length === 0 && (
+                                <div style={{ textAlign: "center", padding: 30, color: "var(--text-secondary)", fontSize: "0.85rem" }}>
+                                    Nenhum outro chamado encontrado para este cliente.
+                                </div>
+                            )}
+                            {!loadingHistoryTickets && historyTickets.map(t => (
+                                <div
+                                    key={t.ConversationId}
+                                    onClick={() => {
+                                        if (onSelectTicket) {
+                                            onSelectTicket(t);
+                                        }
+                                        setShowHistoryDrawer(false);
+                                    }}
+                                    style={{
+                                        padding: 14,
+                                        borderRadius: 10,
+                                        border: "1px solid var(--border)",
+                                        marginBottom: 12,
+                                        cursor: "pointer",
+                                        background: "var(--bg-secondary)",
+                                        transition: "all 0.15s ease"
+                                    }}
+                                    className="table-row-hover"
+                                >
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                                        <span style={{ fontWeight: 600, fontSize: "0.85rem", color: "var(--text-primary)" }}>
+                                            {t.Title || "Sem assunto"}
+                                        </span>
+                                        <span style={{
+                                            padding: "2px 8px", borderRadius: 6, fontSize: "0.65rem", fontWeight: 700,
+                                            background: t.Status === 'RESOLVED' ? "rgba(134,150,160,0.12)" : "rgba(0,168,132,0.12)",
+                                            color: t.Status === 'RESOLVED' ? "#8696a0" : "#00a884"
+                                        }}>
+                                            {t.Status === 'RESOLVED' ? 'Fechado' : 'Aberto'}
+                                        </span>
+                                    </div>
+                                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, fontSize: "0.72rem", color: "var(--text-secondary)" }}>
+                                        <span>#{t.id?.substring(0, 8)}...</span>
+                                        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
+                                            <span>Aberto em: {formatDateTime(t.CreatedAt)}</span>
+                                            {t.Status === 'RESOLVED' && t.ClosedAt && (
+                                                <span style={{ color: "var(--text-tertiary)" }}>Fechado em: {formatDateTime(t.ClosedAt)}</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </aside>
+                </>
             )}
         </div>
     );

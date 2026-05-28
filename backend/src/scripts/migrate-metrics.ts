@@ -39,8 +39,13 @@ async function migrate() {
             BEGIN
                 ALTER TABLE altdesk.Conversation ADD CsatScore INT NULL;
             END
+
+            IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('altdesk.Ticket') AND name = 'ResolutionDescription')
+            BEGIN
+                ALTER TABLE altdesk.Ticket ADD ResolutionDescription NVARCHAR(MAX) NULL;
+            END
         `);
-        console.log("Fields ClosedAt and CsatScore added to altdesk.Conversation");
+        console.log("Fields ClosedAt, CsatScore and ResolutionDescription added to database tables");
 
         // Backfill ClosedAt for existing RESOLVED conversations
         await pool.request().query(`

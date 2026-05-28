@@ -103,9 +103,19 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
     const [activeTicket, setActiveTicket] = useState<any>(null);
     const [showTicketModal, setShowTicketModal] = useState(false);
     const [ticketPriority, setTicketPriority] = useState("MEDIUM");
+    const [ticketTitle, setTicketTitle] = useState("");
     const [showKBModal, setShowKBModal] = useState(false);
     const [kbArticles, setKbArticles] = useState<any[]>([]);
     const [kbSearch, setKbSearch] = useState("");
+
+    const selectedConversation = conversations.find((c) => c.ConversationId === selectedConversationId);
+
+    useEffect(() => {
+        if (showTicketModal && selectedConversation) {
+            const defaultTitle = selectedConversation.Title || (selectedConversation.ContactName ? `Suporte: ${selectedConversation.ContactName}` : "");
+            setTicketTitle(defaultTitle);
+        }
+    }, [showTicketModal, selectedConversation]);
 
     useEffect(() => {
         if (selectedConversationId) {
@@ -126,11 +136,15 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
 
     const handleCreateTicket = async () => {
         try {
-            const res = await api.post(`/api/conversations/${selectedConversationId}/ticket`, { priority: ticketPriority });
+            const res = await api.post(`/api/conversations/${selectedConversationId}/ticket`, { 
+                priority: ticketPriority,
+                title: ticketTitle
+            });
             setActiveTicket(res.data);
             setShowTicketModal(false);
             showToast("Ticket criado com sucesso!", "success");
             loadActiveTicket();
+            refreshConversations();
         } catch (e: any) {
             showToast("Erro ao criar ticket: " + (e.response?.data?.error || e.message), "error");
         }
@@ -145,11 +159,6 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
             console.error("Error loading KB:", e);
         }
     };
-
-
-
-
-    const selectedConversation = conversations.find((c) => c.ConversationId === selectedConversationId);
 
     // Check if contact already exists when conversation changes
     useEffect(() => {
@@ -711,6 +720,17 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
                         <p style={{ color: "var(--text-secondary)", marginBottom: 20 }}>Deseja transformar esta conversa em um ticket com SLA?</p>
                         
                         <div style={{ marginBottom: 15 }}>
+                            <label style={{ display: "block", marginBottom: 6, fontSize: "0.85rem", color: "#8696a0" }}>Título / Resumo</label>
+                            <input 
+                                type="text" 
+                                value={ticketTitle} 
+                                onChange={e => setTicketTitle(e.target.value)} 
+                                placeholder="Título ou resumo do ticket..." 
+                                style={{ width: "100%", padding: 10, borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", boxSizing: "border-box", fontSize: "0.95rem" }}
+                            />
+                        </div>
+
+                        <div style={{ marginBottom: 15 }}>
                             <label style={{ display: "block", marginBottom: 6, fontSize: "0.85rem", color: "#8696a0" }}>Prioridade</label>
                             <select value={ticketPriority} onChange={e => setTicketPriority(e.target.value)} style={{ width: "100%", padding: 10, borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)" }}>
                                 <option value="LOW">Baixa</option>
@@ -722,7 +742,7 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
 
                         <div style={{ display: "flex", gap: 10, marginTop: 25 }}>
                             <button onClick={() => setShowTicketModal(false)} className="btn btn-ghost" style={{ flex: 1 }}>Cancelar</button>
-                            <button onClick={handleCreateTicket} className="btn btn-primary" style={{ flex: 1 }}>Criar Ticket</button>
+                            <button onClick={handleCreateTicket} className="btn btn-primary" style={{ flex: 1 }} disabled={!ticketTitle.trim()}>Criar Ticket</button>
                         </div>
                     </div>
                 </div>

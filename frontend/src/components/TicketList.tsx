@@ -34,6 +34,9 @@ export interface TicketData {
     SlaStatus?: string;
     Priority?: string;
     EscalationLevel?: number;
+    ClosedAt?: string;
+    ResolutionDescription?: string;
+    RequesterUserId?: string | null;
 }
 
 function getChannelIcon(channel: string | null) {
@@ -94,6 +97,22 @@ function formatCPF(cpf: string | null) {
     return cpf;
 }
 
+function formatTitle(title: string | null) {
+    if (!title) return "sem assunto";
+    const lowercaseTitle = title.toLowerCase();
+    const limit = 40;
+    if (lowercaseTitle.length > limit) {
+        return lowercaseTitle.substring(0, limit) + "...";
+    }
+    return lowercaseTitle;
+}
+
+function formatDateTime(d: string | null | undefined) {
+    if (!d) return "—";
+    const date = new Date(d);
+    return date.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
+
 interface TicketListProps {
     onSelect: (ticket: TicketData) => void;
     selectedId: string | null;
@@ -133,7 +152,7 @@ export function TicketList({ onSelect, selectedId, onBack, refreshKey, onStatsUp
     useEffect(() => { loadTickets(); }, [refreshKey, loadTickets]);
 
     const filtered = useMemo(() => {
-        return tickets.filter(t => {
+        const list = tickets.filter(t => {
             if (statusFilter !== "ALL" && t.Status !== statusFilter) return false;
             if (channelFilter !== "ALL") {
                 const ch = getChannelLabel(t.SourceChannel);
@@ -149,6 +168,8 @@ export function TicketList({ onSelect, selectedId, onBack, refreshKey, onStatsUp
             }
             return true;
         });
+        // Sort by CreatedAt descending (newest first)
+        return [...list].sort((a, b) => new Date(b.CreatedAt).getTime() - new Date(a.CreatedAt).getTime());
     }, [tickets, statusFilter, channelFilter, search]);
 
     return (
@@ -269,7 +290,7 @@ export function TicketList({ onSelect, selectedId, onBack, refreshKey, onStatsUp
                                     overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                                     color: 'var(--text-primary, #1f2937)'
                                 }}>
-                                    {t.Title || t.ContactName || t.ExternalUserId || "Sem assunto"}
+                                    {formatTitle(t.Title || t.ContactName || t.ExternalUserId || "Sem assunto")}
                                 </div>
                                 {t.SlaStatus && (
                                     <span style={{
@@ -279,6 +300,16 @@ export function TicketList({ onSelect, selectedId, onBack, refreshKey, onStatsUp
                                         textTransform: 'uppercase', letterSpacing: '0.3px', flexShrink: 0
                                     }}>
                                         {t.SlaStatus === 'BREACHED' ? '⚠ SLA' : t.SlaStatus === 'WARNING' ? '⏳ SLA' : '✓ SLA'}
+                                    </span>
+                                )}
+                            </div>
+                            <div style={{ display: 'flex', gap: 12, marginTop: 4, flexWrap: 'wrap' }}>
+                                <span style={{ fontSize: "0.72rem", color: "var(--text-secondary, #6b7280)" }}>
+                                    <strong>Abertura:</strong> {formatDateTime(t.CreatedAt)}
+                                </span>
+                                {t.Status === 'RESOLVED' && t.ClosedAt && (
+                                    <span style={{ fontSize: "0.72rem", color: "var(--text-secondary, #6b7280)" }}>
+                                        <strong>Fechamento:</strong> {formatDateTime(t.ClosedAt)}
                                     </span>
                                 )}
                             </div>

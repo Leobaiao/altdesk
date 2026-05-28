@@ -500,7 +500,7 @@ export function Users({ token, onBack, role }: Props) {
                                 >
                                     <option value="ADMIN">Administrador/Supervisor (Acesso Total)</option>
                                     <option value="AGENT">Agente/Técnico (Atendimento)</option>
-                                    <option value="END_USER">Colaborador (Solicitante - Apenas Portal)</option>
+                                    <option value="END_USER">Colaborador (Não faz parte do corpo técnico)</option>
                                 </select>
                             </div>
 

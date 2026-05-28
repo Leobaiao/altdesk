@@ -87,12 +87,12 @@ export async function getConversationDetails(user: UserContext, conversationId: 
       )
       SELECT c.ConversationId, c.Title, c.Status, c.Kind, c.LastMessageAt, c.QueueId, c.AssignedUserId,
              c.RequesterUserId,
-             ch.Type AS SourceChannel, c.InteractionSequence, c.CreatedAt,
+             ch.Type AS SourceChannel, c.InteractionSequence, c.CreatedAt, c.ClosedAt,
              etm.ExternalUserId,
              q.Name AS QueueName,
              assignedUser.DisplayName AS AssignedUserName,
              ISNULL(ct.Name, requesterUser.DisplayName) AS ContactName,
-              t.Priority, t.SlaStatus, t.SLAFirstResponseDue, t.SLAResolutionDue, t.EscalationLevel,
+              t.Priority, t.SlaStatus, t.SLAFirstResponseDue, t.SLAResolutionDue, t.EscalationLevel, t.ResolutionDescription,
               (
                 SELECT t.TagId, t.Name, t.Color
                 FROM altdesk.Tag t
@@ -173,7 +173,7 @@ export async function listConversations(user: UserContext, limit: number = 50, o
       )
       SELECT c.ConversationId, c.Title, c.Status, c.Kind, c.LastMessageAt, c.QueueId, c.AssignedUserId,
              c.RequesterUserId,
-             ch.Type AS SourceChannel, c.InteractionSequence, c.CreatedAt,
+             ch.Type AS SourceChannel, c.InteractionSequence, c.CreatedAt, c.ClosedAt,
              etm.ExternalUserId,
              q.Name AS QueueName,
              assignedUser.DisplayName AS AssignedUserName,
@@ -181,7 +181,7 @@ export async function listConversations(user: UserContext, limit: number = 50, o
              ISNULL(ct.Name, requesterUser.DisplayName) AS ContactName,
              ct.CPF AS ContactCPF,
               ct.Phone AS ContactPhone,
-              t.Priority, t.SlaStatus, t.SLAFirstResponseDue, t.SLAResolutionDue, t.EscalationLevel,
+              t.Priority, t.SlaStatus, t.SLAFirstResponseDue, t.SLAResolutionDue, t.EscalationLevel, t.ResolutionDescription,
               (
                 SELECT t.TagId, t.Name, t.Color
                 FROM altdesk.Tag t
@@ -290,7 +290,7 @@ export async function getReplyMetadata(conversationId: string, tenantId: string 
 /**
  * Atualiza o status da conversa
  */
-export async function updateConversationStatus(conversationId: string, tenantId: string | null, status: string) {
+export async function updateConversationStatus(conversationId: string, tenantId: string | null, status: string, resolution?: string) {
     const pool = await getPool();
     await pool.request()
         .input("tenantId", tenantId)
@@ -302,6 +302,28 @@ export async function updateConversationStatus(conversationId: string, tenantId:
                 ClosedAt = CASE WHEN @status = 'RESOLVED' THEN SYSUTCDATETIME() ELSE NULL END
             WHERE TenantId = @tenantId AND ConversationId = @conversationId
         `);
+
+    // Sincronizar com a tabela Ticket e gravar ResolutionDescription se fornecido
+    const request = pool.request()
+        .input("tenantId", tenantId)
+        .input("conversationId", conversationId)
+        .input("status", status);
+
+    let ticketQuery = `
+        UPDATE altdesk.Ticket
+        SET Status = @status,
+            ResolvedAt = CASE WHEN @status = 'RESOLVED' THEN SYSUTCDATETIME() ELSE NULL END,
+            UpdatedAt = SYSUTCDATETIME()
+    `;
+
+    if (status === 'RESOLVED' && resolution !== undefined) {
+        request.input("resolution", resolution);
+        ticketQuery += `, ResolutionDescription = @resolution`;
+    }
+
+    ticketQuery += ` WHERE TenantId = @tenantId AND ConversationId = @conversationId`;
+
+    await request.query(ticketQuery);
 }
 
 /**

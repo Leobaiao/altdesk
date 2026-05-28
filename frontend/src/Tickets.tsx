@@ -99,6 +99,7 @@ export function Tickets({ token, onBack, role }: Props) {
                     profile={profile}
                     role={role}
                     onTicketUpdate={handleTicketUpdate}
+                    onSelectTicket={setSelectedTicket}
                 />
             </div>
         );
