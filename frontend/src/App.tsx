@@ -163,7 +163,7 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
   const navigate = useNavigate();
   const location = useLocation();
   const decoded = useMemo(() => parseJwt(token), [token]);
-  const { openHelp } = useHelp();
+  const { openHelp, pageContextKey } = useHelp();
 
   const getPageTitle = (path: string) => {
     if (path.startsWith("/chat")) return "Central de Mensagens";
@@ -246,6 +246,7 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
 
   const currentPath = location.pathname;
   const isChat = currentPath.startsWith("/chat") || currentPath === "/";
+  const isTickets = currentPath.startsWith("/tickets");
   const isMobileDetailOpen = isChat && !!selectedConversationId;
 
   const GlobalHeader = () => (
@@ -272,14 +273,19 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
 
         {/* Direita: Perfil do Usuário + Botão de Ajuda Contextual */}
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            {isChat && (
+            {(isChat || isTickets) && (
                 <button
                     onClick={(e) => {
                         if (e.nativeEvent && !e.nativeEvent.isTrusted) {
                             console.warn("[App] Blocked automated click from script/extension");
                             return;
                         }
-                        openHelp("chat.index");
+                        console.log("[App] Global Header Help click - pageContextKey:", pageContextKey);
+                        if (isChat) {
+                            openHelp("chat.index");
+                        } else if (isTickets) {
+                            openHelp(pageContextKey || "tickets.index");
+                        }
                     }}
                     style={{
                         background: "rgba(0,168,132,0.1)",
@@ -378,7 +384,7 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
       </div>
 
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
-        <GlobalHeader />
+        {GlobalHeader()}
         <div style={{ flex: 1, display: "flex", minWidth: 0, overflow: "hidden" }}>
           {/* Painel Secundário de Lista de Conversas (Disponível apenas no CHAT) */}
           {isChat && <Sidebar setView={(v) => navigate(`/${v.toLowerCase()}`)} />}

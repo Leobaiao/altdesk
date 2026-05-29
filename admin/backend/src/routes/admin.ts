@@ -17,7 +17,8 @@ import {
     setTenantStatus,
     purgeTenantDemoData,
     listDeletedTenants,
-    restoreTenant
+    restoreTenant,
+    updateTenantSubscriptionFull
 } from "../services/tenantService.js";
 import {
     listAllInstances,
@@ -290,6 +291,43 @@ router.put("/tenants/:id/status", validateBody(z.object({ isActive: z.boolean() 
             action: isActive ? 'ACTIVATE_TENANT' : 'DEACTIVATE_TENANT',
             targetTable: 'Tenant',
             targetId: tenantId
+        });
+
+        res.json({ ok: true });
+    } catch (error) {
+        next(error);
+    }
+}) as any);
+
+router.put("/tenants/:id/subscription", validateBody(z.object({
+    planCode: z.string().optional(),
+    agentsLimit: z.number().optional(),
+    expiresAt: z.string().nullable().optional(),
+    isActive: z.boolean().optional(),
+    accountStatus: z.enum(["TRIAL", "ACTIVE"]).optional()
+})), (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const tenantId = req.params.id;
+        const { planCode, agentsLimit, expiresAt, isActive, accountStatus } = req.body;
+        
+        const parsedExpiresAt = expiresAt ? new Date(expiresAt) : expiresAt === null ? null : undefined;
+
+        await updateTenantSubscriptionFull(tenantId, {
+            planCode,
+            agentsLimit,
+            expiresAt: parsedExpiresAt,
+            isActive,
+            accountStatus
+        });
+
+        // Audit Log
+        const reqInfo = extractRequestInfo(req);
+        writeAuditLog({
+            ...reqInfo,
+            action: 'UPDATE_TENANT_SUBSCRIPTION_FULL',
+            targetTable: 'Subscription',
+            targetId: tenantId,
+            afterValues: { planCode, agentsLimit, expiresAt, isActive, accountStatus }
         });
 
         res.json({ ok: true });

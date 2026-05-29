@@ -12,7 +12,8 @@ import {
     CreditCard,
     Trash2,
     Sun,
-    Moon
+    Moon,
+    Key
 } from "lucide-react";
 
 import { TenantsTab } from "./components/SuperAdmin/TenantsTab";
@@ -20,10 +21,11 @@ import { UsersTab } from "./components/SuperAdmin/UsersTab";
 import { InstancesTab } from "./components/SuperAdmin/InstancesTab";
 import { AuditTab } from "./components/SuperAdmin/AuditTab";
 import { BillingTab } from "./components/SuperAdmin/BillingTab";
+import { SubscriptionsTab } from "./components/SuperAdmin/SubscriptionsTab";
 import { TrashTab } from "./components/SuperAdmin/TrashTab";
 import { api } from "./lib/api";
 
-type Tab = "tenants" | "users" | "instances" | "audit" | "billing" | "trash";
+type Tab = "tenants" | "users" | "instances" | "audit" | "billing" | "subscriptions" | "trash";
 
 export function SuperAdmin({ token, onBack }: { token: string; onBack: () => void }) {
     const [tab, setTab] = useState<Tab>("tenants");
@@ -67,6 +69,7 @@ export function SuperAdmin({ token, onBack }: { token: string; onBack: () => voi
         { id: "instances", label: "Instâncias", icon: <Smartphone size={17} /> },
         { id: "audit", label: "Auditoria", icon: <FileText size={17} /> },
         { id: "billing", label: "Faturamento", icon: <CreditCard size={17} /> },
+        { id: "subscriptions", label: "Assinaturas", icon: <Key size={17} /> },
         { id: "trash", label: "Lixeira", icon: <Trash2 size={17} /> },
     ];
 
@@ -236,6 +239,7 @@ export function SuperAdmin({ token, onBack }: { token: string; onBack: () => voi
                 {tab === "instances" && <InstancesTab />}
                 {tab === "audit" && <AuditTab />}
                 {tab === "billing" && <BillingTab />}
+                {tab === "subscriptions" && <SubscriptionsTab />}
                 {tab === "trash" && <TrashTab />}
             </div>
 

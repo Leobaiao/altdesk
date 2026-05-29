@@ -9,6 +9,8 @@ interface HelpContextType {
     article: HelpArticle | null;
     openHelp: (contextKey: string) => Promise<void>;
     closeHelp: () => void;
+    pageContextKey: string | null;
+    setPageContextKey: (key: string | null) => void;
 }
 
 const HelpContext = createContext<HelpContextType | undefined>(undefined);
@@ -18,6 +20,12 @@ export function HelpProvider({ children }: { children: ReactNode }) {
     const [loading, setLoading] = useState(false);
     const [activeKey, setActiveKey] = useState<string | null>(null);
     const [article, setArticle] = useState<HelpArticle | null>(null);
+    const [pageContextKey, _setPageContextKey] = useState<string | null>(null);
+
+    const setPageContextKey = useCallback((key: string | null) => {
+        console.log("[HelpContext] setPageContextKey called with:", key);
+        _setPageContextKey(key);
+    }, []);
 
     const openHelp = useCallback(async (contextKey: string) => {
         console.log(`[HelpContext] openHelp called for: ${contextKey}`);
@@ -81,7 +89,9 @@ export function HelpProvider({ children }: { children: ReactNode }) {
             activeKey,
             article,
             openHelp,
-            closeHelp
+            closeHelp,
+            pageContextKey,
+            setPageContextKey
         }}>
             {children}
         </HelpContext.Provider>

@@ -57,32 +57,32 @@ async function run() {
             {
                 key: "tickets.index",
                 title: "Gestão de Chamados",
-                category: "Geral",
+                category: "Atendimento",
                 page: "/tickets",
                 content: `
-                    <h2>Central de Chamados</h2>
-                    <p>Nesta tela você gerencia os atendimentos estruturados da sua plataforma. Os chamados ajudam a organizar solicitações complexas que demandam acompanhamento de prazo (SLA).</p>
-                    <h3>Principais Ações:</h3>
+                    <h2>Gestão de Chamados (Fila de Atendimento)</h2>
+                    <p>A visualização em formato de <strong>Lista</strong> é a central de controle ideal para triagem rápida, buscas precisas e acompanhamento minucioso de prazos e conformidade.</p>
+                    <h3>💡 Dicas para Produtividade:</h3>
                     <ul>
-                        <li><strong>Visualizar Detalhes:</strong> Clique em qualquer chamado na lista para ver o histórico completo e interagir.</li>
-                        <li><strong>Filtros Avançados:</strong> Utilize a barra superior para filtrar chamados por status (Aberto, Pendente, Resolvido), prioridade (Baixa, Média, Alta, Urgente) ou agente responsável.</li>
-                        <li><strong>Painel Kanban:</strong> Alterne a visualização para o modo Kanban para arrastar e soltar chamados entre os diferentes estágios de atendimento.</li>
+                        <li><strong>Acesso Imediato:</strong> Clique em qualquer chamado para abrir os detalhes na lateral, permitindo responder ao cliente, adicionar notas internas privativas ou transferir o ticket.</li>
+                        <li><strong>Filtros Inteligentes:</strong> Refine a visualização ocultando chamados resolvidos ou segmentando por prioridade, técnico responsável e tags específicas.</li>
+                        <li><strong>Status de SLA:</strong> Acompanhe a etiqueta colorida ao lado do ticket para identificar na hora o tempo restante de resposta ou resolução.</li>
                     </ul>
                 `
             },
             {
                 key: "kanban.index",
                 title: "Visão Kanban de Tickets",
-                category: "Geral",
+                category: "Atendimento",
                 page: "/tickets",
                 content: `
-                    <h2>Visão Kanban</h2>
-                    <p>Nesta tela você visualiza seus chamados organizados em colunas de status. Arraste e solte os cartões para atualizar o andamento do suporte.</p>
-                    <h3>Estágios:</h3>
+                    <h2>Quadro Ágil (Kanban de Tickets)</h2>
+                    <p>A visualização em <strong>Kanban</strong> organiza seus chamados em colunas visuais de acordo com o status, otimizando o fluxo de trabalho (Workflow) da equipe de suporte.</p>
+                    <h3>🚀 Melhores Práticas:</h3>
                     <ul>
-                        <li><strong>Novo:</strong> Chamados recém-criados aguardando triagem.</li>
-                        <li><strong>Triagem / Atendimento:</strong> Chamados sendo analisados ou ativamente tratados pela equipe técnica.</li>
-                        <li><strong>Pendente / Pausado:</strong> Chamados aguardando resposta do cliente ou terceiros.</li>
+                        <li><strong>Atualização Visual:</strong> Arraste e solte (Drag & Drop) os cartões para atualizar o status do chamado instantaneamente (ex: mover de "Novo" para "Em Atendimento").</li>
+                        <li><strong>Priorização Rápida:</strong> Foque nos cartões com alertas vermelhos ou amarelos (SLA em risco ou estourado) para garantir o cumprimento dos prazos acordados.</li>
+                        <li><strong>Informações do Card:</strong> Sem precisar abrir o chamado, você visualiza o ID, título, prioridade, técnico atribuído e solicitante diretamente no cartão.</li>
                     </ul>
                 `
             },
@@ -204,7 +204,18 @@ async function run() {
                     `);
                 console.log(`Global help article seeded: ${article.key}`);
             } else {
-                console.log(`Global help article already exists: ${article.key}`);
+                await pool.request()
+                    .input("contextKey", article.key)
+                    .input("title", article.title)
+                    .input("content", article.content.trim())
+                    .input("category", article.category)
+                    .input("pagePath", article.page)
+                    .query(`
+                        UPDATE altdesk.HelpArticle
+                        SET Title = @title, Content = @content, Category = @category, PagePath = @pagePath, UpdatedAt = SYSUTCDATETIME()
+                        WHERE TenantId IS NULL AND ContextKey = @contextKey AND DeletedAt IS NULL
+                    `);
+                console.log(`Global help article updated: ${article.key}`);
             }
         }
 

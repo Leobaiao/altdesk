@@ -9,7 +9,7 @@ export async function listTenants() {
     const pool = await getPool();
     const r = await pool.request().query(`
     SELECT t.TenantId, t.Name, t.CreatedAt, t.AccountStatus,
-           s.IsActive, s.ExpiresAt, s.AgentsSeatLimit,
+           s.IsActive, s.ExpiresAt, s.AgentsSeatLimit, s.PlanCode,
            bs.Status as BillingStatus,
            bs.NextDueDate as BillingNextDue,
            bp.Name as PlanName,
@@ -202,4 +202,91 @@ export async function purgeTenantDemoData(tenantId: string) {
     await pool.request()
         .input("tenantId", tenantId)
         .execute("altdesk.sp_altdesk_purge_demo_data");
+}
+
+/**
+ * Atualiza todos os parâmetros de assinatura e status do Tenant
+ */
+export async function updateTenantSubscriptionFull(tenantId: string, data: {
+    planCode?: string;
+    agentsLimit?: number;
+    expiresAt?: Date | null;
+    isActive?: boolean;
+    accountStatus?: 'TRIAL' | 'ACTIVE';
+}) {
+    const pool = await getPool();
+    const transaction = new sql.Transaction(pool);
+    await transaction.begin();
+
+    try {
+        // 1. Atualizar Subscription
+        const subUpdates: string[] = [];
+        const request = transaction.request().input("tid", tenantId);
+
+        if (data.planCode !== undefined) {
+            request.input("planCode", data.planCode);
+            subUpdates.push("PlanCode = @planCode");
+        }
+        if (data.agentsLimit !== undefined) {
+            request.input("limit", data.agentsLimit);
+            subUpdates.push("AgentsSeatLimit = @limit");
+        }
+        if (data.expiresAt !== undefined) {
+            request.input("expires", data.expiresAt);
+            subUpdates.push("ExpiresAt = @expires");
+        }
+        if (data.isActive !== undefined) {
+            const activeBit = data.isActive ? 1 : 0;
+            request.input("isActive", activeBit);
+            subUpdates.push("IsActive = @isActive");
+        }
+
+        if (subUpdates.length > 0) {
+            await request.query(`
+                UPDATE altdesk.Subscription 
+                SET ${subUpdates.join(", ")}
+                WHERE TenantId = @tid
+            `);
+        }
+
+        // 2. Atualizar Tenant AccountStatus
+        if (data.accountStatus !== undefined) {
+            await transaction.request()
+                .input("tid", tenantId)
+                .input("status", data.accountStatus)
+                .query(`
+                    UPDATE altdesk.Tenant 
+                    SET AccountStatus = @status
+                    WHERE TenantId = @tid
+                `);
+        }
+
+        // 3. Se isActive foi alterado, aplicar os efeitos cascata correspondentes (ex: usuários e conectores)
+        if (data.isActive !== undefined) {
+            const activeBit = data.isActive ? 1 : 0;
+            await transaction.request()
+                .input("tenantId", tenantId)
+                .input("active", activeBit)
+                .query("UPDATE altdesk.[User] SET IsActive=@active WHERE TenantId=@tenantId AND DeletedAt IS NULL");
+
+            const connectorQuery = data.isActive
+                ? `UPDATE cc SET IsActive=1
+                   FROM altdesk.ChannelConnector cc
+                   JOIN altdesk.Channel ch ON ch.ChannelId = cc.ChannelId
+                   WHERE ch.TenantId = @tenantId AND cc.DeletedAt IS NULL`
+                : `UPDATE cc SET IsActive=0
+                   FROM altdesk.ChannelConnector cc
+                   JOIN altdesk.Channel ch ON ch.ChannelId = cc.ChannelId
+                   WHERE ch.TenantId = @tenantId`;
+
+            await transaction.request()
+                .input("tenantId", tenantId)
+                .query(connectorQuery);
+        }
+
+        await transaction.commit();
+    } catch (err) {
+        await transaction.rollback();
+        throw err;
+    }
 }
