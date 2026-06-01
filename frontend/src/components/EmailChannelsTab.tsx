@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { api } from "../lib/api";
-import { Mail, Plus, Trash2, CheckCircle2, XCircle, RefreshCw, Server, Shield, Send, Inbox, Settings2, HelpCircle } from "lucide-react";
+import { Mail, Plus, Trash2, CheckCircle2, XCircle, RefreshCw, Server, Shield, Send, Inbox, Settings2, HelpCircle, ChevronDown, ChevronUp } from "lucide-react";
 
 interface EmailChannel {
     EmailChannelId: string;
@@ -20,6 +20,9 @@ export function EmailChannelsTab() {
     const [editingChannel, setEditingChannel] = useState<any>(null);
     const [testResults, setTestResults] = useState<Record<string, { inbound?: boolean; outbound?: boolean; loadingIn?: boolean; loadingOut?: boolean }>>({});
     const [showHelp, setShowHelp] = useState(false);
+    const [selectedPreset, setSelectedPreset] = useState<string>("gmail");
+    const [syncCredentials, setSyncCredentials] = useState<boolean>(true);
+    const [showAdvanced, setShowAdvanced] = useState<boolean>(false);
 
     useEffect(() => {
         loadChannels();
@@ -75,14 +78,158 @@ export function EmailChannelsTab() {
         );
     }
 
+    const applyPreset = (preset: string) => {
+        setSelectedPreset(preset);
+        if (preset === "custom") {
+            setShowAdvanced(true);
+            return;
+        }
+
+        let imapHost = "";
+        let imapPort = 993;
+        let imapSecure = true;
+        let smtpHost = "";
+        let smtpPort = 587;
+        let smtpSecure = false;
+
+        if (preset === "gmail") {
+            imapHost = "imap.gmail.com";
+            imapPort = 993;
+            imapSecure = true;
+            smtpHost = "smtp.gmail.com";
+            smtpPort = 587;
+            smtpSecure = false;
+        } else if (preset === "outlook") {
+            imapHost = "outlook.office365.com";
+            imapPort = 993;
+            imapSecure = true;
+            smtpHost = "smtp.office365.com";
+            smtpPort = 587;
+            smtpSecure = false;
+        } else if (preset === "icloud") {
+            imapHost = "imap.mail.me.com";
+            imapPort = 993;
+            imapSecure = true;
+            smtpHost = "smtp.mail.me.com";
+            smtpPort = 587;
+            smtpSecure = false;
+        }
+
+        setEditingChannel((prev: any) => {
+            if (!prev) return prev;
+            return {
+                ...prev,
+                inbound: {
+                    ...prev.inbound,
+                    imapHost,
+                    imapPort,
+                    imapSecure
+                },
+                outbound: {
+                    ...prev.outbound,
+                    smtpHost,
+                    smtpPort,
+                    smtpSecure
+                }
+            };
+        });
+    };
+
+    const handleSyncCredentialsChange = (checked: boolean) => {
+        setSyncCredentials(checked);
+        if (checked) {
+            setEditingChannel((prev: any) => {
+                if (!prev) return prev;
+                return {
+                    ...prev,
+                    outbound: {
+                        ...prev.outbound,
+                        username: prev.inbound.username,
+                        password: prev.inbound.password
+                    }
+                };
+            });
+        }
+    };
+
+    const handleEmailAddressChange = (email: string) => {
+        setEditingChannel((prev: any) => {
+            if (!prev) return prev;
+            
+            const nextInbound = { ...prev.inbound };
+            const nextOutbound = { ...prev.outbound };
+            
+            if (!prev.EmailChannelId) {
+                if (!nextInbound.username || nextInbound.username === prev.emailAddress) {
+                    nextInbound.username = email;
+                }
+                if (syncCredentials && (!nextOutbound.username || nextOutbound.username === prev.emailAddress)) {
+                    nextOutbound.username = email;
+                }
+            }
+            
+            return {
+                ...prev,
+                emailAddress: email,
+                inbound: nextInbound,
+                outbound: nextOutbound
+            };
+        });
+    };
+
+    const handleNewChannel = () => {
+        setSelectedPreset("gmail");
+        setSyncCredentials(true);
+        setShowAdvanced(false);
+        setEditingChannel({
+            name: "",
+            emailAddress: "",
+            providerType: "imap_smtp",
+            inbound: { imapHost: "imap.gmail.com", imapPort: 993, imapSecure: true, username: "", password: "", pollIntervalSeconds: 60 },
+            outbound: { smtpHost: "smtp.gmail.com", smtpPort: 587, smtpSecure: false, username: "", password: "", fromName: "" }
+        });
+    };
+
+    const handleEditChannel = (channel: EmailChannel) => {
+        const inbound = channel.inbound || { imapHost: "", imapPort: 993, imapSecure: true, username: "", password: "", pollIntervalSeconds: 60 };
+        const outbound = channel.outbound || { smtpHost: "", smtpPort: 587, smtpSecure: false, username: "", password: "", fromName: "" };
+        
+        let preset = "custom";
+        if (inbound.imapHost === "imap.gmail.com") preset = "gmail";
+        else if (inbound.imapHost === "outlook.office365.com") preset = "outlook";
+        else if (inbound.imapHost === "imap.mail.me.com") preset = "icloud";
+        
+        const isSynced = inbound.username === outbound.username;
+        
+        setSelectedPreset(preset);
+        setSyncCredentials(isSynced);
+        setShowAdvanced(preset === "custom" || !isSynced);
+        
+        setEditingChannel({
+            EmailChannelId: channel.EmailChannelId,
+            name: channel.Name,
+            emailAddress: channel.EmailAddress,
+            providerType: channel.ProviderType,
+            inbound,
+            outbound
+        });
+    };
+
     const handleSaveChannel = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
+        
+        const payload = { ...editingChannel };
+        if (syncCredentials) {
+            payload.outbound.username = payload.inbound.username;
+            payload.outbound.password = payload.inbound.password;
+        }
+
         try {
-            if (editingChannel.EmailChannelId) {
-                await api.put(`/api/email-channels/${editingChannel.EmailChannelId}`, editingChannel);
+            if (payload.EmailChannelId) {
+                await api.put(`/api/email-channels/${payload.EmailChannelId}`, payload);
             } else {
-                await api.post("/api/email-channels", editingChannel);
+                await api.post("/api/email-channels", payload);
             }
             setEditingChannel(null);
             loadChannels();
@@ -107,7 +254,7 @@ export function EmailChannelsTab() {
                     </p>
                 </div>
                 <button 
-                    onClick={() => setEditingChannel({ name: "", emailAddress: "", providerType: "imap_smtp", inbound: { imapHost: "", imapPort: 993, imapSecure: true, username: "", password: "", pollIntervalSeconds: 60 }, outbound: { smtpHost: "", smtpPort: 587, smtpSecure: false, username: "", password: "", fromName: "" } })}
+                    onClick={handleNewChannel}
                     className="btn btn-primary" 
                     style={{ padding: "8px 16px", borderRadius: 10, fontSize: "0.9rem", display: "flex", alignItems: "center", gap: 8 }}
                 >
@@ -134,7 +281,7 @@ export function EmailChannelsTab() {
                             </div>
                         </div>
 
-                        <div style={{ padding: "32px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 32 }}>
+                        <div style={{ padding: "32px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 28 }}>
                             {/* Guia de Ajuda */}
                             {showHelp && (
                                 <div style={{ background: "rgba(0, 168, 132, 0.05)", border: "1px solid rgba(0, 168, 132, 0.2)", borderRadius: 16, padding: 24, display: "flex", flexDirection: "column", gap: 12, animation: "fadeIn 0.3s ease-out" }}>
@@ -151,6 +298,44 @@ export function EmailChannelsTab() {
                                 </div>
                             )}
 
+                            {/* Provedor de E-mail (Presets) */}
+                            <div>
+                                <label style={{ display: "block", marginBottom: 12, fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 500 }}>Provedor de E-mail</label>
+                                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
+                                    {[
+                                        { id: "gmail", name: "Gmail" },
+                                        { id: "outlook", name: "Outlook / O365" },
+                                        { id: "icloud", name: "iCloud Mail" },
+                                        { id: "custom", name: "Outro (IMAP/SMTP)" }
+                                    ].map(preset => {
+                                        const isSelected = selectedPreset === preset.id;
+                                        return (
+                                            <button
+                                                key={preset.id}
+                                                type="button"
+                                                onClick={() => applyPreset(preset.id)}
+                                                style={{
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    justifyContent: "center",
+                                                    gap: 8,
+                                                    padding: "12px",
+                                                    borderRadius: 10,
+                                                    border: isSelected ? "2px solid var(--accent)" : "1px solid var(--border)",
+                                                    background: isSelected ? "rgba(0, 168, 132, 0.05)" : "var(--bg-primary)",
+                                                    color: isSelected ? "var(--accent)" : "var(--text-primary)",
+                                                    cursor: "pointer",
+                                                    fontWeight: isSelected ? 600 : 500,
+                                                    transition: "all 0.2s"
+                                                }}
+                                            >
+                                                <span style={{ fontSize: "0.85rem" }}>{preset.name}</span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
                             {/* Básico */}
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
                                 <div>
@@ -159,72 +344,177 @@ export function EmailChannelsTab() {
                                 </div>
                                 <div>
                                     <label style={{ display: "block", marginBottom: 8, fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 500 }}>Endereço de E-mail</label>
-                                    <input type="email" value={editingChannel.emailAddress} onChange={e => setEditingChannel({...editingChannel, emailAddress: e.target.value})} className="settings-input" style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", transition: "all 0.2s" }} required />
+                                    <input type="email" value={editingChannel.emailAddress} onChange={e => handleEmailAddressChange(e.target.value)} className="settings-input" style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", transition: "all 0.2s" }} required />
                                 </div>
                             </div>
 
-                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32 }}>
-                                {/* Inbound - IMAP */}
-                                <div style={{ display: "flex", flexDirection: "column", gap: 20, background: "var(--bg-primary)", padding: 24, borderRadius: 16, border: "1px solid var(--border)" }}>
-                                    <h4 style={{ margin: 0, fontSize: "1rem", fontWeight: 700, display: "flex", alignItems: "center", gap: 8, color: "var(--text-primary)" }}>
-                                        <Inbox size={20} color="var(--accent)" /> Entrada (IMAP)
-                                    </h4>
+                            {/* Credenciais */}
+                            <div style={{ display: "flex", flexDirection: "column", gap: 20, background: "var(--bg-primary)", padding: 24, borderRadius: 16, border: "1px solid var(--border)" }}>
+                                <h4 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, display: "flex", alignItems: "center", gap: 8, color: "var(--text-primary)" }}>
+                                    <Shield size={18} color="var(--accent)" /> Dados de Acesso (Credenciais)
+                                </h4>
+                                
+                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
                                     <div>
-                                        <label style={{ display: "block", marginBottom: 8, fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 500 }}>Servidor IMAP Host</label>
-                                        <input type="text" value={editingChannel.inbound.imapHost} onChange={e => setEditingChannel({...editingChannel, inbound: {...editingChannel.inbound, imapHost: e.target.value}})} className="settings-input" style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-secondary)", color: "var(--text-primary)", transition: "all 0.2s" }} placeholder="imap.gmail.com" required />
-                                    </div>
-                                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                                        <div>
-                                            <label style={{ display: "block", marginBottom: 8, fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 500 }}>Porta</label>
-                                            <input type="number" value={editingChannel.inbound.imapPort} onChange={e => setEditingChannel({...editingChannel, inbound: {...editingChannel.inbound, imapPort: parseInt(e.target.value)}})} className="settings-input" style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-secondary)", color: "var(--text-primary)", transition: "all 0.2s" }} />
-                                        </div>
-                                        <div style={{ display: "flex", alignItems: "center", gap: 10, height: "100%", paddingTop: 26 }}>
-                                            <input type="checkbox" checked={editingChannel.inbound.imapSecure} onChange={e => setEditingChannel({...editingChannel, inbound: {...editingChannel.inbound, imapSecure: e.target.checked}})} id="imap-ssl" style={{ width: 18, height: 18, accentColor: "var(--accent)", cursor: "pointer" }} />
-                                            <label htmlFor="imap-ssl" style={{ fontSize: "0.9rem", color: "var(--text-primary)", cursor: "pointer", fontWeight: 500 }}>SSL/TLS</label>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label style={{ display: "block", marginBottom: 8, fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 500 }}>Usuário IMAP</label>
-                                        <input type="text" value={editingChannel.inbound.username} onChange={e => setEditingChannel({...editingChannel, inbound: {...editingChannel.inbound, username: e.target.value}})} className="settings-input" style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-secondary)", color: "var(--text-primary)", transition: "all 0.2s" }} required />
+                                        <label style={{ display: "block", marginBottom: 8, fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 500 }}>Usuário IMAP (E-mail)</label>
+                                        <input type="text" value={editingChannel.inbound.username} onChange={e => {
+                                            const val = e.target.value;
+                                            setEditingChannel((prev: any) => {
+                                                const next = {
+                                                    ...prev,
+                                                    inbound: { ...prev.inbound, username: val }
+                                                };
+                                                if (syncCredentials) {
+                                                    next.outbound = { ...next.outbound, username: val };
+                                                }
+                                                return next;
+                                            });
+                                        }} className="settings-input" style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-secondary)", color: "var(--text-primary)" }} required />
                                     </div>
                                     <div>
                                         <label style={{ display: "block", marginBottom: 8, fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 500 }}>
-                                            Password IMAP {editingChannel.EmailChannelId && "(deixe em branco para não alterar)"}
+                                            Senha IMAP {editingChannel.EmailChannelId && "(deixe em branco para não alterar)"}
                                         </label>
-                                        <input type="password" value={editingChannel.inbound.password || ""} onChange={e => setEditingChannel({...editingChannel, inbound: {...editingChannel.inbound, password: e.target.value}})} className="settings-input" style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-secondary)", color: "var(--text-primary)", transition: "all 0.2s" }} required={!editingChannel.EmailChannelId} />
+                                        <input type="password" value={editingChannel.inbound.password || ""} onChange={e => {
+                                            const val = e.target.value;
+                                            setEditingChannel((prev: any) => {
+                                                const next = {
+                                                    ...prev,
+                                                    inbound: { ...prev.inbound, password: val }
+                                                };
+                                                if (syncCredentials) {
+                                                    next.outbound = { ...next.outbound, password: val };
+                                                }
+                                                return next;
+                                            });
+                                        }} className="settings-input" style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-secondary)", color: "var(--text-primary)" }} required={!editingChannel.EmailChannelId} />
                                     </div>
                                 </div>
 
-                                {/* Outbound - SMTP */}
-                                <div style={{ display: "flex", flexDirection: "column", gap: 20, background: "var(--bg-primary)", padding: 24, borderRadius: 16, border: "1px solid var(--border)" }}>
-                                    <h4 style={{ margin: 0, fontSize: "1rem", fontWeight: 700, display: "flex", alignItems: "center", gap: 8, color: "var(--text-primary)" }}>
-                                        <Send size={20} color="var(--accent)" /> Saída (SMTP)
-                                    </h4>
-                                    <div>
-                                        <label style={{ display: "block", marginBottom: 8, fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 500 }}>Servidor SMTP Host</label>
-                                        <input type="text" value={editingChannel.outbound.smtpHost} onChange={e => setEditingChannel({...editingChannel, outbound: {...editingChannel.outbound, smtpHost: e.target.value}})} className="settings-input" style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-secondary)", color: "var(--text-primary)", transition: "all 0.2s" }} placeholder="smtp.gmail.com" required />
-                                    </div>
-                                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                                        <div>
-                                            <label style={{ display: "block", marginBottom: 8, fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 500 }}>Porta</label>
-                                            <input type="number" value={editingChannel.outbound.smtpPort} onChange={e => setEditingChannel({...editingChannel, outbound: {...editingChannel.outbound, smtpPort: parseInt(e.target.value)}})} className="settings-input" style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-secondary)", color: "var(--text-primary)", transition: "all 0.2s" }} />
-                                        </div>
-                                        <div style={{ display: "flex", alignItems: "center", gap: 10, height: "100%", paddingTop: 26 }}>
-                                            <input type="checkbox" checked={editingChannel.outbound.smtpSecure} onChange={e => setEditingChannel({...editingChannel, outbound: {...editingChannel.outbound, smtpSecure: e.target.checked}})} id="smtp-ssl" style={{ width: 18, height: 18, accentColor: "var(--accent)", cursor: "pointer" }} />
-                                            <label htmlFor="smtp-ssl" style={{ fontSize: "0.9rem", color: "var(--text-primary)", cursor: "pointer", fontWeight: 500 }}>SSL/TLS</label>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label style={{ display: "block", marginBottom: 8, fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 500 }}>Usuário SMTP</label>
-                                        <input type="text" value={editingChannel.outbound.username} onChange={e => setEditingChannel({...editingChannel, outbound: {...editingChannel.outbound, username: e.target.value}})} className="settings-input" style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-secondary)", color: "var(--text-primary)", transition: "all 0.2s" }} required />
-                                    </div>
-                                    <div>
-                                        <label style={{ display: "block", marginBottom: 8, fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 500 }}>
-                                            Password SMTP {editingChannel.EmailChannelId && "(deixe em branco para não alterar)"}
-                                        </label>
-                                        <input type="password" value={editingChannel.outbound.password || ""} onChange={e => setEditingChannel({...editingChannel, outbound: {...editingChannel.outbound, password: e.target.value}})} className="settings-input" style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-secondary)", color: "var(--text-primary)", transition: "all 0.2s" }} required={!editingChannel.EmailChannelId} />
-                                    </div>
+                                <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 0" }}>
+                                    <input type="checkbox" checked={syncCredentials} onChange={e => handleSyncCredentialsChange(e.target.checked)} id="sync-credentials" style={{ width: 18, height: 18, accentColor: "var(--accent)", cursor: "pointer" }} />
+                                    <label htmlFor="sync-credentials" style={{ fontSize: "0.85rem", color: "var(--text-primary)", cursor: "pointer", fontWeight: 500 }}>
+                                        Usar as mesmas credenciais para envio (SMTP)
+                                    </label>
                                 </div>
+
+                                {!syncCredentials && (
+                                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, paddingTop: 16, borderTop: "1px dashed var(--border)" }}>
+                                        <div>
+                                            <label style={{ display: "block", marginBottom: 8, fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 500 }}>Usuário SMTP</label>
+                                            <input type="text" value={editingChannel.outbound.username} onChange={e => setEditingChannel({...editingChannel, outbound: {...editingChannel.outbound, username: e.target.value}})} className="settings-input" style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-secondary)", color: "var(--text-primary)" }} required />
+                                        </div>
+                                        <div>
+                                            <label style={{ display: "block", marginBottom: 8, fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 500 }}>
+                                                Senha SMTP {editingChannel.EmailChannelId && "(deixe em branco para não alterar)"}
+                                            </label>
+                                            <input type="password" value={editingChannel.outbound.password || ""} onChange={e => setEditingChannel({...editingChannel, outbound: {...editingChannel.outbound, password: e.target.value}})} className="settings-input" style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-secondary)", color: "var(--text-primary)" }} required={!editingChannel.EmailChannelId} />
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Mensagem de Ajuda Contextual para Presets (App Passwords) */}
+                            {(selectedPreset === "gmail" || selectedPreset === "outlook") && (
+                                <div style={{ 
+                                    background: "rgba(255, 193, 7, 0.06)", 
+                                    border: "1px solid rgba(255, 193, 7, 0.25)", 
+                                    borderRadius: 12, 
+                                    padding: "16px 20px", 
+                                    fontSize: "0.85rem", 
+                                    color: "var(--text-primary)", 
+                                    lineHeight: 1.5,
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    gap: 6
+                                }}>
+                                    <span style={{ fontWeight: 600, color: "#b58700", display: "flex", alignItems: "center", gap: 6 }}>
+                                        ⚠️ Importante: Requisito de Senha de Aplicação
+                                    </span>
+                                    {selectedPreset === "gmail" ? (
+                                        <span>
+                                            Para contas Gmail, você <strong>não deve</strong> utilizar a sua senha pessoal. É obrigatório criar uma <strong>Senha de App</strong> nas definições de segurança da sua Conta Google. <a href="https://support.google.com/accounts/answer/185833" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)", textDecoration: "underline", fontWeight: 500 }}>Saiba como gerar aqui</a>.
+                                        </span>
+                                    ) : (
+                                        <span>
+                                            Para contas Outlook/Office 365, se tiver a verificação em dois passos ativa, deve utilizar uma <strong>Senha de Aplicação</strong> do Office 365. <a href="https://support.microsoft.com/pt-br/account-billing/gerenciar-senhas-de-aplicativo-para-verifica%C3%A7%C3%A3o-de-duas-etapas-d14593aa-7284-18d4-ad11-3fb6bb0c8968" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)", textDecoration: "underline", fontWeight: 500 }}>Saiba como gerar aqui</a>.
+                                        </span>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Seção Colapsável de Configurações Avançadas */}
+                            <div>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowAdvanced(!showAdvanced)}
+                                    style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "space-between",
+                                        width: "100%",
+                                        padding: "14px 18px",
+                                        background: "var(--bg-primary)",
+                                        border: "1px solid var(--border)",
+                                        borderRadius: 12,
+                                        color: "var(--text-primary)",
+                                        fontWeight: 600,
+                                        cursor: "pointer",
+                                        transition: "all 0.2s"
+                                    }}
+                                >
+                                    <span style={{ display: "flex", alignItems: "center", gap: 10, fontSize: "0.9rem" }}>
+                                        <Settings2 size={18} color="var(--accent)" />
+                                        Configurações Avançadas de Servidor (Hosts/Portas)
+                                    </span>
+                                    {showAdvanced ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                                </button>
+
+                                {showAdvanced && (
+                                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginTop: 16, animation: "fadeIn 0.2s ease-out" }}>
+                                        {/* Inbound - IMAP */}
+                                        <div style={{ display: "flex", flexDirection: "column", gap: 16, background: "var(--bg-primary)", padding: 20, borderRadius: 12, border: "1px solid var(--border)" }}>
+                                            <h5 style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700, display: "flex", alignItems: "center", gap: 8, color: "var(--text-primary)" }}>
+                                                <Inbox size={16} color="var(--accent)" /> Entrada (IMAP)
+                                            </h5>
+                                            <div>
+                                                <label style={{ display: "block", marginBottom: 6, fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: 500 }}>Servidor IMAP Host</label>
+                                                <input type="text" value={editingChannel.inbound.imapHost} onChange={e => setEditingChannel({...editingChannel, inbound: {...editingChannel.inbound, imapHost: e.target.value}})} className="settings-input" style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-secondary)", color: "var(--text-primary)", fontSize: "0.85rem" }} placeholder="imap.gmail.com" required />
+                                            </div>
+                                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                                                <div>
+                                                    <label style={{ display: "block", marginBottom: 6, fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: 500 }}>Porta</label>
+                                                    <input type="number" value={editingChannel.inbound.imapPort} onChange={e => setEditingChannel({...editingChannel, inbound: {...editingChannel.inbound, imapPort: parseInt(e.target.value)}})} className="settings-input" style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-secondary)", color: "var(--text-primary)", fontSize: "0.85rem" }} />
+                                                </div>
+                                                <div style={{ display: "flex", alignItems: "center", gap: 8, height: "100%", paddingTop: 20 }}>
+                                                    <input type="checkbox" checked={editingChannel.inbound.imapSecure} onChange={e => setEditingChannel({...editingChannel, inbound: {...editingChannel.inbound, imapSecure: e.target.checked}})} id="imap-ssl" style={{ width: 16, height: 16, accentColor: "var(--accent)", cursor: "pointer" }} />
+                                                    <label htmlFor="imap-ssl" style={{ fontSize: "0.85rem", color: "var(--text-primary)", cursor: "pointer", fontWeight: 500 }}>SSL/TLS</label>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Outbound - SMTP */}
+                                        <div style={{ display: "flex", flexDirection: "column", gap: 16, background: "var(--bg-primary)", padding: 20, borderRadius: 12, border: "1px solid var(--border)" }}>
+                                            <h5 style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700, display: "flex", alignItems: "center", gap: 8, color: "var(--text-primary)" }}>
+                                                <Send size={16} color="var(--accent)" /> Saída (SMTP)
+                                            </h5>
+                                            <div>
+                                                <label style={{ display: "block", marginBottom: 6, fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: 500 }}>Servidor SMTP Host</label>
+                                                <input type="text" value={editingChannel.outbound.smtpHost} onChange={e => setEditingChannel({...editingChannel, outbound: {...editingChannel.outbound, smtpHost: e.target.value}})} className="settings-input" style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-secondary)", color: "var(--text-primary)", fontSize: "0.85rem" }} placeholder="smtp.gmail.com" required />
+                                            </div>
+                                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                                                <div>
+                                                    <label style={{ display: "block", marginBottom: 6, fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: 500 }}>Porta</label>
+                                                    <input type="number" value={editingChannel.outbound.smtpPort} onChange={e => setEditingChannel({...editingChannel, outbound: {...editingChannel.outbound, smtpPort: parseInt(e.target.value)}})} className="settings-input" style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-secondary)", color: "var(--text-primary)", fontSize: "0.85rem" }} />
+                                                </div>
+                                                <div style={{ display: "flex", alignItems: "center", gap: 8, height: "100%", paddingTop: 20 }}>
+                                                    <input type="checkbox" checked={editingChannel.outbound.smtpSecure} onChange={e => setEditingChannel({...editingChannel, outbound: {...editingChannel.outbound, smtpSecure: e.target.checked}})} id="smtp-ssl" style={{ width: 16, height: 16, accentColor: "var(--accent)", cursor: "pointer" }} />
+                                                    <label htmlFor="smtp-ssl" style={{ fontSize: "0.85rem", color: "var(--text-primary)", cursor: "pointer", fontWeight: 500 }}>SSL/TLS</label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -297,14 +587,7 @@ export function EmailChannelsTab() {
                                         {testResults[channel.EmailChannelId]?.outbound === false && <XCircle size={14} color="#ea4335" />}
                                     </button>
                                     <button 
-                                        onClick={() => setEditingChannel({
-                                            EmailChannelId: channel.EmailChannelId,
-                                            name: channel.Name,
-                                            emailAddress: channel.EmailAddress,
-                                            providerType: channel.ProviderType,
-                                            inbound: channel.inbound || { imapHost: "", imapPort: 993, imapSecure: true, username: "", password: "", pollIntervalSeconds: 60 },
-                                            outbound: channel.outbound || { smtpHost: "", smtpPort: 587, smtpSecure: false, username: "", password: "", fromName: "" }
-                                        })}
+                                        onClick={() => handleEditChannel(channel)}
                                         style={{ padding: "8px", borderRadius: 8, background: "var(--bg-secondary)", border: "1px solid var(--border)", cursor: "pointer", color: "var(--text-secondary)" }}
                                         title="Editar Configurações"
                                     >
