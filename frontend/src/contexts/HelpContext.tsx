@@ -23,13 +23,10 @@ export function HelpProvider({ children }: { children: ReactNode }) {
     const [pageContextKey, _setPageContextKey] = useState<string | null>(null);
 
     const setPageContextKey = useCallback((key: string | null) => {
-        console.log("[HelpContext] setPageContextKey called with:", key);
         _setPageContextKey(key);
     }, []);
 
     const openHelp = useCallback(async (contextKey: string) => {
-        console.log(`[HelpContext] openHelp called for: ${contextKey}`);
-        console.trace(`[HelpContext] openHelp trace for: ${contextKey}`);
 
         // If same key is already open, just toggle visibility
         if (isOpen && activeKey === contextKey) {
@@ -50,7 +47,6 @@ export function HelpProvider({ children }: { children: ReactNode }) {
             const status = error?.response?.status;
 
             if (status === 404) {
-                console.warn(`[HelpContext] Help article not found (404) for key: ${contextKey}`);
                 setArticle({
                     HelpArticleId: "fallback",
                     ContextKey: contextKey,
@@ -59,7 +55,7 @@ export function HelpProvider({ children }: { children: ReactNode }) {
                     IsActive: true
                 });
             } else {
-                console.error(`[HelpContext] Error loading help article for: ${contextKey}`, error);
+
                 setArticle({
                     HelpArticleId: "fallback",
                     ContextKey: contextKey,
