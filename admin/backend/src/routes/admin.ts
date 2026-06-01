@@ -853,7 +853,7 @@ router.put("/users/:id/status", validateBody(z.object({ isActive: z.boolean() })
 router.get("/instances/gti-info", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const token = req.query.token as string;
-        const rawBaseUrl = (req.query.baseUrl as string) || "https://api.gtiapi.workers.dev";
+        const rawBaseUrl = "https://api.gtiapi.workers.dev";
         // Use the common validator for consistency
         if (!isValidGtiUrl(rawBaseUrl)) {
             logger.warn({ rawBaseUrl }, "GTI Info: URL do provedor não autorizada");
