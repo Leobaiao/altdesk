@@ -4,7 +4,7 @@ import "dotenv/config";
 
 const config = {
     user: "sa",
-    password: "Intamr17@",
+    password: process.env.DB_PASSWORD || "",
     database: "AltDeskDev",
     server: "localhost",
     port: 14334,

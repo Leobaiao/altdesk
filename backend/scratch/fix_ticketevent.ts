@@ -5,7 +5,7 @@ import 'dotenv/config';
 async function run() {
     const config = {
         user: 'sa',
-        password: 'Intamr17@',
+        password: process.env.DB_PASSWORD || "",
         server: 'localhost',
         port: 14334,
         database: 'AltDeskDev',

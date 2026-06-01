@@ -860,29 +860,38 @@ router.get("/instances/gti-info", (async (req: AuthenticatedRequest, res: Respon
             return res.status(400).json({ error: "URL do provedor não autorizada." });
         }
         const parsed = new URL(rawBaseUrl);
-        let safeHost = "api.gtiapi.workers.dev";
         const hostLower = parsed.hostname.toLowerCase();
+        let safeHost = "";
 
-        if (hostLower === "api.gtiapi.workers.dev" || hostLower === "api.uazapi.com" || hostLower === "api.gtiapi.com") {
-            safeHost = hostLower;
+        if (hostLower === "api.gtiapi.workers.dev") {
+            safeHost = "api.gtiapi.workers.dev";
+        } else if (hostLower === "api.uazapi.com") {
+            safeHost = "api.uazapi.com";
+        } else if (hostLower === "api.gtiapi.com") {
+            safeHost = "api.gtiapi.com";
         } else {
-            const parts = hostLower.split(".");
-            if (hostLower.endsWith(".gtiapi.workers.dev")) {
-                const subdomain = parts.slice(0, -3).join("");
-                if (/^[a-z0-9]+$/i.test(subdomain)) {
-                    safeHost = `${subdomain}.gtiapi.workers.dev`;
+            const match = hostLower.match(/^([a-z0-9]+)\.(gtiapi\.workers\.dev|uazapi\.com|gtiapi\.com)$/i);
+            if (match) {
+                const cleanSubdomain = match[1].toLowerCase().replace(/[^a-z0-9]/g, "");
+                let cleanDomain = "";
+                const domainLower = match[2].toLowerCase();
+                if (domainLower === "gtiapi.workers.dev") {
+                    cleanDomain = "gtiapi.workers.dev";
+                } else if (domainLower === "uazapi.com") {
+                    cleanDomain = "uazapi.com";
+                } else if (domainLower === "gtiapi.com") {
+                    cleanDomain = "gtiapi.com";
                 }
-            } else if (hostLower.endsWith(".uazapi.com")) {
-                const subdomain = parts.slice(0, -2).join("");
-                if (/^[a-z0-9]+$/i.test(subdomain)) {
-                    safeHost = `${subdomain}.uazapi.com`;
-                }
-            } else if (hostLower.endsWith(".gtiapi.com")) {
-                const subdomain = parts.slice(0, -2).join("");
-                if (/^[a-z0-9]+$/i.test(subdomain)) {
-                    safeHost = `${subdomain}.gtiapi.com`;
+                
+                if (cleanSubdomain && cleanDomain) {
+                    safeHost = `${cleanSubdomain}.${cleanDomain}`;
                 }
             }
+        }
+
+        if (!safeHost) {
+            logger.warn({ hostLower }, "GTI Info: Host não autorizado pelo padrão de subdomínio");
+            return res.status(400).json({ error: "Host do provedor não autorizado." });
         }
 
         const url = `https://${safeHost}/instance/status`;

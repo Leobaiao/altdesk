@@ -200,7 +200,7 @@ export async function preloadDemoData(tenantId: string, model: "basic" | "demo",
                         tenantId,
                         name: member.name,
                         email: member.email,
-                        passwordRaw: "Demo@123", // Padrão para demo
+                        passwordRaw: process.env.DEMO_USER_PASSWORD || "Demo@123",
                         role: member.role
                     });
                 } catch (err) {
