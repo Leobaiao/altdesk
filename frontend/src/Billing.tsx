@@ -142,6 +142,7 @@ export function Billing({ onBack }: { onBack: () => void }) {
             title="Faturamento" 
             icon={CreditCard} 
             onBack={onBack} 
+            contextKey="billing.index"
             helpText={
                 <div>
                     <p>Gerencie o plano da sua empresa, visualize faturas e configure métodos de pagamento.</p>
@@ -166,6 +167,7 @@ export function Billing({ onBack }: { onBack: () => void }) {
         title="Faturamento" 
         icon={CreditCard} 
         onBack={onBack} 
+        contextKey="billing.index"
         helpText={
             <div>
                 <p>Gerencie o plano da sua empresa, visualize faturas e configure métodos de pagamento.</p>

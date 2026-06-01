@@ -101,6 +101,7 @@ export function CannedResponses({ onBack }: { onBack: () => void }) {
                 title={view === "LIST" ? "Respostas Rápidas" : (editingItem ? "Editar Resposta Rápida" : "Nova Resposta Rápida")}
                 icon={BookOpen}
                 onBack={view === "LIST" ? onBack : () => { setView("LIST"); resetForm(); }}
+                contextKey="canned.index"
                 helpText={
                     <div>
                         <p>Respostas rápidas são modelos de texto pré-configurados para agilizar o atendimento.</p>

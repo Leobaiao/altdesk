@@ -347,7 +347,11 @@ export async function reassignConnectorToDefault(conversationId: string, tenantI
       WHERE ch.TenantId=@tenantId AND cc.Provider=@provider AND cc.IsActive=1
     `);
 
-    if (c.recordset.length === 0) throw new Error("Nenhum conector ativo para o provider padrão");
+    if (c.recordset.length === 0) {
+        const err = new Error("Nenhum conector ativo para o provider padrão");
+        (err as any).status = 400;
+        throw err;
+    }
     const newConnectorId = c.recordset[0].ConnectorId;
 
     await pool.request()
@@ -361,4 +365,86 @@ export async function reassignConnectorToDefault(conversationId: string, tenantI
     `);
 
     return defaultProvider;
+}
+
+/**
+ * Altera o conector/provedor de uma conversa específica
+ */
+export async function changeConversationConnector(conversationId: string, tenantId: string | null, connectorId: string) {
+    const pool = await getPool();
+
+    // 1. Verificar se o conector pertence ao tenant e está ativo
+    const checkConn = await pool.request()
+        .input("connectorId", connectorId)
+        .input("tenantId", tenantId)
+        .query(`
+            SELECT cc.ConnectorId, cc.Provider, ch.ChannelId
+            FROM altdesk.ChannelConnector cc
+            JOIN altdesk.Channel ch ON ch.ChannelId = cc.ChannelId
+            WHERE cc.ConnectorId = @connectorId AND ch.TenantId = @tenantId AND cc.IsActive = 1 AND cc.DeletedAt IS NULL
+        `);
+    if (checkConn.recordset.length === 0) {
+        const err = new Error("Instância (conector) inválida, inativa ou pertencente a outro tenant.");
+        (err as any).status = 400;
+        throw err;
+    }
+
+    const { Provider, ChannelId } = checkConn.recordset[0];
+
+    // 2. Verificar se já existe mapeamento no ExternalThreadMap para essa conversa
+    const checkEtm = await pool.request()
+        .input("conversationId", conversationId)
+        .input("tenantId", tenantId)
+        .query(`SELECT 1 FROM altdesk.ExternalThreadMap WHERE ConversationId = @conversationId AND TenantId = @tenantId`);
+
+    if (checkEtm.recordset.length > 0) {
+        // Atualizar
+        await pool.request()
+            .input("conversationId", conversationId)
+            .input("tenantId", tenantId)
+            .input("connectorId", connectorId)
+            .query(`
+                UPDATE altdesk.ExternalThreadMap
+                SET ConnectorId = @connectorId
+                WHERE ConversationId = @conversationId AND TenantId = @tenantId
+            `);
+    } else {
+        // Inserir
+        const convInfo = await pool.request()
+            .input("conversationId", conversationId)
+            .input("tenantId", tenantId)
+            .query(`
+                SELECT c.ConversationId, ct.Phone
+                FROM altdesk.Conversation c
+                LEFT JOIN altdesk.Contact ct ON ct.ContactId = c.OpenedByContactId
+                WHERE c.ConversationId = @conversationId AND c.TenantId = @tenantId
+            `);
+        const phone = convInfo.recordset[0]?.Phone || "external";
+        let externalUserId = phone;
+        if (!externalUserId.includes("@") && !externalUserId.startsWith("webchat_")) {
+            externalUserId += "@s.whatsapp.net";
+        }
+        await pool.request()
+            .input("conversationId", conversationId)
+            .input("tenantId", tenantId)
+            .input("connectorId", connectorId)
+            .input("externalUserId", externalUserId)
+            .query(`
+                INSERT INTO altdesk.ExternalThreadMap (TenantId, ConnectorId, ExternalChatId, ExternalUserId, ConversationId)
+                VALUES (@tenantId, @connectorId, @externalUserId, @externalUserId, @conversationId)
+            `);
+    }
+
+    // 3. Atualizar o ChannelId na conversa correspondente para o novo canal do conector
+    await pool.request()
+        .input("conversationId", conversationId)
+        .input("tenantId", tenantId)
+        .input("channelId", ChannelId)
+        .query(`
+            UPDATE altdesk.Conversation
+            SET ChannelId = @channelId
+            WHERE ConversationId = @conversationId AND TenantId = @tenantId
+        `);
+
+    return Provider;
 }

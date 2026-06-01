@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
-import { MessageCircleOff, ArrowLeft, Trash2, CheckCircle, RotateCcw, Users as UsersIcon, Zap, ChevronDown, Smile, FileText, Send, UserPlus, StickyNote, MessageSquare, Mail, Monitor, BookOpen, ArrowUpRight } from "lucide-react";
+import { MessageCircleOff, ArrowLeft, Trash2, CheckCircle, RotateCcw, Users as UsersIcon, Zap, ChevronDown, Smile, FileText, Send, UserPlus, StickyNote, MessageSquare, Mail, Monitor, BookOpen, ArrowUpRight, Sparkles } from "lucide-react";
 
 import { useChat } from "../contexts/ChatContext";
 import { AudioPlayer } from "./AudioPlayer";
 import { EmojiPicker } from "./EmojiPicker";
-import { TemplateModal } from "./TemplateModal";
+import { ChangeConnectorModal } from "./ChangeConnectorModal";
 import { ImageViewerModal } from "./ImageViewerModal";
 import { DocumentCard } from "./DocumentCard";
 import { TagPill } from "./TagPill";
@@ -72,7 +72,7 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
 
     const [showScrollButton, setShowScrollButton] = useState(false);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-    const [showTemplateModal, setShowTemplateModal] = useState(false);
+    const [showConnectorModal, setShowConnectorModal] = useState(false);
     const [viewingImage, setViewingImage] = useState<string | null>(null);
 
     // Internal Note mode
@@ -459,18 +459,7 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
                             )}
 
                             <button
-                                onClick={() => {
-                                    showConfirm({
-                                        title: "Re-conectar Conversa",
-                                        description: "Deseja re-conectar esta conversa ao Provider Padrão?",
-                                        onConfirm: async () => {
-                                            try {
-                                                await api.post(`/api/conversations/${selectedConversationId}/reconnect`);
-                                                refreshConversations();
-                                            } catch (e) {}
-                                        }
-                                    });
-                                }}
+                                onClick={() => setShowConnectorModal(true)}
                                 style={{ background: "var(--bg-hover)", border: "none", color: "var(--text-secondary)", width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
                                 title="Trocar Provider"
                             >
@@ -675,13 +664,10 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
                 {role !== 'END_USER' && (
                     <>
                         <button onClick={() => setShowCannedMenu(!showCannedMenu)} style={{ background: "none", border: "none", cursor: "pointer", padding: "0 10px", color: "var(--text-secondary)" }} title="Respostas Rápidas">
-                            <Zap size={24} />
+                            <Sparkles size={24} />
                         </button>
                         <button onClick={loadKbArticles} style={{ background: "none", border: "none", cursor: "pointer", padding: "0 10px", color: "var(--text-secondary)" }} title="Base de Conhecimento">
                             <BookOpen size={24} />
-                        </button>
-                        <button onClick={() => setShowTemplateModal(true)} style={{ background: "none", border: "none", cursor: "pointer", padding: "0 10px", color: "var(--text-secondary)" }} title="Modelos (HSM)">
-                            <FileText size={24} />
                         </button>
                         <button
                             onClick={() => setNoteMode(!noteMode)}
@@ -705,13 +691,6 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
                     {noteMode ? <StickyNote size={18} /> : <Send size={18} />} {sending ? "Enviando…" : noteMode ? "Nota" : "Enviar"}
                 </button>
             </div>
-
-            {showTemplateModal && (
-                <TemplateModal
-                    onClose={() => setShowTemplateModal(false)}
-                    onSend={(txt) => sendReply(txt)}
-                />
-            )}
 
             {showTicketModal && (
                 <div className="modal-overlay" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 }}>
@@ -971,6 +950,13 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
                         </div>
                     </div>
                 </div>
+            )}
+            {showConnectorModal && selectedConversationId && (
+                <ChangeConnectorModal
+                    conversationId={selectedConversationId}
+                    onClose={() => setShowConnectorModal(false)}
+                    onChanged={() => refreshConversations()}
+                />
             )}
         </>
     );

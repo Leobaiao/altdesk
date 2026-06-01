@@ -17,8 +17,10 @@ import {
     getConversationMessages,
     getReplyMetadata,
     updateConversationStatus,
-    reassignConnectorToDefault
+    reassignConnectorToDefault,
+    changeConversationConnector
 } from "../services/chatService.js";
+import { listUserAvailableInstances } from "../services/instanceService.js";
 import { emitConversationEvent } from "../services/socketService.js";
 
 const router = Router();
@@ -477,6 +479,67 @@ router.post("/:id/reassign-connector", requireRole("ADMIN"), (async (req: Authen
         if (!allowed) return res.status(403).json({ error: "Access denied" });
 
         const provider = await reassignConnectorToDefault(conversationId, tenantId);
+        res.json({ ok: true, provider });
+    } catch (error) {
+        next(error);
+    }
+}) as any);
+
+router.get("/:id/connectors", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const user = req.user;
+        const conversationId = req.params.id;
+
+        const { allowed, tenantId } = await checkConversationAccess(user, conversationId);
+        if (!allowed) return res.status(403).json({ error: "Access denied" });
+
+        const pool = await getPool();
+        const rCurrent = await pool.request()
+            .input("conversationId", conversationId)
+            .input("tenantId", tenantId)
+            .query(`
+                SELECT etm.ConnectorId, cc.Provider, ch.Name as ChannelName
+                FROM altdesk.ExternalThreadMap etm
+                JOIN altdesk.ChannelConnector cc ON cc.ConnectorId = etm.ConnectorId
+                JOIN altdesk.Channel ch ON ch.ChannelId = cc.ChannelId
+                WHERE etm.ConversationId = @conversationId AND etm.TenantId = @tenantId
+            `);
+        const currentConnector = rCurrent.recordset[0] || null;
+
+        const available = await listUserAvailableInstances(user.userId, tenantId || "");
+        
+        res.json({
+            currentConnector,
+            availableConnectors: available
+        });
+    } catch (error) {
+        next(error);
+    }
+}) as any);
+
+router.post("/:id/change-connector", validateBody(z.object({
+    connectorId: z.string()
+})), (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const user = req.user;
+        const conversationId = req.params.id;
+        const { connectorId } = req.body;
+
+        const { allowed, tenantId } = await checkConversationAccess(user, conversationId);
+        if (!allowed) return res.status(403).json({ error: "Access denied" });
+
+        const provider = await changeConversationConnector(conversationId, tenantId, connectorId);
+
+        // Emit conversation:updated socket event
+        const io = req.app.get("io");
+        if (io) {
+            emitConversationEvent(io, tenantId!, conversationId, "conversation:updated", {
+                conversationId,
+                SourceChannel: provider === "EMAIL" ? "EMAIL" : "WHATSAPP",
+                timestamp: new Date().toISOString()
+            });
+        }
+
         res.json({ ok: true, provider });
     } catch (error) {
         next(error);

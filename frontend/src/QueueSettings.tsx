@@ -75,6 +75,7 @@ export function QueueSettings({ onBack }: { onBack: () => void }) {
                 subtitle={isAdmin ? "Crie departamentos para organizar o atendimento." : "Visualize os departamentos ativos para o atendimento."}
                 icon={Search}
                 onBack={onBack}
+                contextKey="queues.index"
             />
 
             <div style={{ display: "flex", gap: 20, flexWrap: "wrap", alignItems: "flex-start" }}>

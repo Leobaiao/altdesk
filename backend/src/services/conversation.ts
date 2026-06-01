@@ -302,13 +302,21 @@ export async function findOrCreateConversation(tenantId: string, phone: string, 
     // Busca instâncias baseadas nas permissões do usuário
     const available = await listUserAvailableInstances(assignedUserId, tenantId);
     if (available.length === 0) {
-      throw new Error(`Sua instância do Altdesk ainda não possui um canal ativo acessível para você. Por favor, entre em contato com o suporte ou administrador para concluir a configuração do seu ambiente.`);
+      const err = new Error(`Sua instância do Altdesk ainda não possui um canal ativo acessível para você. Por favor, entre em contato com o suporte ou administrador para concluir a configuração do seu ambiente.`);
+      (err as any).status = 400;
+      throw err;
     }
     connectorId = available[0].ConnectorId;
 
     const rCh = await pool.request()
       .input("cid", connectorId)
       .query(`SELECT ChannelId FROM altdesk.ChannelConnector WHERE ConnectorId = @cid`);
+    
+    if (rCh.recordset.length === 0) {
+      const err = new Error(`Canal correspondente não encontrado para a instância ativa.`);
+      (err as any).status = 400;
+      throw err;
+    }
     channelId = rCh.recordset[0].ChannelId;
   } else {
     // Fallback: sem usuário específico, usar provedor padrão do tenant
@@ -328,7 +336,9 @@ export async function findOrCreateConversation(tenantId: string, phone: string, 
         ORDER BY CASE WHEN cc.Provider = @provider THEN 0 ELSE 1 END, cc.ConnectorId
       `);
     if (conn.recordset.length === 0) {
-      throw new Error(`Sua instância do Altdesk ainda não possui um canal ativo. Por favor, entre em contato com o suporte ou administrador para concluir a configuração do seu ambiente.`);
+      const err = new Error(`Sua instância do Altdesk ainda não possui um canal ativo. Por favor, entre em contato com o suporte ou administrador para concluir a configuração do seu ambiente.`);
+      (err as any).status = 400;
+      throw err;
     }
     connectorId = conn.recordset[0].ConnectorId;
     channelId = conn.recordset[0].ChannelId;

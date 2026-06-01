@@ -167,7 +167,9 @@ router.get("/kanban", (async (req: AuthenticatedRequest, res: Response, next: Ne
                     ISNULL(t.EscalationLevel, 0) as EscalationLevel,
                     ISNULL(t.KanbanOrder, 0) as KanbanOrder,
                     agentUser.DisplayName as AgentName,
-                    reqContact.Name as RequesterName
+                    reqContact.Name as RequesterName,
+                    c.SourceChannel,
+                    ag.UserId as AssignedUserId
                 FROM altdesk.Conversation c
                 INNER JOIN altdesk.Ticket t ON t.ConversationId = c.ConversationId AND t.DeletedAt IS NULL
                 LEFT JOIN altdesk.Agent ag ON ag.AgentId = t.AssignedAgentId
@@ -200,7 +202,9 @@ router.get("/kanban", (async (req: AuthenticatedRequest, res: Response, next: Ne
             escalationLevel: r.EscalationLevel,
             kanbanOrder: r.KanbanOrder,
             assignedAgent: r.AgentName ? { name: r.AgentName } : null,
-            requester: r.RequesterName ? { name: r.RequesterName } : null
+            requester: r.RequesterName ? { name: r.RequesterName } : null,
+            sourceChannel: r.SourceChannel,
+            assignedUserId: r.AssignedUserId
         }));
 
         res.json(tickets);

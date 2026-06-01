@@ -169,6 +169,17 @@ export function BusinessHours({ onBack }: Props) {
                 subtitle="Configure o expediente semanal e datas especiais (feriados)."
                 icon={Clock}
                 onBack={onBack}
+                contextKey="business-hours.index"
+                helpText={
+                    <div>
+                        <p>Esta tela permite definir o expediente oficial de atendimento da sua empresa e configurar datas especiais como feriados ou recessos.</p>
+                        <ul style={{ marginTop: 12, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 8 }}>
+                            <li><strong>Expediente Semanal:</strong> Defina os dias e os horários específicos em que sua equipe está ativa para responder aos clientes.</li>
+                            <li><strong>Feriados e Exceções:</strong> Cadastre datas especiais nas quais o atendimento estará fechado (ou operando em horário diferenciado).</li>
+                            <li><strong>Mensagem Fora do Horário:</strong> Escreva a resposta automática que os clientes receberão caso entrem em contato fora do expediente programado.</li>
+                        </ul>
+                    </div>
+                }
             />
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))", gap: 24 }}>

@@ -52,13 +52,25 @@ function getPriorityLabel(priority: string): string {
     }
 }
 
+import { getUserIdFromToken } from '../lib/auth';
+
+export interface TicketFilters {
+    status: string;
+    channel: string;
+    sla: string;
+    assignee: string;
+    priority: string;
+    search: string;
+}
+
 interface KanbanProps {
     onSelectTicket: (ticketId: string) => void;
     refreshKey?: number;
     onStatsUpdate?: (stats: { total: number; breached: number; warning: number; onTime: number }) => void;
+    filters: TicketFilters;
 }
 
-export function Kanban({ onSelectTicket, refreshKey, onStatsUpdate }: KanbanProps) {
+export function Kanban({ onSelectTicket, refreshKey, onStatsUpdate, filters }: KanbanProps) {
     const [tickets, setTickets] = useState<KanbanTicket[]>([]);
     const [loading, setLoading] = useState(true);
     const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
@@ -191,9 +203,44 @@ export function Kanban({ onSelectTicket, refreshKey, onStatsUpdate }: KanbanProp
                     paddingBottom: 4 /* room for scrollbar */
                 }}>
                     {kanbanColumns.map(column => {
+                        const currentUserId = getUserIdFromToken();
                         const columnTickets = tickets.filter(t => {
-                            if (column.key === 'NEW') return t.status === 'NEW' || t.status === 'OPEN';
-                            return t.status === column.key;
+                            const matchesStatus = column.key === 'NEW' 
+                                ? (t.status === 'NEW' || t.status === 'OPEN') 
+                                : t.status === column.key;
+                                
+                            if (!matchesStatus) return false;
+
+                            if (filters.priority !== 'ALL' && t.priority !== filters.priority) return false;
+
+                            if (filters.sla !== 'ALL' && t.slaStatus !== filters.sla) return false;
+
+                            if (filters.channel !== 'ALL') {
+                                const ch = (t as any).sourceChannel || '';
+                                const labelMap: Record<string, string> = {
+                                    'WHATSAPP': 'WhatsApp',
+                                    'EMAIL': 'Email',
+                                    'PLATFORM': 'Plataforma',
+                                    'CHATBOT': 'Chatbot'
+                                };
+                                const chLabel = labelMap[ch.toUpperCase()] || 'Plataforma';
+                                if (chLabel !== filters.channel) return false;
+                            }
+
+                            if (filters.assignee !== 'ALL') {
+                                const assignedUserId = (t as any).assignedUserId;
+                                if (filters.assignee === 'ME' && assignedUserId !== currentUserId) return false;
+                                if (filters.assignee === 'UNASSIGNED' && assignedUserId) return false;
+                            }
+
+                            if (filters.search) {
+                                const s = filters.search.toLowerCase();
+                                const matchTitle = (t.title || '').toLowerCase().includes(s);
+                                const matchReq = (t.requester?.name || '').toLowerCase().includes(s);
+                                if (!matchTitle && !matchReq) return false;
+                            }
+
+                            return true;
                         });
                         const breachedCount = columnTickets.filter(t => t.slaStatus === 'BREACHED').length;
                         const isDragOver = dragOverColumn === column.key;
@@ -248,6 +295,9 @@ export function Kanban({ onSelectTicket, refreshKey, onStatsUpdate }: KanbanProp
                                                 autoFocus
                                                 value={editingColTitle}
                                                 onChange={e => setEditingColTitle(e.target.value)}
+                                                autoComplete="off"
+                                                data-lpignore="true"
+                                                data-1p-ignore
                                                 onKeyDown={e => {
                                                     if (e.key === 'Enter') saveColumnTitle(column.key);
                                                     if (e.key === 'Escape') setEditingColKey(null);
@@ -391,6 +441,9 @@ export function Kanban({ onSelectTicket, refreshKey, onStatsUpdate }: KanbanProp
                                                         autoFocus
                                                         value={editingTitle}
                                                         onChange={e => setEditingTitle(e.target.value)}
+                                                        autoComplete="off"
+                                                        data-lpignore="true"
+                                                        data-1p-ignore
                                                         onKeyDown={e => {
                                                             if (e.key === 'Enter') saveTitle(ticket.id);
                                                             if (e.key === 'Escape') setEditingId(null);

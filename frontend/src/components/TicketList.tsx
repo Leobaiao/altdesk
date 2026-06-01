@@ -113,20 +113,30 @@ function formatDateTime(d: string | null | undefined) {
     return date.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
+import { getUserIdFromToken } from "../lib/auth";
+
+export interface TicketFilters {
+    status: string;
+    channel: string;
+    sla: string;
+    assignee: string;
+    priority: string;
+    search: string;
+}
+
 interface TicketListProps {
     onSelect: (ticket: TicketData) => void;
     selectedId: string | null;
     onBack: () => void;
     refreshKey?: number;
     onStatsUpdate?: (stats: { total: number; breached: number; warning: number; onTime: number }) => void;
+    filters: TicketFilters;
+    onFiltersChange: (filters: TicketFilters) => void;
 }
 
-export function TicketList({ onSelect, selectedId, onBack, refreshKey, onStatsUpdate }: TicketListProps) {
+export function TicketList({ onSelect, selectedId, onBack, refreshKey, onStatsUpdate, filters, onFiltersChange }: TicketListProps) {
     const [tickets, setTickets] = useState<TicketData[]>([]);
     const [loading, setLoading] = useState(true);
-    const [search, setSearch] = useState("");
-    const [statusFilter, setStatusFilter] = useState<string>("ALL");
-    const [channelFilter, setChannelFilter] = useState<string>("ALL");
 
     const loadTickets = useCallback(async () => {
         setLoading(true);
@@ -152,25 +162,38 @@ export function TicketList({ onSelect, selectedId, onBack, refreshKey, onStatsUp
     useEffect(() => { loadTickets(); }, [refreshKey, loadTickets]);
 
     const filtered = useMemo(() => {
+        const currentUserId = getUserIdFromToken();
         const list = tickets.filter(t => {
-            if (statusFilter !== "ALL" && t.Status !== statusFilter) return false;
-            if (channelFilter !== "ALL") {
+            if (filters.status !== "ALL" && t.Status !== filters.status) return false;
+            
+            if (filters.channel !== "ALL") {
                 const ch = getChannelLabel(t.SourceChannel);
-                if (ch !== channelFilter) return false;
+                if (ch !== filters.channel) return false;
             }
-            if (search) {
-                const s = search.toLowerCase();
+            
+            if (filters.sla !== "ALL" && t.SlaStatus !== filters.sla) return false;
+            
+            if (filters.priority !== "ALL" && t.Priority !== filters.priority) return false;
+            
+            if (filters.assignee !== "ALL") {
+                if (filters.assignee === "ME" && t.AssignedUserId !== currentUserId) return false;
+                if (filters.assignee === "UNASSIGNED" && t.AssignedUserId) return false;
+            }
+            
+            if (filters.search) {
+                const s = filters.search.toLowerCase();
                 const matchName = (t.ContactName || "").toLowerCase().includes(s);
                 const matchCPF = (t.ContactCPF || "").replace(/\D/g, "").includes(s.replace(/\D/g, ""));
                 const matchId = t.ConversationId.toLowerCase().includes(s);
                 const matchPhone = (t.ContactPhone || "").includes(s);
-                if (!matchName && !matchCPF && !matchId && !matchPhone) return false;
+                const matchTitle = (t.Title || "").toLowerCase().includes(s);
+                if (!matchName && !matchCPF && !matchId && !matchPhone && !matchTitle) return false;
             }
             return true;
         });
         // Sort by CreatedAt descending (newest first)
         return [...list].sort((a, b) => new Date(b.CreatedAt).getTime() - new Date(a.CreatedAt).getTime());
-    }, [tickets, statusFilter, channelFilter, search]);
+    }, [tickets, filters]);
 
     return (
         <div style={{
@@ -186,9 +209,12 @@ export function TicketList({ onSelect, selectedId, onBack, refreshKey, onStatsUp
                 <div style={{ position: "relative", flex: 1, minWidth: 200 }}>
                     <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--text-secondary, #9ca3af)" }} />
                     <input
-                        value={search}
-                        onChange={e => setSearch(e.target.value)}
+                        value={filters.search}
+                        onChange={e => onFiltersChange({ ...filters, search: e.target.value })}
                         placeholder="Buscar por CPF, nome ou telefone..."
+                        autoComplete="off"
+                        data-lpignore="true"
+                        data-1p-ignore
                         style={{
                             width: "100%", padding: "9px 14px 9px 36px", borderRadius: 10,
                             background: "var(--bg-primary, #f3f4f6)", border: "1px solid var(--border, #e5e7eb)",
@@ -200,8 +226,8 @@ export function TicketList({ onSelect, selectedId, onBack, refreshKey, onStatsUp
                     />
                 </div>
                 <select
-                    value={statusFilter}
-                    onChange={e => setStatusFilter(e.target.value)}
+                    value={filters.status}
+                    onChange={e => onFiltersChange({ ...filters, status: e.target.value })}
                     style={{
                         padding: "8px 12px", borderRadius: 10, background: "var(--bg-primary, #f3f4f6)",
                         border: "1px solid var(--border, #e5e7eb)", color: "var(--text-primary, #1f2937)",
@@ -214,8 +240,8 @@ export function TicketList({ onSelect, selectedId, onBack, refreshKey, onStatsUp
                     <option value="PENDING">Pendente</option>
                 </select>
                 <select
-                    value={channelFilter}
-                    onChange={e => setChannelFilter(e.target.value)}
+                    value={filters.channel}
+                    onChange={e => onFiltersChange({ ...filters, channel: e.target.value })}
                     style={{
                         padding: "8px 12px", borderRadius: 10, background: "var(--bg-primary, #f3f4f6)",
                         border: "1px solid var(--border, #e5e7eb)", color: "var(--text-primary, #1f2937)",

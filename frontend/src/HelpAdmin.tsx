@@ -19,7 +19,7 @@ interface Props {
 const SCREEN_REGISTRY = [
     { key: "dashboard.index",    label: "Dashboard Executivo",      category: "Métricas",       path: "/dashboard" },
     { key: "chat.index",         label: "Central de Mensagens",     category: "Atendimento",    path: "/chat" },
-    { key: "tickets.index",      label: "Gestão de Chamados",       category: "Atendimento",    path: "/tickets" },
+    { key: "tickets.index",      label: "Atendimentos",             category: "Atendimento",    path: "/tickets" },
     { key: "kanban.index",       label: "Visão Kanban de Tickets",  category: "Atendimento",    path: "/tickets" },
     { key: "contacts.index",     label: "Lista de Contatos",        category: "Geral",          path: "/contacts" },
     { key: "users.index",        label: "Equipe e Colaboradores",   category: "Administração",  path: "/users" },
@@ -382,6 +382,7 @@ export function HelpAdmin({ onBack }: Props) {
                 title="Gerenciamento do Sistema de Ajuda"
                 icon={HelpCircle}
                 onBack={onBack}
+                contextKey="help-admin.index"
                 helpText={
                     <div>
                         <p>Esta interface administrativa gerencia os textos exibidos no Painel Lateral Deslizante (Help Drawer) de cada tela.</p>

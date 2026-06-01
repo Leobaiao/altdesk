@@ -70,6 +70,7 @@ export function AuditLogs({ onBack }: Props) {
                 subtitle="Histórico completo de ações administrativas e alterações de dados."
                 icon={ListFilter}
                 onBack={onBack}
+                contextKey="audit.index"
             />
 
             <div style={{ display: "grid", gridTemplateColumns: selectedLog ? "1fr 400px" : "1fr", gap: 24, transition: "all 0.3s" }}>

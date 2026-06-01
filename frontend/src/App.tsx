@@ -5,7 +5,6 @@ import { QueueSettings } from "./QueueSettings";
 import { Contacts } from "./Contacts";
 import { Toast } from "./components/Toast";
 import { EmojiPicker } from "./components/EmojiPicker";
-import { TemplateModal } from "./components/TemplateModal";
 import { AudioPlayer } from "./components/AudioPlayer";
 import { Settings } from "./Settings";
 import { Dashboard as DashboardView } from "./Dashboard";
@@ -168,7 +167,7 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
   const getPageTitle = (path: string) => {
     if (path.startsWith("/chat")) return "Central de Mensagens";
     if (path.startsWith("/dashboard")) return "Dashboard Executivo";
-    if (path.startsWith("/tickets")) return "Gestão de Chamados";
+    if (path.startsWith("/tickets")) return "Atendimentos";
     if (path.startsWith("/contacts")) return "Lista de Contatos";
     if (path.startsWith("/users")) return "Equipe e Colaboradores";
     if (path.startsWith("/reports")) return "Relatórios Analíticos";
@@ -347,7 +346,7 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
           )}
 
           {livePermissions?.tickets !== false && (
-            <NavIcon icon={Ticket} label={role === 'END_USER' ? "Meus Chamados" : "Gestão de Chamados"} active={currentPath.startsWith("/tickets")} onClick={() => navigate("/tickets")} />
+            <NavIcon icon={Ticket} label="Atendimentos" active={currentPath.startsWith("/tickets")} onClick={() => navigate("/tickets")} />
           )}
           
           <div style={{ height: 1, background: "var(--border)", margin: "10px 15px", opacity: 0.5 }} />

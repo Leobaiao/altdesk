@@ -110,51 +110,52 @@ export function Settings({ token, onBack, role, livePermissions }: Props) {
         );
     }
 
-    const handleSave = async () => {
+    const handleSaveProfile = async () => {
         setLoading(true);
         setMsg("");
         try {
-            // 1. Profile update (Always try)
-            try {
-                await api.put("/api/profile", {
-                    name: name || undefined,
-                    password: password || undefined,
-                    avatar: avatar || undefined,
-                    position: position || undefined
-                });
-            } catch (err: any) {
-                const errorMsg = err.response?.data?.error || err.message;
-                throw new Error("Erro no Perfil: " + errorMsg);
-            }
-
-            // 2. Settings update (Only if Admin and has instances)
-            if (isAdmin && selectedConnectorId) {
-                try {
-                    await api.put("/api/settings", {
-                        defaultProvider,
-                        connectorId: selectedConnectorId
-                    });
-
-                    await api.post(`/api/settings/instances/${selectedConnectorId}/assignments`, {
-                        userIds: assignedToInstance
-                    });
-
-                    setInstances((prev: any[]) => prev.map((inst: any) => 
-                        inst.ConnectorId === selectedConnectorId 
-                            ? { ...inst, assignedUsers: allUsers.filter(u => assignedToInstance.includes(u.UserId)) }
-                            : inst
-                    ));
-
-                } catch (err: any) {
-                    const errorMsg = err.response?.data?.error || err.message;
-                    throw new Error("Erro na Integração: " + errorMsg);
-                }
-            }
-
-            setMsg("✅ Alterações salvas com sucesso!");
+            await api.put("/api/profile", {
+                name: name || undefined,
+                password: password || undefined,
+                avatar: avatar || undefined,
+                position: position || undefined
+            });
+            setMsg("✅ Perfil atualizado com sucesso!");
             setPassword("");
         } catch (err: any) {
-            setMsg("❌ " + err.message);
+            const errorMsg = err.response?.data?.error || err.message;
+            setMsg("❌ Erro no Perfil: " + errorMsg);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSaveIntegrations = async () => {
+        setLoading(true);
+        setMsg("");
+        try {
+            if (selectedConnectorId) {
+                await api.put("/api/settings", {
+                    defaultProvider,
+                    connectorId: selectedConnectorId
+                });
+
+                await api.post(`/api/settings/instances/${selectedConnectorId}/assignments`, {
+                    userIds: assignedToInstance
+                });
+
+                setInstances((prev: any[]) => prev.map((inst: any) => 
+                    inst.ConnectorId === selectedConnectorId 
+                        ? { ...inst, assignedUsers: allUsers.filter(u => assignedToInstance.includes(u.UserId)) }
+                        : inst
+                ));
+                setMsg("✅ Configurações de integração salvas com sucesso!");
+            } else {
+                setMsg("❌ Nenhuma instância selecionada.");
+            }
+        } catch (err: any) {
+            const errorMsg = err.response?.data?.error || err.message;
+            setMsg("❌ Erro na Integração: " + errorMsg);
         } finally {
             setLoading(false);
         }
@@ -210,7 +211,7 @@ export function Settings({ token, onBack, role, livePermissions }: Props) {
 
             <div style={{ display: "flex", gap: 12, marginBottom: 32, borderBottom: "1px solid var(--border)", paddingBottom: 16 }}>
                 <button 
-                    onClick={() => setActiveTab("profile")}
+                    onClick={() => { setActiveTab("profile"); setMsg(""); }}
                     style={{ 
                         padding: "10px 20px", borderRadius: 10, cursor: "pointer", border: "none", 
                         background: activeTab === "profile" ? "var(--accent)" : "transparent",
@@ -218,11 +219,24 @@ export function Settings({ token, onBack, role, livePermissions }: Props) {
                         fontWeight: 600, display: "flex", alignItems: "center", gap: 8, transition: "all 0.2s"
                     }}
                 >
-                    <User size={18} /> Perfil e Integrações
+                    <User size={18} /> Perfil Pessoal
                 </button>
                 {isAdmin && (
                     <button 
-                        onClick={() => setActiveTab("email")}
+                        onClick={() => { setActiveTab("integrations"); setMsg(""); }}
+                        style={{ 
+                            padding: "10px 20px", borderRadius: 10, cursor: "pointer", border: "none", 
+                            background: activeTab === "integrations" ? "var(--accent)" : "transparent",
+                            color: activeTab === "integrations" ? "#fff" : "var(--text-secondary)",
+                            fontWeight: 600, display: "flex", alignItems: "center", gap: 8, transition: "all 0.2s"
+                        }}
+                    >
+                        <Blocks size={18} /> Integração de Canais
+                    </button>
+                )}
+                {isAdmin && (
+                    <button 
+                        onClick={() => { setActiveTab("email"); setMsg(""); }}
                         style={{ 
                             padding: "10px 20px", borderRadius: 10, cursor: "pointer", border: "none", 
                             background: activeTab === "email" ? "var(--accent)" : "transparent",
@@ -235,207 +249,142 @@ export function Settings({ token, onBack, role, livePermissions }: Props) {
                 )}
             </div>
 
+            {msg && (
+                <div style={{
+                    padding: "16px",
+                    background: msg.includes("✅") ? "rgba(0, 168, 132, 0.1)" : "rgba(234, 67, 53, 0.1)",
+                    color: msg.includes("✅") ? "var(--accent)" : "#ea4335",
+                    borderRadius: 12,
+                    fontSize: "0.95rem",
+                    border: "1px solid",
+                    borderColor: msg.includes("✅") ? "rgba(0, 168, 132, 0.2)" : "rgba(234, 67, 53, 0.2)",
+                    fontWeight: 500,
+                    marginBottom: 24,
+                    maxWidth: 650
+                }}>
+                    {msg}
+                </div>
+            )}
+
             <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
                 {activeTab === "profile" && (
-                    <>
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 24 }}>
-                            {/* Perfil + Aparência */}
-                            <div style={{ background: "var(--bg-secondary)", padding: 30, borderRadius: 16, border: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 20 }}>
-                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                    <h3 style={{ fontSize: 18, fontWeight: 600, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 10, margin: 0 }}>
-                                        <User size={20} className="text-accent" /> Perfil Pessoal
-                                    </h3>
-                                    <div style={{ display: "flex", alignItems: "center", gap: 6, background: "var(--bg-primary)", borderRadius: 8, padding: 3 }}>
-                                        <button
-                                            onClick={() => toggleTheme("dark")}
-                                            style={{
-                                                padding: "6px 14px", borderRadius: 6, cursor: "pointer", transition: "all 0.2s",
-                                                background: theme === "dark" ? "var(--accent)" : "transparent",
-                                                border: "none", color: theme === "dark" ? "#fff" : "var(--text-secondary)",
-                                                fontSize: "0.8rem", fontWeight: 600, display: "flex", alignItems: "center", gap: 5
-                                            }}
-                                        >
-                                            🌙 Escuro
-                                        </button>
-                                        <button
-                                            onClick={() => toggleTheme("light")}
-                                            style={{
-                                                padding: "6px 14px", borderRadius: 6, cursor: "pointer", transition: "all 0.2s",
-                                                background: theme === "light" ? "var(--accent)" : "transparent",
-                                                border: "none", color: theme === "light" ? "#fff" : "var(--text-secondary)",
-                                                fontSize: "0.8rem", fontWeight: 600, display: "flex", alignItems: "center", gap: 5
-                                            }}
-                                        >
-                                            ☀️ Claro
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {msg && (
-                                    <div style={{
-                                        padding: "16px",
-                                        background: msg.includes("✅") ? "rgba(0, 168, 132, 0.1)" : "rgba(234, 67, 53, 0.1)",
-                                        color: msg.includes("✅") ? "var(--accent)" : "#ea4335",
-                                        borderRadius: 12,
-                                        fontSize: "0.95rem",
-                                        border: "1px solid",
-                                        borderColor: msg.includes("✅") ? "rgba(0, 168, 132, 0.2)" : "rgba(234, 67, 53, 0.2)",
-                                        fontWeight: 500
-                                    }}>
-                                        {msg}
-                                    </div>
-                                )}
-
-                                <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-                                    <div style={{ display: "flex", gap: 20, alignItems: "center" }}>
-                                        {/* Avatar Preview */}
-                                        <div style={{ 
-                                            width: 80, 
-                                            height: 80, 
-                                            borderRadius: "50%", 
-                                            overflow: "hidden", 
-                                            border: "2px solid var(--accent)",
-                                            background: "var(--bg-primary)",
-                                            display: "flex",
-                                            alignItems: "center",
-                                            justifyContent: "center",
-                                            flexShrink: 0
-                                        }}>
-                                            {avatar && isSafeUrl(avatar) ? (
-                                                <img src={avatar} alt="Avatar Preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => (e.currentTarget.src = "")} />
-                                            ) : (
-                                                <User size={40} color="var(--text-secondary)" opacity={0.5} />
-                                            )}
-                                        </div>
-
-                                        <div style={{ flex: 1 }}>
-                                            <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, color: "var(--text-secondary)", fontSize: "0.85rem" }}>
-                                                <ImageIcon size={14} /> URL da Foto (Avatar)
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={avatar}
-                                                onChange={e => setAvatar(e.target.value)}
-                                                placeholder="https://"
-                                                className="settings-input"
-                                                style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", transition: "all 0.2s" }}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, color: "var(--text-secondary)", fontSize: "0.85rem" }}>
-                                            <User size={14} /> Nome Completo
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={name}
-                                            onChange={e => setName(e.target.value)}
-                                            placeholder="Seu nome"
-                                            className="settings-input"
-                                            style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", transition: "all 0.2s" }}
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, color: "var(--text-secondary)", fontSize: "0.85rem" }}>
-                                            <Briefcase size={14} /> Cargo / Função (Opcional)
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={position}
-                                            onChange={e => setPosition(e.target.value)}
-                                            placeholder="Ex: Atendente, Gerente..."
-                                            className="settings-input"
-                                            style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", transition: "all 0.2s" }}
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, color: "var(--text-secondary)", fontSize: "0.85rem" }}>
-                                            <Lock size={14} /> Nova Senha
-                                        </label>
-                                        <input
-                                            type="password"
-                                            value={password}
-                                            onChange={e => setPassword(e.target.value)}
-                                            placeholder="Mínimo 6 caracteres"
-                                            className="settings-input"
-                                            style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", transition: "all 0.2s" }}
-                                        />
-                                        <p style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 6 }}>Deixe em branco para não alterar.</p>
-                                    </div>
+                    <div style={{ maxWidth: 650, display: "flex", flexDirection: "column", gap: 24 }}>
+                        {/* Perfil + Aparência */}
+                        <div style={{ background: "var(--bg-secondary)", padding: 30, borderRadius: 16, border: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 20 }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <h3 style={{ fontSize: 18, fontWeight: 600, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 10, margin: 0 }}>
+                                    <User size={20} className="text-accent" /> Perfil Pessoal
+                                </h3>
+                                <div style={{ display: "flex", alignItems: "center", gap: 6, background: "var(--bg-primary)", borderRadius: 8, padding: 3 }}>
+                                    <button
+                                        onClick={() => toggleTheme("dark")}
+                                        style={{
+                                            padding: "6px 14px", borderRadius: 6, cursor: "pointer", transition: "all 0.2s",
+                                            background: theme === "dark" ? "var(--accent)" : "transparent",
+                                            border: "none", color: theme === "dark" ? "#fff" : "var(--text-secondary)",
+                                            fontSize: "0.8rem", fontWeight: 600, display: "flex", alignItems: "center", gap: 5
+                                        }}
+                                    >
+                                        🌙 Escuro
+                                    </button>
+                                    <button
+                                        onClick={() => toggleTheme("light")}
+                                        style={{
+                                            padding: "6px 14px", borderRadius: 6, cursor: "pointer", transition: "all 0.2s",
+                                            background: theme === "light" ? "var(--accent)" : "transparent",
+                                            border: "none", color: theme === "light" ? "#fff" : "var(--text-secondary)",
+                                            fontSize: "0.8rem", fontWeight: 600, display: "flex", alignItems: "center", gap: 5
+                                        }}
+                                    >
+                                        ☀️ Claro
+                                    </button>
                                 </div>
                             </div>
 
-                            {/* Integração (Only for Admins) */}
-                            {isAdmin && (
-                                <div style={{ background: "var(--bg-secondary)", padding: 30, borderRadius: 16, border: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 24, height: "fit-content" }}>
-                                    <h3 style={{ fontSize: 18, fontWeight: 600, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 10, margin: 0 }}>
-                                        <Blocks size={20} className="text-accent" /> Integração de Canais
-                                    </h3>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                                <div style={{ display: "flex", gap: 20, alignItems: "center" }}>
+                                    {/* Avatar Preview */}
+                                    <div style={{ 
+                                        width: 80, 
+                                        height: 80, 
+                                        borderRadius: "50%", 
+                                        overflow: "hidden", 
+                                        border: "2px solid var(--accent)",
+                                        background: "var(--bg-primary)",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        flexShrink: 0
+                                    }}>
+                                        {avatar && isSafeUrl(avatar) ? (
+                                            <img src={avatar} alt="Avatar Preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => (e.currentTarget.src = "")} />
+                                        ) : (
+                                            <User size={40} color="var(--text-secondary)" opacity={0.5} />
+                                        )}
+                                    </div>
 
-                                    {instances.length === 0 ? (
-                                        <div style={{ padding: 15, background: "rgba(234, 67, 53, 0.1)", color: "#ea4335", borderRadius: 10, fontSize: "0.9rem", border: "1px solid rgba(234, 67, 53, 0.2)" }}>
-                                            Nenhuma instância de conexão encontrada para essa empresa. Contate o Super Admin.
-                                        </div>
-                                    ) : (
-                                        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-                                            <div>
-                                                <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, color: "var(--text-secondary)", fontSize: "0.85rem" }}>
-                                                    <MonitorSmartphone size={14} /> Selecione a Instância (Canal)
-                                                </label>
-                                                <select
-                                                    value={selectedConnectorId}
-                                                    onChange={e => handleInstanceChange(e.target.value)}
-                                                    className="settings-input"
-                                                    style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", transition: "all 0.2s" }}
-                                                >
-                                                    {instances.map(inst => (
-                                                        <option key={inst.ConnectorId} value={inst.ConnectorId}>
-                                                            {inst.ChannelName || 'Sem Nome'} ({inst.Provider})
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                            </div>
-
-
-
-                                            <div style={{ marginTop: 10 }}>
-                                                <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12, color: "var(--text-secondary)", fontSize: "0.85rem" }}>
-                                                    <User size={14} /> Funcionários com Acesso
-                                                </label>
-                                                <div style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 200, overflowY: "auto", padding: 12, background: "var(--bg-primary)", borderRadius: 12, border: "1px solid var(--border)" }}>
-                                                    {allUsers.length === 0 ? (
-                                                        <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>Nenhum funcionário encontrado.</span>
-                                                    ) : (
-                                                        allUsers.map(u => (
-                                                            <label key={u.UserId} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: "0.85rem" }}>
-                                                                <input 
-                                                                    type="checkbox" 
-                                                                    checked={assignedToInstance.includes(u.UserId)}
-                                                                    onChange={() => handleToggleUser(u.UserId)}
-                                                                    style={{ width: 16, height: 16, accentColor: "var(--accent)" }}
-                                                                />
-                                                                <span>{u.AgentName || u.DisplayName || u.Email}</span>
-                                                                {u.Role === 'ADMIN' && <span style={{ fontSize: "0.7rem", padding: "2px 6px", background: "rgba(255,255,255,0.05)", borderRadius: 4, color: "var(--text-secondary)" }}>Admin</span>}
-                                                            </label>
-                                                        ))
-                                                    )}
-                                                </div>
-                                                <p style={{ fontSize: "0.7rem", color: "var(--text-secondary)", marginTop: 8 }}>
-                                                    Se nenhum for selecionado, a instância será <strong>Global</strong> (todos acessam).
-                                                </p>
-                                            </div>
-                                        </div>
-                                    )}
+                                    <div style={{ flex: 1 }}>
+                                        <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, color: "var(--text-secondary)", fontSize: "0.85rem" }}>
+                                            <ImageIcon size={14} /> URL da Foto (Avatar)
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={avatar}
+                                            onChange={e => setAvatar(e.target.value)}
+                                            placeholder="https://"
+                                            className="settings-input"
+                                            style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", transition: "all 0.2s" }}
+                                        />
+                                    </div>
                                 </div>
-                            )}
+
+                                <div>
+                                    <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, color: "var(--text-secondary)", fontSize: "0.85rem" }}>
+                                        <User size={14} /> Nome Completo
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={name}
+                                        onChange={e => setName(e.target.value)}
+                                        placeholder="Seu nome"
+                                        className="settings-input"
+                                        style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", transition: "all 0.2s" }}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, color: "var(--text-secondary)", fontSize: "0.85rem" }}>
+                                        <Briefcase size={14} /> Cargo / Função (Opcional)
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={position}
+                                        onChange={e => setPosition(e.target.value)}
+                                        placeholder="Ex: Atendente, Gerente..."
+                                        className="settings-input"
+                                        style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", transition: "all 0.2s" }}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, color: "var(--text-secondary)", fontSize: "0.85rem" }}>
+                                        <Lock size={14} /> Nova Senha
+                                    </label>
+                                    <input
+                                        type="password"
+                                        value={password}
+                                        onChange={e => setPassword(e.target.value)}
+                                        placeholder="Mínimo 6 caracteres"
+                                        className="settings-input"
+                                        style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", transition: "all 0.2s" }}
+                                    />
+                                    <p style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 6 }}>Deixe em branco para não alterar.</p>
+                                </div>
+                            </div>
                         </div>
 
-                        {/* Unified Save Action */}
+                        {/* Save Action for Profile */}
                         <div style={{ 
-                            marginTop: 32, 
                             padding: "20px 30px", 
                             background: "var(--bg-secondary)", 
                             border: "1px solid var(--border)", 
@@ -447,22 +396,148 @@ export function Settings({ token, onBack, role, livePermissions }: Props) {
                             gap: "15px"
                         }}>
                             <div>
-                                <h4 style={{ margin: 0, fontSize: "1rem", fontWeight: 600 }}>Salvar Configurações</h4>
+                                <h4 style={{ margin: 0, fontSize: "1rem", fontWeight: 600 }}>Salvar Alterações</h4>
                                 <p style={{ margin: "4px 0 0 0", fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-                                    Ao clicar em salvar, suas alterações de perfil e sistema (se aplicável) serão atualizadas.
+                                    Atualize suas informações pessoais e tema de preferência do sistema.
                                 </p>
                             </div>
                             <button
-                                onClick={handleSave}
+                                onClick={handleSaveProfile}
                                 disabled={loading}
                                 className="btn btn-primary"
                                 style={{ padding: "14px 40px", borderRadius: 10, fontWeight: 600, fontSize: "1rem", display: "flex", alignItems: "center", gap: 8 }}
                             >
                                 <ShieldCheck size={18} />
-                                {loading ? "Salvando..." : "Salvar Tudo"}
+                                {loading ? "Salvando..." : "Salvar Perfil"}
                             </button>
                         </div>
-                    </>
+                    </div>
+                )}
+
+                {activeTab === "integrations" && isAdmin && (
+                    instances.length === 0 ? (
+                        <div style={{ 
+                            display: "flex", 
+                            flexDirection: "column", 
+                            alignItems: "center", 
+                            justifyContent: "center", 
+                            padding: "60px 40px", 
+                            background: "var(--bg-secondary)", 
+                            border: "1px solid var(--border)", 
+                            borderRadius: 20,
+                            textAlign: "center",
+                            maxWidth: 600,
+                            margin: "0 auto"
+                        }}>
+                            <div style={{
+                                width: 64,
+                                height: 64,
+                                borderRadius: "50%",
+                                background: "rgba(0, 168, 132, 0.1)",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                marginBottom: 24,
+                                color: "var(--accent)"
+                            }}>
+                                <Blocks size={32} />
+                            </div>
+                            <h3 style={{ margin: "0 0 10px 0", fontSize: "1.2rem", fontWeight: 600, color: "var(--text-primary)" }}>
+                                Nenhum Canal de Chat Ativo
+                            </h3>
+                            <p style={{ margin: "0 0 20px 0", fontSize: "0.95rem", color: "var(--text-secondary)", lineHeight: 1.5 }}>
+                                Não existem instâncias de canais de chat (WhatsApp, Webchat, etc.) configuradas para esta empresa no momento.
+                            </p>
+                            <div style={{ padding: "12px 18px", background: "var(--bg-primary)", borderRadius: 12, border: "1px solid var(--border)", fontSize: "0.85rem", color: "var(--text-secondary)", maxWidth: 450 }}>
+                                ℹ️ As conexões com canais externos são geridas pelo <strong>Super Administrador</strong>. Se necessita de integrar um canal para a sua empresa, por favor entre em contato com o suporte.
+                            </div>
+                        </div>
+                    ) : (
+                        <div style={{ maxWidth: 650, display: "flex", flexDirection: "column", gap: 24 }}>
+                            {/* Card de Integração */}
+                            <div style={{ background: "var(--bg-secondary)", padding: 30, borderRadius: 16, border: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 24 }}>
+                                <h3 style={{ fontSize: 18, fontWeight: 600, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 10, margin: 0 }}>
+                                    <Blocks size={20} className="text-accent" /> Integração de Canais
+                                </h3>
+
+                                <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                                    <div>
+                                        <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, color: "var(--text-secondary)", fontSize: "0.85rem" }}>
+                                            <MonitorSmartphone size={14} /> Selecione a Instância (Canal)
+                                        </label>
+                                        <select
+                                            value={selectedConnectorId}
+                                            onChange={e => handleInstanceChange(e.target.value)}
+                                            className="settings-input"
+                                            style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", transition: "all 0.2s" }}
+                                        >
+                                            {instances.map(inst => (
+                                                <option key={inst.ConnectorId} value={inst.ConnectorId}>
+                                                    {inst.ChannelName || 'Sem Nome'} ({inst.Provider})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div style={{ marginTop: 10 }}>
+                                        <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12, color: "var(--text-secondary)", fontSize: "0.85rem" }}>
+                                            <User size={14} /> Funcionários com Acesso
+                                        </label>
+                                        <div style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 200, overflowY: "auto", padding: 12, background: "var(--bg-primary)", borderRadius: 12, border: "1px solid var(--border)" }}>
+                                            {allUsers.length === 0 ? (
+                                                <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>Nenhum funcionário encontrado.</span>
+                                            ) : (
+                                                allUsers.map(u => (
+                                                    <label key={u.UserId} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: "0.85rem" }}>
+                                                        <input 
+                                                            type="checkbox" 
+                                                            checked={assignedToInstance.includes(u.UserId)}
+                                                            onChange={() => handleToggleUser(u.UserId)}
+                                                            style={{ width: 16, height: 16, accentColor: "var(--accent)" }}
+                                                        />
+                                                        <span>{u.AgentName || u.DisplayName || u.Email}</span>
+                                                        {u.Role === 'ADMIN' && <span style={{ fontSize: "0.7rem", padding: "2px 6px", background: "rgba(255,255,255,0.05)", borderRadius: 4, color: "var(--text-secondary)" }}>Admin</span>}
+                                                    </label>
+                                                ))
+                                            )}
+                                        </div>
+                                        <p style={{ fontSize: "0.7rem", color: "var(--text-secondary)", marginTop: 8 }}>
+                                            Se nenhum for selecionado, a instância será <strong>Global</strong> (todos acessam).
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Save Action for Integrations */}
+                            <div style={{ 
+                                padding: "20px 30px", 
+                                background: "var(--bg-secondary)", 
+                                border: "1px solid var(--border)", 
+                                borderRadius: 16,
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                flexWrap: "wrap",
+                                gap: "15px"
+                            }}>
+                                <div>
+                                    <h4 style={{ margin: 0, fontSize: "1rem", fontWeight: 600 }}>Salvar Configurações</h4>
+                                    <p style={{ margin: "4px 0 0 0", fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+                                        Atualize a instância padrão de chat e as permissões de acesso dos funcionários.
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={handleSaveIntegrations}
+                                    disabled={loading}
+                                    className="btn btn-primary"
+                                    style={{ padding: "14px 40px", borderRadius: 10, fontWeight: 600, fontSize: "1rem", display: "flex", alignItems: "center", gap: 8 }}
+                                >
+                                    <ShieldCheck size={18} />
+                                    {loading ? "Salvando..." : "Salvar Integrações"}
+                                </button>
+                            </div>
+                        </div>
+                    )
                 )}
 
                 {activeTab === "email" && isAdmin && (

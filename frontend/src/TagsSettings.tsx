@@ -61,6 +61,7 @@ export function TagsSettings({ onBack }: Props) {
                 title="Gerenciar Tags"
                 icon={TagIcon}
                 onBack={onBack}
+                contextKey="tags.index"
             />
 
             <div style={{ background: "var(--bg-secondary)", padding: 25, borderRadius: 12, border: "1px solid var(--border)", marginBottom: 30 }}>
