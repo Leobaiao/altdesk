@@ -39,7 +39,7 @@ import onboardingRouter from "./routes/onboarding.js";
 import emailChannelsRouter from "./routes/emailChannels.js";
 import { startEmailWorker, setIoInstance } from "./services/emailWorker.js";
 import helpRouter from "./routes/help.js";
-
+import ticketsRouter from "./routes/tickets.js";
 
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(",")
@@ -171,8 +171,6 @@ io.on("connection", (socket) => {
   });
 });
 
-import ticketsRouter from "./routes/tickets.js";
-
 // --- API ROUTES ---
 app.use("/api/webhooks", webhooksRouter);
 app.use("/api/auth", authRouter);
@@ -204,7 +202,7 @@ app.use("/api/email-channels", emailChannelsRouter);
 // Billing (inclui webhook público + rotas autenticadas)
 app.use("/api/billing", billingRouter);
 
-// Demo route removed — use the authenticated route at POST /api/conversations/demo/:id/messages instead
+
 
 // Global Error Handler (deve ser o último middleware)
 app.use(errorHandler);

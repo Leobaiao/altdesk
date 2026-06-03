@@ -137,7 +137,7 @@ export function Tickets({ token, onBack, role }: Props) {
 
     useEffect(() => {
         const targetKey = selectedTicket ? "tickets.index" : (viewMode === 'kanban' ? "kanban.index" : "tickets.index");
-        console.log("[Tickets] useEffect setting pageContextKey to:", targetKey);
+
         setPageContextKey(targetKey);
     }, [viewMode, selectedTicket, setPageContextKey]);
 
@@ -468,34 +468,7 @@ export function Tickets({ token, onBack, role }: Props) {
                         />
                     </button>
 
-                    {/* DEDICATED CONTEXTUAL HELP BUTTON */}
-                    <button
-                        onClick={() => openHelp(viewMode === 'kanban' ? "kanban.index" : "tickets.index")}
-                        style={{
-                            background: "rgba(0,168,132,0.1)",
-                            border: "1px solid rgba(0,168,132,0.2)",
-                            padding: "6px 12px",
-                            cursor: "pointer",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 8,
-                            borderRadius: 10,
-                            opacity: 0.8,
-                            transition: "all 0.2s"
-                        }}
-                        onMouseEnter={e => {
-                            e.currentTarget.style.opacity = "1";
-                            e.currentTarget.style.background = "rgba(0,168,132,0.15)";
-                        }}
-                        onMouseLeave={e => {
-                            e.currentTarget.style.opacity = "0.8";
-                            e.currentTarget.style.background = "rgba(0,168,132,0.1)";
-                        }}
-                        title="Ajuda de Atendimentos"
-                    >
-                        <HelpCircle size={16} className="text-accent" />
-                        <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "var(--accent)" }} className="hide-mobile">AJUDA</span>
-                    </button>
+
                 </div>
             </div>
 

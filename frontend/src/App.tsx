@@ -81,7 +81,7 @@ function TabButton({ label, active, onClick }: any) {
 
 import { api } from "./lib/api";
 import { parseJwt } from "./lib/auth";
-// const socket = io(import.meta.env.VITE_API_URL || undefined); // Redundant
+
 
 import type { Conversation, Message, CannedResponse } from "../../shared/types";
 
@@ -89,7 +89,6 @@ import { PasswordInput } from "./components/PasswordInput";
 
 // ─── Login ────────────────────────────────────────
 function LoginScreen({ onLogin }: { onLogin: (token: string, role: string) => void }) {
-  // const [tenantId, setTenantId] = useState("42D2AD5C-D9D1-4FF9-A285-7DD0CE4CDE5D"); // Removed
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -281,10 +280,8 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
                 <button
                     onClick={(e) => {
                         if (e.nativeEvent && !e.nativeEvent.isTrusted) {
-                            console.warn("[App] Blocked automated click from script/extension");
                             return;
                         }
-                        console.log("[App] Global Header Help click - pageContextKey:", pageContextKey);
                         if (isChat) {
                             openHelp("chat.index");
                         } else if (isTickets) {

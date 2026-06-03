@@ -5,7 +5,7 @@ import "dotenv/config";
 
 const config = {
     user: process.env.DB_USER!,
-    password: process.env.DB_PASS!,
+    password: process.env.DB_PASS || process.env.MSSQL_SA_PASSWORD!,
     server: process.env.DB_HOST || "db",
     database: process.env.DB_NAME!,
     options: {
