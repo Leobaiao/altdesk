@@ -32,7 +32,7 @@ router.post("/login", authLimiter, validateBody(LoginSchema), async (req, res, n
                 .input("tenantId", body.tenantId)
                 .input("email", body.email)
                 .query(`
-          SELECT TOP 1 UserId, TenantId, Role, PasswordHash, IsActive, DisplayName, Position, PermissionsJson
+          SELECT TOP 1 UserId, TenantId, Role, PasswordHash, IsActive, DisplayName, Position, PermissionsJson, DefaultPage
           FROM altdesk.[User]
           WHERE TenantId=@tenantId AND Email=@email AND DeletedAt IS NULL
         `);
@@ -40,7 +40,7 @@ router.post("/login", authLimiter, validateBody(LoginSchema), async (req, res, n
             r = await pool.request()
                 .input("email", body.email)
                 .query(`
-          SELECT TOP 1 UserId, TenantId, Role, PasswordHash, IsActive, DisplayName, Position, PermissionsJson
+          SELECT TOP 1 UserId, TenantId, Role, PasswordHash, IsActive, DisplayName, Position, PermissionsJson, DefaultPage
           FROM altdesk.[User]
           WHERE Email=@email AND DeletedAt IS NULL
         `);
@@ -143,7 +143,7 @@ router.post("/login", authLimiter, validateBody(LoginSchema), async (req, res, n
             afterValues: { email: body.email, role: u.Role }
         });
 
-        return res.json({ token, role: u.Role, tenantId: u.TenantId, permissions });
+        return res.json({ token, role: u.Role, tenantId: u.TenantId, permissions, defaultPage: u.DefaultPage });
     } catch (error: any) {
         logger.error({ 
             requestId, 

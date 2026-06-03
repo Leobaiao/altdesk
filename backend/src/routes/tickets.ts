@@ -264,8 +264,16 @@ router.patch("/:id/status", validateBody(z.object({
             resolvedAt = new Date();
         }
 
+        if (status === 'RESOLVED' && (!resolution || !resolution.trim())) {
+            return res.status(400).json({ error: "O texto de resolução é obrigatório para fechar o chamado." });
+        }
+
         let resolutionVal = oldTicket?.ResolutionDescription ?? null;
+        let isNewlyResolved = false;
         if (status === 'RESOLVED') {
+            if (oldTicket?.Status !== 'RESOLVED') {
+                isNewlyResolved = true;
+            }
             if (resolution !== undefined) {
                 resolutionVal = resolution;
             }
@@ -332,6 +340,38 @@ router.patch("/:id/status", validateBody(z.object({
                     INSERT INTO altdesk.TicketEvent (TenantId, TicketId, ActorUserId, EventType, OldValue, NewValue)
                     VALUES (@tenantId, @ticketId, @actorUserId, @eventType, @oldValue, @newValue)
                 `);
+        }
+
+        if (isNewlyResolved && resolutionVal) {
+            const agentName = req.user.displayName || req.user.email || "Sistema";
+            const noteText = `✅ Chamado resolvido por ${agentName}.\nResolução: ${resolutionVal}`;
+            
+            const rMsg = await pool.request()
+                .input("tenantId", tenantId)
+                .input("conversationId", conversationId)
+                .input("senderUserId", req.user.userId)
+                .input("body", noteText)
+                .query(`
+                    INSERT INTO altdesk.Message (TenantId, ConversationId, SenderExternalId, Direction, Body)
+                    OUTPUT INSERTED.MessageId, INSERTED.CreatedAt
+                    VALUES (@tenantId, @conversationId, @senderUserId, 'INTERNAL', @body)
+                `);
+
+            const io = req.app.get("io");
+            if (io) {
+                const newMsgId = rMsg.recordset[0]?.MessageId;
+                const createdAt = rMsg.recordset[0]?.CreatedAt;
+                const { emitConversationEvent } = await import("../services/socketService.js");
+                emitConversationEvent(io, tenantId!, conversationId, "message:new", {
+                    conversationId,
+                    MessageId: newMsgId,
+                    senderExternalId: req.user.userId,
+                    senderName: agentName,
+                    text: noteText,
+                    direction: "INTERNAL",
+                    CreatedAt: createdAt || new Date().toISOString()
+                });
+            }
         }
             
         res.json({ ok: true });

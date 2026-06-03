@@ -104,6 +104,11 @@ function LoginScreen({ onLogin }: { onLogin: (token: string, role: string) => vo
       const res = await api.post("/api/auth/login", { email, password });
       const data = res.data;
       localStorage.setItem("token", data.token);
+      if (data.defaultPage) {
+        localStorage.setItem("defaultPage", data.defaultPage);
+      } else {
+        localStorage.removeItem("defaultPage");
+      }
       onLogin(data.token, data.role);
     } catch (err: any) {
       if (!err.response) {
@@ -310,7 +315,7 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
                 </button>
             )}
 
-            <div style={{ display: "flex", alignItems: "center", cursor: "pointer" }} onClick={() => navigate("/settings")}>
+            <div style={{ display: "flex", alignItems: "center", cursor: "pointer" }} onClick={() => navigate("/users", { state: { tab: 'PROFILE' } })}>
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", marginRight: 12 }}>
                     <span style={{ fontWeight: 700, fontSize: "0.85rem", lineHeight: 1.2 }}>{profile?.Name || "Usuário"}</span>
                     <span style={{ fontSize: "0.72rem", color: "var(--accent)", fontWeight: 600, opacity: 0.9 }}>{profile?.TenantName || "Empresa"}</span>
@@ -392,7 +397,7 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
           <div className="chat-area" style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
             <div style={{ flex: 1, overflow: "hidden", position: "relative", display: "flex", flexDirection: "column" }}>
               <Routes>
-                <Route path="/" element={<Navigate to={role === 'END_USER' ? "/tickets" : "/chat"} replace />} />
+                <Route path="/" element={<Navigate to={localStorage.getItem("defaultPage") || (role === 'END_USER' ? "/tickets" : "/chat")} replace />} />
                 <Route path="/chat" element={<ChatWindow setView={(v: any) => {
                   if (typeof v === 'string') navigate(`/${v.toLowerCase()}`);
                   else if (v?.type === 'TICKET') navigate('/tickets', { state: { ticketId: v.id } });
@@ -401,7 +406,7 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
                 <Route path="/canned" element={<CannedResponses onBack={() => navigate("/settings")} />} />
                 <Route path="/dashboard" element={<DashboardView token={token} onBack={() => navigate("/chat")} />} />
 
-                <Route path="/users" element={<Users token={token} onBack={() => navigate("/chat")} role={role || 'AGENT'} />} />
+                <Route path="/users" element={<Users token={token} onBack={() => navigate("/chat")} role={role || 'AGENT'} livePermissions={livePermissions} />} />
 
                 <Route path="/settings" element={
                   (role === 'SUPERADMIN' || role === 'ADMIN' || role === 'AGENT' || role === 'END_USER' || livePermissions?.settings !== false) 
@@ -418,7 +423,7 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
                 <Route path="/billing" element={<Billing onBack={() => navigate("/settings")} />} />
                 <Route path="/audit" element={<AuditLogs onBack={() => navigate("/settings")} />} />
 
-                <Route path="*" element={<Navigate to={role === 'END_USER' ? "/dashboard" : "/chat"} replace />} />
+                <Route path="*" element={<Navigate to={localStorage.getItem("defaultPage") || (role === 'END_USER' ? "/dashboard" : "/chat")} replace />} />
               </Routes>
             </div>
           </div>
@@ -433,7 +438,18 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
 // ─── App Root ─────────────────────────────────────
 function AppContent() {
   const [token, setToken] = useState<string | null>(localStorage.getItem("token"));
-  const [role, setRole] = useState<string | null>(null);
+  const [role, setRole] = useState<string | null>(() => {
+    const t = localStorage.getItem("token");
+    if (t) {
+      try {
+        const decoded = parseJwt(t);
+        return decoded?.role || null;
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  });
   const navigate = useNavigate();
 
   // Validate token on load
@@ -455,7 +471,10 @@ function AppContent() {
   function handleLogin(newToken: string, newRole: string) {
     setToken(newToken);
     setRole(newRole);
-    if (newRole === 'END_USER') {
+    const defaultPage = localStorage.getItem("defaultPage");
+    if (defaultPage) {
+      navigate(defaultPage);
+    } else if (newRole === 'END_USER') {
       navigate("/tickets");
     } else {
       navigate("/chat");

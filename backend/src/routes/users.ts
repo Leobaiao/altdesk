@@ -19,7 +19,7 @@ router.get("/", requirePermission('users'), async (req, res, next) => {
         const r = await pool.request()
             .input("tenantId", u.tenantId)
             .query(`
-        SELECT u.UserId, u.Email, u.Role, u.IsActive, u.Position, u.PermissionsJson, u.DisplayName AS Name, a.Name as AgentName
+        SELECT u.UserId, u.Email, u.Role, u.IsActive, u.Position, u.DefaultPage, u.PermissionsJson, u.DisplayName AS Name, a.Name as AgentName
         FROM altdesk.[User] u
         LEFT JOIN altdesk.Agent a ON a.UserId = u.UserId
         WHERE u.TenantId = @tenantId 
@@ -41,6 +41,7 @@ router.post("/", requirePermission('users'), requireRole("ADMIN"), validateBody(
     password: z.string().min(6),
     role: z.enum(["ADMIN", "AGENT", "END_USER"]).default("AGENT"),
     position: z.string().optional(),
+    defaultPage: z.string().optional(),
     permissions: z.record(z.boolean()).optional()
 })), async (req, res, next) => {
     try {
@@ -62,11 +63,12 @@ router.post("/", requirePermission('users'), requireRole("ADMIN"), validateBody(
                 .input("hash", hash)
                 .input("role", body.role)
                 .input("position", body.position || null)
+                .input("defaultPage", body.defaultPage || null)
                 .input("permissionsJson", permissionsJson)
                 .query(`
-          INSERT INTO altdesk.[User] (TenantId, Email, DisplayName, PasswordHash, Role, Position, PermissionsJson)
+          INSERT INTO altdesk.[User] (TenantId, Email, DisplayName, PasswordHash, Role, Position, DefaultPage, PermissionsJson)
           OUTPUT inserted.UserId
-          VALUES (@tenantId, @email, @name, @hash, @role, @position, @permissionsJson)
+          VALUES (@tenantId, @email, @name, @hash, @role, @position, @defaultPage, @permissionsJson)
         `);
             const newUserId = rUser.recordset[0].UserId;
 
@@ -110,6 +112,7 @@ router.put("/:id", requirePermission('users'), requireRole("ADMIN"), validateBod
     password: z.string().optional(),
     role: z.enum(["ADMIN", "AGENT", "END_USER"]),
     position: z.string().optional(),
+    defaultPage: z.string().optional(),
     permissions: z.record(z.boolean()).optional()
 })), async (req, res, next) => {
     try {
@@ -141,11 +144,12 @@ router.put("/:id", requirePermission('users'), requireRole("ADMIN"), validateBod
                     .input("email", body.email)
                     .input("role", body.role)
                     .input("position", body.position || null)
+                    .input("defaultPage", body.defaultPage || null)
                     .input("permissionsJson", permissionsJson)
                     .input("hash", hash)
                     .query(`
                         UPDATE altdesk.[User] 
-                        SET DisplayName=@name, Email=@email, Role=@role, PasswordHash=@hash, Position=@position, PermissionsJson=@permissionsJson
+                        SET DisplayName=@name, Email=@email, Role=@role, PasswordHash=@hash, Position=@position, DefaultPage=@defaultPage, PermissionsJson=@permissionsJson
                         WHERE UserId=@id AND TenantId=@tenantId
                     `);
             } else {
@@ -156,10 +160,11 @@ router.put("/:id", requirePermission('users'), requireRole("ADMIN"), validateBod
                     .input("email", body.email)
                     .input("role", body.role)
                     .input("position", body.position || null)
+                    .input("defaultPage", body.defaultPage || null)
                     .input("permissionsJson", permissionsJson)
                     .query(`
                         UPDATE altdesk.[User] 
-                        SET DisplayName=@name, Email=@email, Role=@role, Position=@position, PermissionsJson=@permissionsJson
+                        SET DisplayName=@name, Email=@email, Role=@role, Position=@position, DefaultPage=@defaultPage, PermissionsJson=@permissionsJson
                         WHERE UserId=@id AND TenantId=@tenantId
                     `);
             }

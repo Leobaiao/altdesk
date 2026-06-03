@@ -12,6 +12,7 @@ export interface User {
     TenantName?: string;
     Position?: string;
     PermissionsJson?: string;
+    DefaultPage?: string;
 }
 
 export interface Tenant {
@@ -49,7 +50,9 @@ export interface Tag {
     TagId: string;
     TenantId: string;
     Name: string;
+    Description: string;
     Color: string;
+    UsageCount?: number;
     CreatedAt?: string;
 }
 

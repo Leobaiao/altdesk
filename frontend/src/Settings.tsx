@@ -14,19 +14,12 @@ interface Props {
 
 export function Settings({ token, onBack, role, livePermissions }: Props) {
     const navigate = useNavigate();
-    const [name, setName] = useState("");
-    const [password, setPassword] = useState("");
-    const [avatar, setAvatar] = useState("");
-    const [position, setPosition] = useState("");
-    const [activeTab, setActiveTab] = useState("profile");
+    const [activeTab, setActiveTab] = useState("integrations");
 
     const isSafeUrl = (url: string) => {
         if (!url) return false;
         return url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:image/");
     };
-
-    // Theme
-    const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "dark");
 
     // Config states
     const [defaultProvider, setDefaultProvider] = useState("GTI");
@@ -41,16 +34,6 @@ export function Settings({ token, onBack, role, livePermissions }: Props) {
     const decoded = parseJwt(token);
     const userPermissions = livePermissions || decoded?.permissions || {};
     const isAdmin = role === "ADMIN" || role === "SUPERADMIN";
-
-    function toggleTheme(newTheme: string) {
-        setTheme(newTheme);
-        localStorage.setItem("theme", newTheme);
-        if (newTheme === "dark") {
-            document.documentElement.setAttribute("data-theme", "dark");
-        } else {
-            document.documentElement.removeAttribute("data-theme");
-        }
-    }
 
     useEffect(() => {
         // Load configurations (Only for admins)
@@ -81,18 +64,6 @@ export function Settings({ token, onBack, role, livePermissions }: Props) {
                 console.error("Erro ao carregar usuários:", err);
             });
         }
-
-        // Load profile
-        api.get("/api/profile").then(res => {
-            if (res.data) {
-                const data = res.data;
-                setName(data.Name || "");
-                setAvatar(data.Avatar || "");
-                setPosition(data.Position || "");
-            }
-        }).catch(err => {
-            console.error("Erro ao carregar perfil:", err);
-        });
     }, [isAdmin]);
 
     function handleInstanceChange(cId: string) {
@@ -109,26 +80,6 @@ export function Settings({ token, onBack, role, livePermissions }: Props) {
             prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
         );
     }
-
-    const handleSaveProfile = async () => {
-        setLoading(true);
-        setMsg("");
-        try {
-            await api.put("/api/profile", {
-                name: name || undefined,
-                password: password || undefined,
-                avatar: avatar || undefined,
-                position: position || undefined
-            });
-            setMsg("✅ Perfil atualizado com sucesso!");
-            setPassword("");
-        } catch (err: any) {
-            const errorMsg = err.response?.data?.error || err.message;
-            setMsg("❌ Erro no Perfil: " + errorMsg);
-        } finally {
-            setLoading(false);
-        }
-    };
 
     const handleSaveIntegrations = async () => {
         setLoading(true);
@@ -209,19 +160,8 @@ export function Settings({ token, onBack, role, livePermissions }: Props) {
                 </div>
             )}
 
-            <div style={{ display: "flex", gap: 12, marginBottom: 32, borderBottom: "1px solid var(--border)", paddingBottom: 16 }}>
-                <button 
-                    onClick={() => { setActiveTab("profile"); setMsg(""); }}
-                    style={{ 
-                        padding: "10px 20px", borderRadius: 10, cursor: "pointer", border: "none", 
-                        background: activeTab === "profile" ? "var(--accent)" : "transparent",
-                        color: activeTab === "profile" ? "#fff" : "var(--text-secondary)",
-                        fontWeight: 600, display: "flex", alignItems: "center", gap: 8, transition: "all 0.2s"
-                    }}
-                >
-                    <User size={18} /> Perfil Pessoal
-                </button>
-                {isAdmin && (
+            {isAdmin && (
+                <div style={{ display: "flex", gap: 12, marginBottom: 32, borderBottom: "1px solid var(--border)", paddingBottom: 16 }}>
                     <button 
                         onClick={() => { setActiveTab("integrations"); setMsg(""); }}
                         style={{ 
@@ -233,8 +173,6 @@ export function Settings({ token, onBack, role, livePermissions }: Props) {
                     >
                         <Blocks size={18} /> Integração de Canais
                     </button>
-                )}
-                {isAdmin && (
                     <button 
                         onClick={() => { setActiveTab("email"); setMsg(""); }}
                         style={{ 
@@ -246,8 +184,8 @@ export function Settings({ token, onBack, role, livePermissions }: Props) {
                     >
                         <Mail size={18} /> Canais de E-mail
                     </button>
-                )}
-            </div>
+                </div>
+            )}
 
             {msg && (
                 <div style={{
@@ -267,153 +205,6 @@ export function Settings({ token, onBack, role, livePermissions }: Props) {
             )}
 
             <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-                {activeTab === "profile" && (
-                    <div style={{ maxWidth: 650, display: "flex", flexDirection: "column", gap: 24 }}>
-                        {/* Perfil + Aparência */}
-                        <div style={{ background: "var(--bg-secondary)", padding: 30, borderRadius: 16, border: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 20 }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                <h3 style={{ fontSize: 18, fontWeight: 600, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 10, margin: 0 }}>
-                                    <User size={20} className="text-accent" /> Perfil Pessoal
-                                </h3>
-                                <div style={{ display: "flex", alignItems: "center", gap: 6, background: "var(--bg-primary)", borderRadius: 8, padding: 3 }}>
-                                    <button
-                                        onClick={() => toggleTheme("dark")}
-                                        style={{
-                                            padding: "6px 14px", borderRadius: 6, cursor: "pointer", transition: "all 0.2s",
-                                            background: theme === "dark" ? "var(--accent)" : "transparent",
-                                            border: "none", color: theme === "dark" ? "#fff" : "var(--text-secondary)",
-                                            fontSize: "0.8rem", fontWeight: 600, display: "flex", alignItems: "center", gap: 5
-                                        }}
-                                    >
-                                        🌙 Escuro
-                                    </button>
-                                    <button
-                                        onClick={() => toggleTheme("light")}
-                                        style={{
-                                            padding: "6px 14px", borderRadius: 6, cursor: "pointer", transition: "all 0.2s",
-                                            background: theme === "light" ? "var(--accent)" : "transparent",
-                                            border: "none", color: theme === "light" ? "#fff" : "var(--text-secondary)",
-                                            fontSize: "0.8rem", fontWeight: 600, display: "flex", alignItems: "center", gap: 5
-                                        }}
-                                    >
-                                        ☀️ Claro
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-                                <div style={{ display: "flex", gap: 20, alignItems: "center" }}>
-                                    {/* Avatar Preview */}
-                                    <div style={{ 
-                                        width: 80, 
-                                        height: 80, 
-                                        borderRadius: "50%", 
-                                        overflow: "hidden", 
-                                        border: "2px solid var(--accent)",
-                                        background: "var(--bg-primary)",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        flexShrink: 0
-                                    }}>
-                                        {avatar && isSafeUrl(avatar) ? (
-                                            <img src={avatar} alt="Avatar Preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => (e.currentTarget.src = "")} />
-                                        ) : (
-                                            <User size={40} color="var(--text-secondary)" opacity={0.5} />
-                                        )}
-                                    </div>
-
-                                    <div style={{ flex: 1 }}>
-                                        <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, color: "var(--text-secondary)", fontSize: "0.85rem" }}>
-                                            <ImageIcon size={14} /> URL da Foto (Avatar)
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={avatar}
-                                            onChange={e => setAvatar(e.target.value)}
-                                            placeholder="https://"
-                                            className="settings-input"
-                                            style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", transition: "all 0.2s" }}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, color: "var(--text-secondary)", fontSize: "0.85rem" }}>
-                                        <User size={14} /> Nome Completo
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={name}
-                                        onChange={e => setName(e.target.value)}
-                                        placeholder="Seu nome"
-                                        className="settings-input"
-                                        style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", transition: "all 0.2s" }}
-                                    />
-                                </div>
-
-                                <div>
-                                    <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, color: "var(--text-secondary)", fontSize: "0.85rem" }}>
-                                        <Briefcase size={14} /> Cargo / Função (Opcional)
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={position}
-                                        onChange={e => setPosition(e.target.value)}
-                                        placeholder="Ex: Atendente, Gerente..."
-                                        className="settings-input"
-                                        style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", transition: "all 0.2s" }}
-                                    />
-                                </div>
-
-                                <div>
-                                    <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, color: "var(--text-secondary)", fontSize: "0.85rem" }}>
-                                        <Lock size={14} /> Nova Senha
-                                    </label>
-                                    <input
-                                        type="password"
-                                        value={password}
-                                        onChange={e => setPassword(e.target.value)}
-                                        placeholder="Mínimo 6 caracteres"
-                                        className="settings-input"
-                                        style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", transition: "all 0.2s" }}
-                                    />
-                                    <p style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 6 }}>Deixe em branco para não alterar.</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Save Action for Profile */}
-                        <div style={{ 
-                            padding: "20px 30px", 
-                            background: "var(--bg-secondary)", 
-                            border: "1px solid var(--border)", 
-                            borderRadius: 16,
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            flexWrap: "wrap",
-                            gap: "15px"
-                        }}>
-                            <div>
-                                <h4 style={{ margin: 0, fontSize: "1rem", fontWeight: 600 }}>Salvar Alterações</h4>
-                                <p style={{ margin: "4px 0 0 0", fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-                                    Atualize suas informações pessoais e tema de preferência do sistema.
-                                </p>
-                            </div>
-                            <button
-                                onClick={handleSaveProfile}
-                                disabled={loading}
-                                className="btn btn-primary"
-                                style={{ padding: "14px 40px", borderRadius: 10, fontWeight: 600, fontSize: "1rem", display: "flex", alignItems: "center", gap: 8 }}
-                            >
-                                <ShieldCheck size={18} />
-                                {loading ? "Salvando..." : "Salvar Perfil"}
-                            </button>
-                        </div>
-                    </div>
-                )}
-
                 {activeTab === "integrations" && isAdmin && (
                     instances.length === 0 ? (
                         <div style={{ 

@@ -108,6 +108,9 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
     const [kbArticles, setKbArticles] = useState<any[]>([]);
     const [kbSearch, setKbSearch] = useState("");
 
+    const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+    const [resolutionDescription, setResolutionDescription] = useState("");
+
     const selectedConversation = conversations.find((c) => c.ConversationId === selectedConversationId);
 
     useEffect(() => {
@@ -259,10 +262,18 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
         }
     }
 
-    async function handleStatus(status: "OPEN" | "RESOLVED") {
+    async function handleStatus(status: "OPEN" | "RESOLVED", resolution?: string) {
         if (!selectedConversationId) return;
-        await api.post(`/api/conversations/${selectedConversationId}/status`, { status });
-        refreshConversations();
+        try {
+            await api.post(`/api/conversations/${selectedConversationId}/status`, { status, resolution });
+            refreshConversations();
+            if (status === 'RESOLVED') {
+                setShowCloseConfirm(false);
+                setResolutionDescription("");
+            }
+        } catch (e: any) {
+            showToast("Erro ao alterar status: " + (e.response?.data?.error || e.message), "error");
+        }
     }
 
     async function handleAssign(queueId: string | null, assignUserId: string | null) {
@@ -473,7 +484,7 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
                     {role !== 'END_USER' && (
                         <>
                             {selectedConversation.Status === "OPEN" ? (
-                                <button onClick={() => handleStatus("RESOLVED")} style={{ background: "rgba(0, 168, 132, 0.1)", border: "none", color: "#00a884", width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }} title="Resolver Conversa">
+                                <button onClick={() => setShowCloseConfirm(true)} style={{ background: "rgba(0, 168, 132, 0.1)", border: "none", color: "#00a884", width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }} title="Resolver Conversa">
                                     <CheckCircle size={20} />
                                 </button>
                             ) : (
@@ -722,6 +733,64 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
                         <div style={{ display: "flex", gap: 10, marginTop: 25 }}>
                             <button onClick={() => setShowTicketModal(false)} className="btn btn-ghost" style={{ flex: 1 }}>Cancelar</button>
                             <button onClick={handleCreateTicket} className="btn btn-primary" style={{ flex: 1 }} disabled={!ticketTitle.trim()}>Criar Ticket</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showCloseConfirm && (
+                <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 10000 }}>
+                    <div style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", width: "100%", maxWidth: 450, padding: 28, borderRadius: 16, boxShadow: "0 20px 40px rgba(0,0,0,0.4)" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                            <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700 }}>Resolver Conversa</h3>
+                            <button onClick={() => setShowCloseConfirm(false)} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer" }}><X size={20} /></button>
+                        </div>
+                        <p style={{ fontSize: "0.88rem", color: "var(--text-secondary)", marginBottom: 16 }}>
+                            Deseja realmente marcar esta conversa como resolvida? Por favor, descreva como o problema foi resolvido.
+                        </p>
+                        <div style={{ marginBottom: 20 }}>
+                            <label style={{ display: "block", marginBottom: 8, fontSize: "0.82rem", fontWeight: 600 }}>
+                                Descrição da Resolução <span style={{ color: "#ef4444" }}>*</span>
+                            </label>
+                            <textarea
+                                value={resolutionDescription}
+                                onChange={e => setResolutionDescription(e.target.value)}
+                                placeholder="Descreva como o problema foi resolvido..."
+                                rows={4}
+                                style={{
+                                    width: "100%",
+                                    padding: 12,
+                                    borderRadius: 10,
+                                    border: "1px solid var(--border)",
+                                    background: "var(--bg-primary)",
+                                    color: "var(--text-primary)",
+                                    fontSize: "0.88rem",
+                                    outline: "none",
+                                    resize: "none",
+                                    boxSizing: "border-box"
+                                }}
+                            />
+                            <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", display: "block", marginTop: 4 }}>
+                                * Campo de preenchimento obrigatório para confirmar a resolução.
+                            </span>
+                        </div>
+                        <div style={{ display: "flex", gap: 12 }}>
+                            <button
+                                onClick={() => { setShowCloseConfirm(false); setResolutionDescription(""); }}
+                                className="btn btn-ghost"
+                                style={{ flex: 1, padding: "10px 16px", borderRadius: 10, border: "1px solid var(--border)", cursor: "pointer" }}
+                                disabled={sending}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={() => handleStatus("RESOLVED", resolutionDescription)}
+                                className="btn btn-primary"
+                                style={{ flex: 1, padding: "10px 16px", borderRadius: 10, background: "var(--accent)", color: "#fff", border: "none", cursor: "pointer", fontWeight: 700 }}
+                                disabled={!resolutionDescription.trim() || sending}
+                            >
+                                Confirmar Resolução
+                            </button>
                         </div>
                     </div>
                 </div>

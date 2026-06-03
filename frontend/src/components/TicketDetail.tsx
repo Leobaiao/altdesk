@@ -663,7 +663,9 @@ export function TicketDetail({ ticket, onBack, profile, role, onTicketUpdate, on
                             Deseja realmente marcar este chamado como resolvido? Por favor, descreva como o problema foi resolvido.
                         </p>
                         <div style={{ marginBottom: 20 }}>
-                            <label style={{ display: "block", marginBottom: 8, fontSize: "0.82rem", fontWeight: 600 }}>Descrição da Resolução</label>
+                            <label style={{ display: "block", marginBottom: 8, fontSize: "0.82rem", fontWeight: 600 }}>
+                                Descrição da Resolução <span style={{ color: "#ef4444" }}>*</span>
+                            </label>
                             <textarea
                                 value={resolutionDescription}
                                 onChange={e => setResolutionDescription(e.target.value)}
@@ -682,6 +684,9 @@ export function TicketDetail({ ticket, onBack, profile, role, onTicketUpdate, on
                                     boxSizing: "border-box"
                                 }}
                             />
+                            <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", display: "block", marginTop: 4 }}>
+                                * Campo de preenchimento obrigatório para confirmar a resolução.
+                            </span>
                         </div>
                         <div style={{ display: "flex", gap: 12 }}>
                             <button

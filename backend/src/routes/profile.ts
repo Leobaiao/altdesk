@@ -11,7 +11,8 @@ const ProfileSchema = z.object({
     password: z.string().min(6).optional(),
     avatar: z.string().url().optional().or(z.literal("")),
     name: z.string().min(2).optional(),
-    position: z.string().optional()
+    position: z.string().optional(),
+    defaultPage: z.string().optional()
 });
 
 // GET /api/profile
@@ -22,7 +23,7 @@ router.get("/", authMw, async (req: any, res: Response, next: NextFunction) => {
         const r = await pool.request()
             .input("userId", user.userId)
             .query(`
-                SELECT u.Email, u.DisplayName AS Name, u.Avatar, u.Position, u.Role, u.HasLogAccess, u.CPF, u.PermissionsJson,
+                SELECT u.Email, u.DisplayName AS Name, u.Avatar, u.Position, u.Role, u.HasLogAccess, u.CPF, u.PermissionsJson, u.DefaultPage,
                        r.Name AS RoleName, r.CanOpen, r.CanEscalate, r.CanClose, r.CanComment, r.HourlyValue,
                        t.Name AS TenantName
                 FROM altdesk.[User] u
@@ -67,6 +68,11 @@ router.put("/", authMw, validateBody(ProfileSchema), async (req: any, res: Respo
         if (body.position !== undefined) {
             updates.push("Position = @position");
             request.input("position", body.position || null);
+        }
+
+        if (body.defaultPage !== undefined) {
+            updates.push("DefaultPage = @defaultPage");
+            request.input("defaultPage", body.defaultPage || null);
         }
 
         if (updates.length > 0) {

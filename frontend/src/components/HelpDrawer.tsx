@@ -229,7 +229,7 @@ export function HelpDrawer() {
                                     </span>
                                 )}
                                 {article.PagePath && (
-                                    <span style={{
+                                    <a href={article.PagePath} style={{
                                         fontSize: "0.68rem",
                                         fontWeight: 500,
                                         padding: "4px 10px",
@@ -238,11 +238,12 @@ export function HelpDrawer() {
                                         color: "var(--text-secondary)",
                                         display: "flex",
                                         alignItems: "center",
-                                        gap: 4
+                                        gap: 4,
+                                        textDecoration: "none"
                                     }}>
                                         <ChevronRight size={10} />
-                                        {article.PagePath}
-                                    </span>
+                                        Ir para {article.PagePath}
+                                    </a>
                                 )}
                             </div>
 

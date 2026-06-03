@@ -7,30 +7,64 @@ export async function listTags(tenantId: string) {
     const pool = await getPool();
     const r = await pool.request()
         .input("tenantId", tenantId)
-        .query("SELECT TagId, Name, Color FROM altdesk.Tag WHERE TenantId = @tenantId AND DeletedAt IS NULL ORDER BY Name");
+        .query(`
+            SELECT 
+                t.TagId, 
+                t.Name, 
+                t.Description, 
+                t.Color,
+                (SELECT COUNT(*) FROM altdesk.ConversationTag ct WHERE ct.TagId = t.TagId) as UsageCount
+            FROM altdesk.Tag t 
+            WHERE t.TenantId = @tenantId AND t.DeletedAt IS NULL 
+            ORDER BY t.Name
+        `);
     return r.recordset;
 }
 
 /**
  * Creates a new tag.
  */
-export async function createTag(tenantId: string, name: string, color: string) {
+export async function createTag(tenantId: string, name: string, description: string, color: string) {
     const pool = await getPool();
     const r = await pool.request()
         .input("tenantId", tenantId)
         .input("name", name)
+        .input("description", description)
         .input("color", color)
         .query(`
-            INSERT INTO altdesk.Tag (TenantId, Name, Color)
-            VALUES (@tenantId, @name, @color);
-            SELECT SCOPE_IDENTITY() AS Id; -- Note: TagId is GUID so this won't work as expected for GUIDs, but we usually return the object
+            INSERT INTO altdesk.Tag (TenantId, Name, Description, Color)
+            VALUES (@tenantId, @name, @description, @color);
         `);
-    // Improved query to return the created tag
+    
     const created = await pool.request()
         .input("tenantId", tenantId)
         .input("name", name)
-        .query("SELECT TOP 1 TagId, Name, Color FROM altdesk.Tag WHERE TenantId = @tenantId AND Name = @name ORDER BY CreatedAt DESC");
+        .query("SELECT TOP 1 TagId, Name, Description, Color FROM altdesk.Tag WHERE TenantId = @tenantId AND Name = @name ORDER BY CreatedAt DESC");
     return created.recordset[0];
+}
+
+/**
+ * Updates an existing tag.
+ */
+export async function updateTag(tenantId: string, tagId: string, name: string, description: string, color: string) {
+    const pool = await getPool();
+    await pool.request()
+        .input("tenantId", tenantId)
+        .input("tagId", tagId)
+        .input("name", name)
+        .input("description", description)
+        .input("color", color)
+        .query(`
+            UPDATE altdesk.Tag
+            SET Name = @name, Description = @description, Color = @color
+            WHERE TenantId = @tenantId AND TagId = @tagId AND DeletedAt IS NULL
+        `);
+    
+    const updated = await pool.request()
+        .input("tenantId", tenantId)
+        .input("tagId", tagId)
+        .query("SELECT TagId, Name, Description, Color FROM altdesk.Tag WHERE TenantId = @tenantId AND TagId = @tagId");
+    return updated.recordset[0];
 }
 
 /**

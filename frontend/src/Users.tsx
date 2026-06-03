@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
     Users as UsersIcon,
     Edit2,
@@ -10,7 +10,13 @@ import {
     User as UserIcon,
     ArrowLeft,
     Pause,
-    Play
+    Play,
+    MonitorSmartphone,
+    Image as ImageIcon,
+    Lock,
+    Briefcase,
+    KeySquare,
+    ShieldCheck
 } from "lucide-react";
 
 import { api } from "./lib/api";
@@ -22,23 +28,36 @@ interface Props {
     token: string;
     onBack: () => void;
     role: string;
+    livePermissions?: any;
 }
 
-export function Users({ token, onBack, role }: Props) {
+export function Users({ token, onBack, role, livePermissions }: Props) {
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(false);
     const [showModal, setShowModal] = useState(false);
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const isAdmin = role === "ADMIN" || role === "SUPERADMIN";
+    const canManageUsers = isAdmin || livePermissions?.users !== false;
+
+    // Profile States
+    const [profileName, setProfileName] = useState("");
+    const [profilePassword, setProfilePassword] = useState("");
+    const [profileAvatar, setProfileAvatar] = useState("");
+    const [profilePosition, setProfilePosition] = useState("");
+    const [profileDefaultPage, setProfileDefaultPage] = useState("");
+    const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "dark");
+    const [savingProfile, setSavingProfile] = useState(false);
 
     // Form states
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const { showToast, showConfirm, setSelectedConversationId, refreshConversations } = useChat();
     const navigate = useNavigate();
+    const location = useLocation();
     const [password, setPassword] = useState("");
     const [userRole, setUserRole] = useState("AGENT");
     const [position, setPosition] = useState("");
+    const [defaultPage, setDefaultPage] = useState("");
     const [permissions, setPermissions] = useState({
         dashboard: true,
         chat: true,
@@ -52,11 +71,70 @@ export function Users({ token, onBack, role }: Props) {
     const [msg, setMsg] = useState("");
     const [searchTerm, setSearchTerm] = useState("");
 
-    const [activeTab, setActiveTab] = useState<"TECH" | "COLLAB">("TECH");
+    const defaultTab = location.state?.tab || (canManageUsers ? "TECH" : "PROFILE");
+    const [activeTab, setActiveTab] = useState<"PROFILE" | "TECH" | "COLLAB">(defaultTab);
 
     useEffect(() => {
-        loadUsers();
-    }, []);
+        if (canManageUsers) {
+            loadUsers();
+        }
+        loadProfile();
+    }, [canManageUsers]);
+
+    const isSafeUrl = (url: string) => {
+        if (!url) return false;
+        return url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:image/");
+    };
+
+    function toggleTheme(newTheme: string) {
+        setTheme(newTheme);
+        localStorage.setItem("theme", newTheme);
+        if (newTheme === "dark") {
+            document.documentElement.setAttribute("data-theme", "dark");
+        } else {
+            document.documentElement.removeAttribute("data-theme");
+        }
+    }
+
+    async function loadProfile() {
+        try {
+            const res = await api.get("/api/profile");
+            if (res.data) {
+                setProfileName(res.data.Name || "");
+                setProfileAvatar(res.data.Avatar || "");
+                setProfilePosition(res.data.Position || "");
+                setProfileDefaultPage(res.data.DefaultPage || "");
+            }
+        } catch (err) {
+            console.error("Erro ao carregar perfil:", err);
+        }
+    }
+
+    const handleSaveProfile = async () => {
+        setSavingProfile(true);
+        setMsg("");
+        try {
+            await api.put("/api/profile", {
+                name: profileName || undefined,
+                password: profilePassword || undefined,
+                avatar: profileAvatar || undefined,
+                position: profilePosition || undefined,
+                defaultPage: profileDefaultPage || undefined
+            });
+            if (profileDefaultPage) {
+                localStorage.setItem("defaultPage", profileDefaultPage);
+            } else {
+                localStorage.removeItem("defaultPage");
+            }
+            setMsg("✅ Perfil atualizado com sucesso!");
+            setProfilePassword("");
+        } catch (err: any) {
+            const errorMsg = err.response?.data?.error || err.message;
+            setMsg("❌ Erro no Perfil: " + errorMsg);
+        } finally {
+            setSavingProfile(false);
+        }
+    };
 
     const techUsers = users.filter(u => (u.Role === "ADMIN" || u.Role === "SUPERADMIN" || u.Role === "AGENT") && 
         (u.Name?.toLowerCase().includes(searchTerm.toLowerCase()) || u.Email.toLowerCase().includes(searchTerm.toLowerCase())));
@@ -93,6 +171,7 @@ export function Users({ token, onBack, role }: Props) {
                 email, 
                 role: userRole, 
                 position,
+                defaultPage: defaultPage || undefined,
                 permissions 
             };
             if (password || !editingUser) {
@@ -168,6 +247,7 @@ export function Users({ token, onBack, role }: Props) {
         setEmail(u.Email);
         setUserRole(u.Role);
         setPosition(u.Position || "");
+        setDefaultPage(u.DefaultPage || "");
         setPassword("");
         
         if (u.PermissionsJson) {
@@ -191,6 +271,7 @@ export function Users({ token, onBack, role }: Props) {
         setEmail("");
         setUserRole("AGENT");
         setPosition("");
+        setDefaultPage("");
         setPermissions({
             dashboard: true, chat: true, tickets: true, contacts: true, 
             reports: true, billing: false, users: false, settings: true
@@ -207,24 +288,30 @@ export function Users({ token, onBack, role }: Props) {
     return (
         <div className="settings-page" style={{ height: "100%", overflowY: "auto" }}>
             <PageHeader
-                title="Colaboradores"
-                subtitle={isAdmin ? "Gerencie os membros da sua empresa e suas permissões." : "Conheça seus colegas de equipe."}
-                icon={UsersIcon}
+                title={activeTab === "PROFILE" ? "Meu Perfil" : "Colaboradores"}
+                subtitle={activeTab === "PROFILE" ? "Gerencie suas informações pessoais e aparência." : (isAdmin ? "Gerencie os membros da sua empresa e suas permissões." : "Conheça seus colegas de equipe.")}
+                icon={activeTab === "PROFILE" ? UserIcon : UsersIcon}
                 onBack={onBack}
                 contextKey="users.index"
                 helpText={
                     <div>
-                        <p>Gerencie quem tem acesso à plataforma e quais níveis de permissão cada membro possui.</p>
-                        <ul style={{ marginTop: 12, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 8 }}>
-                            <li><strong>Administradores:</strong> Têm acesso total às configurações, faturamento e gestão de usuários.</li>
-                            <li><strong>Operadores:</strong> Focados no atendimento ao cliente e gestão de tickets.</li>
-                            <li><strong>Status:</strong> Ative ou desative membros conforme a necessidade da sua equipe.</li>
-                            <li><strong>Segurança:</strong> Apenas administradores podem convidar novos membros para a empresa.</li>
-                        </ul>
+                        {activeTab === "PROFILE" ? (
+                            <p>Atualize seu nome, cargo, avatar e senha, além de alternar entre o tema Claro e Escuro.</p>
+                        ) : (
+                            <>
+                                <p>Gerencie quem tem acesso à plataforma e quais níveis de permissão cada membro possui.</p>
+                                <ul style={{ marginTop: 12, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 8 }}>
+                                    <li><strong>Administradores:</strong> Têm acesso total às configurações, faturamento e gestão de usuários.</li>
+                                    <li><strong>Operadores:</strong> Focados no atendimento ao cliente e gestão de tickets.</li>
+                                    <li><strong>Status:</strong> Ative ou desative membros conforme a necessidade da sua equipe.</li>
+                                    <li><strong>Segurança:</strong> Apenas administradores podem convidar novos membros para a empresa.</li>
+                                </ul>
+                            </>
+                        )}
                     </div>
                 }
                 actionNode={
-                    isAdmin ? (
+                    isAdmin && activeTab !== "PROFILE" ? (
                         <button className="btn btn-primary" onClick={openCreate} style={{ borderRadius: 12, padding: "10px 20px" }}>
                             + Novo Membro
                         </button>
@@ -251,155 +338,356 @@ export function Users({ token, onBack, role }: Props) {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 20, marginBottom: 20, padding: "0 20px" }}>
                 <div style={{ display: "flex", gap: 20 }}>
                     <button 
-                        onClick={() => setActiveTab("TECH")}
+                        onClick={() => setActiveTab("PROFILE")}
                         style={{ 
-                            background: "none", border: "none", borderBottom: activeTab === "TECH" ? "3px solid var(--accent)" : "3px solid transparent",
+                            background: "none", border: "none", borderBottom: activeTab === "PROFILE" ? "3px solid var(--accent)" : "3px solid transparent",
                             padding: "10px 15px", cursor: "pointer", fontWeight: 700, fontSize: "0.95rem",
-                            color: activeTab === "TECH" ? "var(--accent)" : "var(--text-secondary)", transition: "all 0.2s"
+                            color: activeTab === "PROFILE" ? "var(--accent)" : "var(--text-secondary)", transition: "all 0.2s"
                         }}
                     >
-                        Time Técnico ({techUsers.length})
+                        Meu Perfil
                     </button>
-                    <button 
-                        onClick={() => setActiveTab("COLLAB")}
-                        style={{ 
-                            background: "none", border: "none", borderBottom: activeTab === "COLLAB" ? "3px solid var(--accent)" : "3px solid transparent",
-                            padding: "10px 15px", cursor: "pointer", fontWeight: 700, fontSize: "0.95rem",
-                            color: activeTab === "COLLAB" ? "var(--accent)" : "var(--text-secondary)", transition: "all 0.2s"
-                        }}
-                    >
-                        Colaboradores ({collabUsers.length})
-                    </button>
+                    {canManageUsers && (
+                        <>
+                            <button 
+                                onClick={() => setActiveTab("TECH")}
+                                style={{ 
+                                    background: "none", border: "none", borderBottom: activeTab === "TECH" ? "3px solid var(--accent)" : "3px solid transparent",
+                                    padding: "10px 15px", cursor: "pointer", fontWeight: 700, fontSize: "0.95rem",
+                                    color: activeTab === "TECH" ? "var(--accent)" : "var(--text-secondary)", transition: "all 0.2s"
+                                }}
+                            >
+                                Time Técnico ({techUsers.length})
+                            </button>
+                            <button 
+                                onClick={() => setActiveTab("COLLAB")}
+                                style={{ 
+                                    background: "none", border: "none", borderBottom: activeTab === "COLLAB" ? "3px solid var(--accent)" : "3px solid transparent",
+                                    padding: "10px 15px", cursor: "pointer", fontWeight: 700, fontSize: "0.95rem",
+                                    color: activeTab === "COLLAB" ? "var(--accent)" : "var(--text-secondary)", transition: "all 0.2s"
+                                }}
+                            >
+                                Colaboradores ({collabUsers.length})
+                            </button>
+                        </>
+                    )}
                 </div>
 
-                <div style={{ position: "relative", flex: 1, maxWidth: 300 }}>
-                    <input 
-                        type="text" 
-                        placeholder="Buscar por nome ou email..." 
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        style={{ 
-                            width: "100%", padding: "10px 15px", borderRadius: 12, border: "1px solid var(--border)", 
-                            background: "var(--bg-secondary)", color: "var(--text-primary)", fontSize: "0.85rem" 
-                        }}
-                    />
-                </div>
+                {activeTab !== "PROFILE" && (
+                    <div style={{ position: "relative", flex: 1, maxWidth: 300 }}>
+                        <input 
+                            type="text" 
+                            placeholder="Buscar por nome ou email..." 
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            style={{ 
+                                width: "100%", padding: "10px 15px", borderRadius: 12, border: "1px solid var(--border)", 
+                                background: "var(--bg-secondary)", color: "var(--text-primary)", fontSize: "0.85rem" 
+                            }}
+                        />
+                    </div>
+                )}
             </div>
 
-            <div style={{
-                background: "var(--bg-secondary)",
-                borderRadius: 20,
-                border: "1px solid var(--border)",
-                overflowX: "auto",
-                boxShadow: "0 4px 20px rgba(0,0,0,0.1)"
-            }}>
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                    <thead>
-                        <tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid var(--border)" }}>
-                            <th style={{ padding: "20px", textAlign: "left", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "1px", color: "var(--text-secondary)" }}>Membro</th>
-                            <th style={{ padding: "20px", textAlign: "left", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "1px", color: "var(--text-secondary)" }}>Email</th>
-                            <th style={{ padding: "20px", textAlign: "left", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "1px", color: "var(--text-secondary)" }}>Função</th>
-                            <th style={{ padding: "20px", textAlign: "left", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "1px", color: "var(--text-secondary)" }}>Status</th>
-                            <th style={{ padding: "20px", textAlign: "right", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "1px", color: "var(--text-secondary)" }}>Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {loading && (
-                            <tr>
-                                <td colSpan={5} style={{ padding: 40, textAlign: "center" }}>
-                                    <div className="spinner" style={{ margin: "0 auto" }}></div>
-                                    <p style={{ marginTop: 12, color: "var(--text-secondary)" }}>Carregando equipe...</p>
-                                </td>
+
+            {activeTab !== "PROFILE" ? (
+                <div style={{
+                    background: "var(--bg-secondary)",
+                    borderRadius: 20,
+                    border: "1px solid var(--border)",
+                    overflowX: "auto",
+                    boxShadow: "0 4px 20px rgba(0,0,0,0.1)"
+                }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                        <thead>
+                            <tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid var(--border)" }}>
+                                <th style={{ padding: "20px", textAlign: "left", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "1px", color: "var(--text-secondary)" }}>Membro</th>
+                                <th style={{ padding: "20px", textAlign: "left", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "1px", color: "var(--text-secondary)" }}>Email</th>
+                                <th style={{ padding: "20px", textAlign: "left", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "1px", color: "var(--text-secondary)" }}>Função</th>
+                                <th style={{ padding: "20px", textAlign: "left", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "1px", color: "var(--text-secondary)" }}>Status</th>
+                                <th style={{ padding: "20px", textAlign: "right", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "1px", color: "var(--text-secondary)" }}>Ações</th>
                             </tr>
-                        )}
-                        {!loading && displayedUsers.map(u => (
-                            <tr key={u.UserId} className="table-row-hover" style={{ borderBottom: "1px solid var(--border)", transition: "all 0.2s" }}>
-                                <td style={{ padding: "16px 20px" }}>
-                                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                                        <div style={{
-                                            width: 40, height: 40, borderRadius: 12,
-                                            background: "var(--bg-primary)",
-                                            display: "flex", alignItems: "center", justifyContent: "center"
-                                        }}>
-                                            <UserIcon size={20} className="text-secondary" />
+                        </thead>
+                        <tbody>
+                            {loading && (
+                                <tr>
+                                    <td colSpan={5} style={{ padding: 40, textAlign: "center" }}>
+                                        <div className="spinner" style={{ margin: "0 auto" }}></div>
+                                        <p style={{ marginTop: 12, color: "var(--text-secondary)" }}>Carregando equipe...</p>
+                                    </td>
+                                </tr>
+                            )}
+                            {!loading && displayedUsers.map(u => (
+                                <tr key={u.UserId} className="table-row-hover" style={{ borderBottom: "1px solid var(--border)", transition: "all 0.2s" }}>
+                                    <td style={{ padding: "16px 20px" }}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                                            <div style={{
+                                                width: 40, height: 40, borderRadius: 12,
+                                                background: "var(--bg-primary)",
+                                                display: "flex", alignItems: "center", justifyContent: "center"
+                                            }}>
+                                                <UserIcon size={20} className="text-secondary" />
+                                            </div>
+                                            <div style={{ fontWeight: 600, fontSize: "1rem" }}>{u.AgentName || u.Name || "Sem Nome"}</div>
                                         </div>
-                                        <div style={{ fontWeight: 600, fontSize: "1rem" }}>{u.AgentName || u.Name || "Sem Nome"}</div>
-                                    </div>
-                                </td>
-                                <td style={{ padding: "16px 20px", color: "var(--text-secondary)" }}>{u.Email}</td>
-                                <td style={{ padding: "16px 20px" }}>
-                                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                        {u.Role === "ADMIN" ? <Shield size={14} className="text-secondary" /> : null}
-                                        <span style={{
-                                            padding: "4px 10px", borderRadius: 8, fontSize: "0.75rem", fontWeight: 700,
-                                            background: u.Role === "ADMIN" ? "rgba(217, 66, 245, 0.15)" : "rgba(0, 168, 132, 0.15)",
-                                            color: u.Role === "ADMIN" ? "#d942f5" : "#00a884"
-                                        }}>
-                                            {u.Role === 'END_USER' ? 'COLABORADOR' : u.Role}
-                                        </span>
-                                    </div>
-                                </td>
-                                <td style={{ padding: "16px 20px" }}>
-                                    <div style={{ display: "flex", alignItems: "center", gap: 8, color: u.IsActive ? "var(--accent)" : "var(--danger)", fontSize: "0.85rem", fontWeight: 600 }}>
-                                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: "currentColor" }} />
-                                        {u.IsActive ? "Ativo" : "Inativo"}
-                                    </div>
-                                </td>
-                                <td style={{ padding: "16px 20px", textAlign: "right" }}>
-                                    <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
-                                        <a
-                                            href={`mailto:${/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(u.Email) ? u.Email : ""}`}
-                                            className="btn btn-ghost"
-                                            style={{ padding: 8, borderRadius: 8, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
-                                            title="Enviar Email"
-                                        >
-                                            <Mail size={18} />
-                                        </a>
+                                    </td>
+                                    <td style={{ padding: "16px 20px", color: "var(--text-secondary)" }}>{u.Email}</td>
+                                    <td style={{ padding: "16px 20px" }}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                            {u.Role === "ADMIN" ? <Shield size={14} className="text-secondary" /> : null}
+                                            <span style={{
+                                                padding: "4px 10px", borderRadius: 8, fontSize: "0.75rem", fontWeight: 700,
+                                                background: u.Role === "ADMIN" ? "rgba(217, 66, 245, 0.15)" : "rgba(0, 168, 132, 0.15)",
+                                                color: u.Role === "ADMIN" ? "#d942f5" : "#00a884"
+                                            }}>
+                                                {u.Role === 'END_USER' ? 'COLABORADOR' : u.Role}
+                                            </span>
+                                        </div>
+                                    </td>
+                                    <td style={{ padding: "16px 20px" }}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 8, color: u.IsActive ? "var(--accent)" : "var(--danger)", fontSize: "0.85rem", fontWeight: 600 }}>
+                                            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "currentColor" }} />
+                                            {u.IsActive ? "Ativo" : "Inativo"}
+                                        </div>
+                                    </td>
+                                    <td style={{ padding: "16px 20px", textAlign: "right" }}>
+                                        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+                                            <a
+                                                href={`mailto:${/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(u.Email) ? u.Email : ""}`}
+                                                className="btn btn-ghost"
+                                                style={{ padding: 8, borderRadius: 8, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+                                                title="Enviar Email"
+                                            >
+                                                <Mail size={18} />
+                                            </a>
 
-                                        <button
-                                            onClick={() => handleStartChat(u)}
-                                            className="btn btn-ghost"
-                                            style={{ padding: 8, borderRadius: 8, color: "var(--accent)" }}
-                                            title="Iniciar Conversa"
-                                        >
-                                            <MessageSquare size={18} />
-                                        </button>
+                                            <button
+                                                onClick={() => handleStartChat(u)}
+                                                className="btn btn-ghost"
+                                                style={{ padding: 8, borderRadius: 8, color: "var(--accent)" }}
+                                                title="Iniciar Conversa"
+                                            >
+                                                <MessageSquare size={18} />
+                                            </button>
 
-                                        {isAdmin && (
-                                            <>
-                                                <button
-                                                    onClick={() => openEdit(u)}
-                                                    className="btn btn-ghost"
-                                                    style={{ padding: 8, borderRadius: 8 }}
-                                                    title="Editar"
-                                                >
-                                                    <Edit2 size={18} />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleToggleStatus(u.UserId, u.IsActive ?? true)}
-                                                    className="btn btn-ghost"
-                                                    style={{ padding: 8, borderRadius: 8, color: u.IsActive ? "var(--danger)" : "var(--accent)" }}
-                                                    title={u.IsActive ? "Desativar" : "Ativar"}
-                                                >
-                                                    {u.IsActive ? <Pause size={18} /> : <Play size={18} />}
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDelete(u.UserId)}
-                                                    className="btn btn-ghost"
-                                                    style={{ padding: 8, borderRadius: 8, color: "var(--danger)" }}
-                                                    title="Mover para Lixeira"
-                                                >
-                                                    <Trash2 size={18} />
-                                                </button>
-                                            </>
+                                            {isAdmin && (
+                                                <>
+                                                    <button
+                                                        onClick={() => openEdit(u)}
+                                                        className="btn btn-ghost"
+                                                        style={{ padding: 8, borderRadius: 8 }}
+                                                        title="Editar"
+                                                    >
+                                                        <Edit2 size={18} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleToggleStatus(u.UserId, u.IsActive ?? true)}
+                                                        className="btn btn-ghost"
+                                                        style={{ padding: 8, borderRadius: 8, color: u.IsActive ? "var(--danger)" : "var(--accent)" }}
+                                                        title={u.IsActive ? "Desativar" : "Ativar"}
+                                                    >
+                                                        {u.IsActive ? <Pause size={18} /> : <Play size={18} />}
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDelete(u.UserId)}
+                                                        className="btn btn-ghost"
+                                                        style={{ padding: 8, borderRadius: 8, color: "var(--danger)" }}
+                                                        title="Mover para Lixeira"
+                                                    >
+                                                        <Trash2 size={18} />
+                                                    </button>
+                                                </>
+                                            )}
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 24, padding: "0 20px" }}>
+                    <div style={{ maxWidth: 800 }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+                            {/* Tema e Aparência */}
+                            <div style={{ 
+                                padding: 24, 
+                                background: "var(--bg-secondary)", 
+                                border: "1px solid var(--border)", 
+                                borderRadius: 20 
+                            }}>
+                                <h3 style={{ margin: "0 0 16px 0", fontSize: "1.1rem", display: "flex", alignItems: "center", gap: 8 }}>
+                                    <MonitorSmartphone size={20} className="text-accent" /> Aparência e Tema
+                                </h3>
+                                <div style={{ display: "flex", gap: 12 }}>
+                                    <button 
+                                        onClick={() => toggleTheme("light")}
+                                        style={{
+                                            flex: 1, padding: 16, borderRadius: 12, border: "2px solid",
+                                            borderColor: theme === "light" ? "var(--accent)" : "var(--border)",
+                                            background: "var(--bg-primary)", color: "var(--text-primary)", cursor: "pointer",
+                                            display: "flex", flexDirection: "column", alignItems: "center", gap: 8
+                                        }}
+                                    >
+                                        <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#f8f9fa", border: "1px solid #dee2e6" }} />
+                                        <span style={{ fontWeight: 600 }}>Claro</span>
+                                    </button>
+                                    <button 
+                                        onClick={() => toggleTheme("dark")}
+                                        style={{
+                                            flex: 1, padding: 16, borderRadius: 12, border: "2px solid",
+                                            borderColor: theme === "dark" ? "var(--accent)" : "var(--border)",
+                                            background: "var(--bg-primary)", color: "var(--text-primary)", cursor: "pointer",
+                                            display: "flex", flexDirection: "column", alignItems: "center", gap: 8
+                                        }}
+                                    >
+                                        <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#1a1b1e", border: "1px solid #2c2e33" }} />
+                                        <span style={{ fontWeight: 600 }}>Escuro</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr", gap: 24, alignItems: "start" }}>
+                                {/* Avatar Section */}
+                                <div style={{ 
+                                    padding: 24, 
+                                    background: "var(--bg-secondary)", 
+                                    border: "1px solid var(--border)", 
+                                    borderRadius: 20,
+                                    display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center"
+                                }}>
+                                    <div style={{
+                                        width: 120, height: 120, borderRadius: "50%", 
+                                        background: "var(--bg-primary)", border: "4px solid var(--accent)",
+                                        marginBottom: 16, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center",
+                                        position: "relative"
+                                    }}>
+                                        {isSafeUrl(profileAvatar) ? (
+                                            <img src={profileAvatar} alt="Avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                        ) : (
+                                            <UserIcon size={48} className="text-secondary" />
                                         )}
                                     </div>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+                                    
+                                    <div style={{ width: "100%", textAlign: "left" }}>
+                                        <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, color: "var(--text-secondary)", fontSize: "0.85rem" }}>
+                                            <ImageIcon size={14} /> URL da Imagem de Perfil
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={profileAvatar}
+                                            onChange={e => setProfileAvatar(e.target.value)}
+                                            placeholder="https://..."
+                                            className="settings-input"
+                                            style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", transition: "all 0.2s" }}
+                                        />
+                                        <p style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 8 }}>Cole o link de uma imagem pública para usar como seu avatar.</p>
+                                    </div>
+                                </div>
+
+                                {/* Informações Pessoais Section */}
+                                <div style={{ 
+                                    padding: 24, 
+                                    background: "var(--bg-secondary)", 
+                                    border: "1px solid var(--border)", 
+                                    borderRadius: 20,
+                                    display: "flex", flexDirection: "column", gap: 20
+                                }}>
+                                    <div>
+                                        <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, color: "var(--text-secondary)", fontSize: "0.85rem" }}>
+                                            <KeySquare size={14} /> Nome de Exibição
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={profileName}
+                                            onChange={e => setProfileName(e.target.value)}
+                                            placeholder="Seu nome"
+                                            className="settings-input"
+                                            style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", transition: "all 0.2s" }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, color: "var(--text-secondary)", fontSize: "0.85rem" }}>
+                                            <Briefcase size={14} /> Cargo / Função (Opcional)
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={profilePosition}
+                                            onChange={e => setProfilePosition(e.target.value)}
+                                            placeholder="Ex: Atendente, Gerente..."
+                                            className="settings-input"
+                                            style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", transition: "all 0.2s" }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, color: "var(--text-secondary)", fontSize: "0.85rem" }}>
+                                            <MonitorSmartphone size={14} /> Tela Inicial Padrão
+                                        </label>
+                                        <select
+                                            value={profileDefaultPage}
+                                            onChange={e => setProfileDefaultPage(e.target.value)}
+                                            style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", transition: "all 0.2s" }}
+                                        >
+                                            <option value="">Padrão do Sistema</option>
+                                            <option value="/dashboard">Dashboard</option>
+                                            <option value="/chat">Central de Mensagens (Chat)</option>
+                                            <option value="/tickets">Meus Chamados (Tickets)</option>
+                                            <option value="/contacts">Lista de Contatos</option>
+                                            <option value="/reports">Relatórios Analíticos</option>
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, color: "var(--text-secondary)", fontSize: "0.85rem" }}>
+                                            <Lock size={14} /> Nova Senha
+                                        </label>
+                                        <input
+                                            type="password"
+                                            value={profilePassword}
+                                            onChange={e => setProfilePassword(e.target.value)}
+                                            placeholder="Mínimo 6 caracteres"
+                                            className="settings-input"
+                                            style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", transition: "all 0.2s" }}
+                                        />
+                                        <p style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 6 }}>Deixe em branco para não alterar.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Save Action for Profile */}
+                            <div style={{ 
+                                padding: "20px 30px", 
+                                background: "var(--bg-secondary)", 
+                                border: "1px solid var(--border)", 
+                                borderRadius: 16,
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                flexWrap: "wrap",
+                                gap: "15px"
+                            }}>
+                                <div>
+                                    <h4 style={{ margin: 0, fontSize: "1rem", fontWeight: 600 }}>Salvar Alterações</h4>
+                                    <p style={{ margin: "4px 0 0 0", fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+                                        Atualize suas informações pessoais e tema de preferência do sistema.
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={handleSaveProfile}
+                                    disabled={savingProfile}
+                                    className="btn btn-primary"
+                                    style={{ padding: "14px 40px", borderRadius: 10, fontWeight: 600, fontSize: "1rem", display: "flex", alignItems: "center", gap: 8 }}
+                                >
+                                    <ShieldCheck size={18} />
+                                    {savingProfile ? "Salvando..." : "Salvar Perfil"}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Modal de Gerenciamento (Backdrop Blur Standard) */}
             {showModal && (
@@ -501,6 +789,22 @@ export function Users({ token, onBack, role }: Props) {
                                     <option value="ADMIN">Administrador/Supervisor (Acesso Total)</option>
                                     <option value="AGENT">Agente/Técnico (Atendimento)</option>
                                     <option value="END_USER">Colaborador (Não faz parte do corpo técnico)</option>
+                                </select>
+                            </div>
+
+                            <div className="field">
+                                <label style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 600, color: "var(--text-secondary)" }}>Tela Inicial Padrão</label>
+                                <select
+                                    value={defaultPage}
+                                    onChange={e => setDefaultPage(e.target.value)}
+                                    style={{ width: "100%", marginTop: 8, background: "var(--bg-primary)", padding: "12px 16px", borderRadius: 12, border: "1px solid var(--border)", color: "var(--text-primary)", cursor: "pointer" }}
+                                >
+                                    <option value="">Padrão do Sistema</option>
+                                    <option value="/dashboard">Dashboard</option>
+                                    <option value="/chat">Central de Mensagens (Chat)</option>
+                                    <option value="/tickets">Meus Chamados (Tickets)</option>
+                                    <option value="/contacts">Lista de Contatos</option>
+                                    <option value="/reports">Relatórios Analíticos</option>
                                 </select>
                             </div>
 

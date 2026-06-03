@@ -12,7 +12,9 @@ export function TagsSettings({ onBack }: Props) {
     const [tags, setTags] = useState<Tag[]>([]);
     const [loading, setLoading] = useState(false);
     const [newTagName, setNewTagName] = useState("");
+    const [newTagDescription, setNewTagDescription] = useState("");
     const [newTagColor, setNewTagColor] = useState("#00a884");
+    const [editingTagId, setEditingTagId] = useState<string | null>(null);
 
     useEffect(() => {
         loadTags();
@@ -30,18 +32,43 @@ export function TagsSettings({ onBack }: Props) {
         }
     };
 
-    const handleCreateTag = async (e: React.FormEvent) => {
+    const handleCreateOrUpdateTag = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newTagName.trim()) return;
+        if (!newTagName.trim() || !newTagDescription.trim()) {
+            alert("Nome e Descrição são obrigatórios.");
+            return;
+        }
 
         try {
-            await api.post("/api/tags", { name: newTagName, color: newTagColor });
+            if (editingTagId) {
+                await api.put(`/api/tags/${editingTagId}`, { name: newTagName, description: newTagDescription, color: newTagColor });
+            } else {
+                await api.post("/api/tags", { name: newTagName, description: newTagDescription, color: newTagColor });
+            }
+            
             setNewTagName("");
+            setNewTagDescription("");
             setNewTagColor("#00a884");
+            setEditingTagId(null);
             loadTags();
         } catch (error) {
-            console.error("Erro ao criar tag:", error);
+            console.error("Erro ao salvar tag:", error);
+            alert("Erro ao salvar a tag.");
         }
+    };
+
+    const handleEditClick = (tag: Tag) => {
+        setEditingTagId(tag.TagId);
+        setNewTagName(tag.Name);
+        setNewTagDescription(tag.Description || "");
+        setNewTagColor(tag.Color);
+    };
+
+    const handleCancelEdit = () => {
+        setEditingTagId(null);
+        setNewTagName("");
+        setNewTagDescription("");
+        setNewTagColor("#00a884");
     };
 
     const handleDeleteTag = async (tagId: string) => {
@@ -65,43 +92,69 @@ export function TagsSettings({ onBack }: Props) {
             />
 
             <div style={{ background: "var(--bg-secondary)", padding: 25, borderRadius: 12, border: "1px solid var(--border)", marginBottom: 30 }}>
-                <h3 style={{ marginTop: 0, marginBottom: 20, fontSize: "1.1rem", borderBottom: "1px solid var(--border)", paddingBottom: 10 }}>Criar Nova Tag</h3>
-                <form onSubmit={handleCreateTag} style={{ display: "flex", gap: 15, alignItems: "flex-end", flexWrap: "wrap" }}>
-                    <div style={{ flex: "1 1 150px" }}>
-                        <label style={{ display: "block", marginBottom: 8, fontSize: "0.85rem", color: "#8696a0" }}>Nome da Tag</label>
-                        <input
-                            type="text"
-                            value={newTagName}
-                            onChange={(e) => setNewTagName(e.target.value)}
-                            placeholder="Suporte, Vendas, Urgente..."
-                            style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)" }}
-                        />
-                    </div>
-                    <div>
-                        <label style={{ display: "block", marginBottom: 8, fontSize: "0.85rem", color: "#8696a0" }}>Cor</label>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                            <input
-                                type="color"
-                                value={newTagColor}
-                                onChange={(e) => setNewTagColor(e.target.value)}
-                                style={{ width: 44, height: 44, padding: 0, border: "none", background: "none", cursor: "pointer" }}
-                            />
+                <h3 style={{ marginTop: 0, marginBottom: 20, fontSize: "1.1rem", borderBottom: "1px solid var(--border)", paddingBottom: 10 }}>
+                    {editingTagId ? "Editar Tag" : "Criar Nova Tag"}
+                </h3>
+                <form onSubmit={handleCreateOrUpdateTag} style={{ display: "flex", flexDirection: "column", gap: 15 }}>
+                    <div style={{ display: "flex", gap: 15, alignItems: "flex-end", flexWrap: "wrap" }}>
+                        <div style={{ flex: "1 1 200px" }}>
+                            <label style={{ display: "block", marginBottom: 8, fontSize: "0.85rem", color: "#8696a0" }}>Nome da Tag *</label>
                             <input
                                 type="text"
-                                value={newTagColor}
-                                onChange={(e) => setNewTagColor(e.target.value)}
-                                style={{ width: 100, padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", fontSize: "0.85rem" }}
+                                value={newTagName}
+                                onChange={(e) => setNewTagName(e.target.value)}
+                                placeholder="Suporte, Vendas, Urgente..."
+                                style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", boxSizing: "border-box" }}
                             />
                         </div>
+                        <div>
+                            <label style={{ display: "block", marginBottom: 8, fontSize: "0.85rem", color: "#8696a0" }}>Cor *</label>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                <input
+                                    type="color"
+                                    value={newTagColor}
+                                    onChange={(e) => setNewTagColor(e.target.value)}
+                                    style={{ width: 44, height: 44, padding: 0, border: "none", background: "none", cursor: "pointer" }}
+                                />
+                                <input
+                                    type="text"
+                                    value={newTagColor}
+                                    onChange={(e) => setNewTagColor(e.target.value)}
+                                    style={{ width: 100, padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", fontSize: "0.85rem", boxSizing: "border-box" }}
+                                />
+                            </div>
+                        </div>
                     </div>
-                    <button
-                        type="submit"
-                        disabled={!newTagName.trim()}
-                        className="btn btn-primary"
-                        style={{ display: "flex", alignItems: "center", gap: 8, padding: "11px 20px" }}
-                    >
-                        <Plus size={18} /> Adicionar
-                    </button>
+                    <div>
+                        <label style={{ display: "block", marginBottom: 8, fontSize: "0.85rem", color: "#8696a0" }}>Descrição (Propósito da tag) *</label>
+                        <input
+                            type="text"
+                            value={newTagDescription}
+                            onChange={(e) => setNewTagDescription(e.target.value)}
+                            placeholder="Ex: Usada para identificar problemas técnicos urgentes..."
+                            style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", boxSizing: "border-box" }}
+                        />
+                    </div>
+                    <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 10 }}>
+                        {editingTagId && (
+                            <button
+                                type="button"
+                                onClick={handleCancelEdit}
+                                className="btn btn-ghost"
+                                style={{ padding: "11px 20px" }}
+                            >
+                                Cancelar
+                            </button>
+                        )}
+                        <button
+                            type="submit"
+                            disabled={!newTagName.trim() || !newTagDescription.trim()}
+                            className="btn btn-primary"
+                            style={{ display: "flex", alignItems: "center", gap: 8, padding: "11px 20px" }}
+                        >
+                            <Plus size={18} /> {editingTagId ? "Salvar Alterações" : "Adicionar"}
+                        </button>
+                    </div>
                 </form>
             </div>
 
@@ -109,25 +162,39 @@ export function TagsSettings({ onBack }: Props) {
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead>
                         <tr style={{ background: "var(--bg-hover)", borderBottom: "1px solid var(--border)" }}>
-                            <th style={{ textAlign: "left", padding: "15px 20px", color: "#8696a0", fontWeight: 500, fontSize: "0.85rem" }}>COR</th>
-                            <th style={{ textAlign: "left", padding: "15px 20px", color: "#8696a0", fontWeight: 500, fontSize: "0.85rem" }}>NOME</th>
-                            <th style={{ textAlign: "right", padding: "15px 20px", color: "#8696a0", fontWeight: 500, fontSize: "0.85rem" }}>AÇÕES</th>
+                            <th style={{ textAlign: "left", padding: "15px 20px", color: "#8696a0", fontWeight: 500, fontSize: "0.85rem", width: 60 }}>COR</th>
+                            <th style={{ textAlign: "left", padding: "15px 20px", color: "#8696a0", fontWeight: 500, fontSize: "0.85rem", width: 200 }}>NOME</th>
+                            <th style={{ textAlign: "left", padding: "15px 20px", color: "#8696a0", fontWeight: 500, fontSize: "0.85rem" }}>DESCRIÇÃO</th>
+                            <th style={{ textAlign: "right", padding: "15px 20px", color: "#8696a0", fontWeight: 500, fontSize: "0.85rem", width: 120 }}>AÇÕES</th>
                         </tr>
                     </thead>
                     <tbody>
                         {loading && (
-                            <tr><td colSpan={3} style={{ textAlign: "center", padding: 30, color: "#8696a0" }}>Carregando...</td></tr>
+                            <tr><td colSpan={4} style={{ textAlign: "center", padding: 30, color: "#8696a0" }}>Carregando...</td></tr>
                         )}
                         {!loading && tags.length === 0 && (
-                            <tr><td colSpan={3} style={{ textAlign: "center", padding: 30, color: "#8696a0" }}>Nenhuma tag cadastrada.</td></tr>
+                            <tr><td colSpan={4} style={{ textAlign: "center", padding: 30, color: "#8696a0" }}>Nenhuma tag cadastrada.</td></tr>
                         )}
                         {!loading && tags.map(tag => (
                             <tr key={tag.TagId} style={{ borderBottom: "1px solid var(--border)" }}>
                                 <td style={{ padding: "12px 20px" }}>
                                     <div style={{ width: 20, height: 20, borderRadius: 4, background: tag.Color, border: "1px solid rgba(0,0,0,0.1)" }} />
                                 </td>
-                                <td style={{ padding: "12px 20px", fontWeight: 500 }}>{tag.Name}</td>
+                                <td style={{ padding: "12px 20px" }}>
+                                    <span style={{ fontWeight: 500 }}>{tag.Name}</span>
+                                    <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginLeft: 6 }}>
+                                        - Utilizada em {tag.UsageCount || 0} registro{(tag.UsageCount === 1) ? "" : "s"}
+                                    </span>
+                                </td>
+                                <td style={{ padding: "12px 20px", color: "var(--text-secondary)", fontSize: "0.9rem" }}>{tag.Description}</td>
                                 <td style={{ padding: "12px 20px", textAlign: "right" }}>
+                                    <button
+                                        onClick={() => handleEditClick(tag)}
+                                        style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", opacity: 0.7, marginRight: 15 }}
+                                        title="Editar Tag"
+                                    >
+                                        Editar
+                                    </button>
                                     <button
                                         onClick={() => handleDeleteTag(tag.TagId)}
                                         style={{ background: "none", border: "none", color: "#ea4335", cursor: "pointer", opacity: 0.7 }}

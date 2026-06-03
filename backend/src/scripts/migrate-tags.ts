@@ -13,11 +13,20 @@ async function run() {
             TagId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
             TenantId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES altdesk.Tenant(TenantId),
             Name NVARCHAR(50) NOT NULL,
+            Description NVARCHAR(1000) NOT NULL DEFAULT '',
             Color NVARCHAR(20) NOT NULL DEFAULT '#E2E8F0',
             CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME(),
             CONSTRAINT UK_Tag_Name UNIQUE (TenantId, Name)
         );
         PRINT 'Table altdesk.Tag created.';
+      END
+      ELSE
+      BEGIN
+        IF COL_LENGTH('altdesk.Tag', 'Description') IS NULL
+        BEGIN
+            ALTER TABLE altdesk.Tag ADD Description NVARCHAR(1000) NOT NULL DEFAULT '';
+            PRINT 'Column Description added to altdesk.Tag.';
+        END
       END
 
       IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'ConversationTag' AND schema_id = SCHEMA_ID('altdesk'))

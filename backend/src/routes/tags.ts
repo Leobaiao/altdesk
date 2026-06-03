@@ -6,6 +6,7 @@ import { AuthenticatedRequest } from "../types/index.js";
 import {
     listTags,
     createTag,
+    updateTag,
     deleteTag,
     assignTagToConversation,
     removeTagFromConversation
@@ -28,12 +29,28 @@ router.get("/", (async (req: AuthenticatedRequest, res: any, next: any) => {
 // Create a new tag
 router.post("/", validateBody(z.object({
     name: z.string().min(1),
+    description: z.string().min(1),
     color: z.string().startsWith("#").optional()
 })), (async (req: AuthenticatedRequest, res: any, next: any) => {
     try {
-        const { name, color } = req.body;
-        const tag = await createTag(req.user.tenantId || "", name, color || "#E2E8F0");
+        const { name, description, color } = req.body;
+        const tag = await createTag(req.user.tenantId || "", name, description, color || "#E2E8F0");
         res.status(201).json(tag);
+    } catch (error) {
+        next(error);
+    }
+}) as any);
+
+// Update a tag
+router.put("/:id", validateBody(z.object({
+    name: z.string().min(1),
+    description: z.string().min(1),
+    color: z.string().startsWith("#").optional()
+})), (async (req: AuthenticatedRequest, res: any, next: any) => {
+    try {
+        const { name, description, color } = req.body;
+        const tag = await updateTag(req.user.tenantId || "", req.params.id, name, description, color || "#E2E8F0");
+        res.json(tag);
     } catch (error) {
         next(error);
     }

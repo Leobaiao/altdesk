@@ -310,6 +310,10 @@ router.post("/:id/status", validateBody(z.object({
         const { status, resolution } = req.body;
         const conversationId = req.params.id;
 
+        if (status === 'RESOLVED' && (!resolution || !resolution.trim())) {
+            return res.status(400).json({ error: "O texto de resolução é obrigatório para fechar o chamado." });
+        }
+
         const { allowed, tenantId } = await checkConversationAccess(user, conversationId);
         if (!allowed) return res.status(403).json({ error: "Access denied" });
 
@@ -336,6 +340,38 @@ router.post("/:id/status", validateBody(z.object({
         });
 
         const io = req.app.get("io");
+
+        if (status === 'RESOLVED' && resolution) {
+            const agentName = user.displayName || user.email || "Sistema";
+            const noteText = `✅ Chamado resolvido por ${agentName}.\nResolução: ${resolution}`;
+            
+            const pool = await getPool();
+            const rMsg = await pool.request()
+                .input("tenantId", tenantId)
+                .input("conversationId", conversationId)
+                .input("senderUserId", user.userId)
+                .input("body", noteText)
+                .query(`
+                    INSERT INTO altdesk.Message (TenantId, ConversationId, SenderExternalId, Direction, Body)
+                    OUTPUT INSERTED.MessageId, INSERTED.CreatedAt
+                    VALUES (@tenantId, @conversationId, @senderUserId, 'INTERNAL', @body)
+                `);
+
+            if (io) {
+                const newMsgId = rMsg.recordset[0]?.MessageId;
+                const createdAt = rMsg.recordset[0]?.CreatedAt;
+                emitConversationEvent(io, tenantId!, conversationId, "message:new", {
+                    conversationId,
+                    MessageId: newMsgId,
+                    senderExternalId: user.userId,
+                    senderName: agentName,
+                    text: noteText,
+                    direction: "INTERNAL",
+                    CreatedAt: createdAt || new Date().toISOString()
+                });
+            }
+        }
+
         if (io) {
             emitConversationEvent(io, tenantId!, conversationId, "conversation:updated", {
                 conversationId,

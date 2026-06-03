@@ -557,6 +557,11 @@ export function HelpAdmin({ onBack }: Props) {
                                     {screenInfo && (
                                         <span style={{ opacity: 0.8 }}>→ {screenInfo.label}</span>
                                     )}
+                                    {article.PagePath && (
+                                        <a href={article.PagePath} style={{ marginLeft: "auto", color: "var(--accent)", textDecoration: "none", fontWeight: 600 }}>
+                                            🔗 Acessar
+                                        </a>
+                                    )}
                                 </div>
                             </div>
 
