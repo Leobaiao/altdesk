@@ -40,40 +40,37 @@ const scripts = [
   "migrate-exceptions"
 ];
 
-async function waitForSqlMigrations(maxAttempts = 40, delayMs = 3000) {
-  console.log("Checking if SQL database migrations are completed...");
-  let pool = null;
+/**
+ * Wait for the database to be reachable before running TS migrations.
+ * The deploy workflow guarantees SQL migrations have already completed
+ * before the backend container starts, so we only need to verify connectivity.
+ */
+async function waitForDatabase(maxAttempts = 15, delayMs = 2000) {
+  console.log("Verifying database connectivity...");
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    let pool = null;
     try {
       pool = await connect(config);
-      const checkTable = await pool.request().query(`
-        SELECT 1 
-        FROM INFORMATION_SCHEMA.COLUMNS 
-        WHERE TABLE_SCHEMA = 'altdesk' AND TABLE_NAME = 'Ticket' AND COLUMN_NAME = 'ResolutionDescription'
-      `);
-      if (checkTable.recordset.length > 0) {
-        console.log("✅ SQL migrations are completed. Starting TS migrations...");
-        await pool.close();
-        return;
-      }
-      console.log(`[Attempt ${attempt}/${maxAttempts}] SQL migrations not completed yet. Waiting...`);
+      await pool.request().query("SELECT 1");
+      console.log("✅ Database connection verified.");
+      await pool.close();
+      return;
     } catch (err: any) {
-      console.log(`[Attempt ${attempt}/${maxAttempts}] Database not ready or connecting failed: ${err.message}. Waiting...`);
+      console.log(`[Attempt ${attempt}/${maxAttempts}] Database not reachable: ${err.message}. Retrying in ${delayMs / 1000}s...`);
     } finally {
       if (pool) {
         try { await pool.close(); } catch {}
-        pool = null;
       }
     }
     await new Promise(resolve => setTimeout(resolve, delayMs));
   }
-  console.error("❌ Timeout waiting for SQL migrations to finish.");
+  console.error("❌ Could not connect to the database after all retries.");
   process.exit(1);
 }
 
 async function run() {
-  // Wait for SQL migrations to complete first
-  await waitForSqlMigrations();
+  // Wait for database connectivity (not for specific migrations — deploy workflow handles ordering)
+  await waitForDatabase();
 
   console.log(`Starting TS database migrations (Environment: ${isDist ? "Production/Built" : "Development"})...`);
   for (const script of scripts) {
