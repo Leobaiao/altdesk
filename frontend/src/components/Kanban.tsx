@@ -482,6 +482,11 @@ export function Kanban({ onSelectTicket, refreshKey, onStatsUpdate, filters }: K
                                                             }}
                                                             title="Duplo-clique para editar"
                                                         >
+                                                            {ticket.id && (
+                                                                <span style={{ color: 'var(--accent, #6366f1)', marginRight: 6, fontWeight: 700 }}>
+                                                                    #{ticket.id.substring(0, 5).toUpperCase()}
+                                                                </span>
+                                                            )}
                                                             {ticket.title || ticket.requester?.name || 'Sem título'}
                                                         </div>
                                                         <span title="Editar título" style={{ display: 'inline-flex', flexShrink: 0, marginTop: 2 }}>

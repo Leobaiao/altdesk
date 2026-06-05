@@ -23,6 +23,8 @@ export interface Tenant {
 
 export interface Conversation {
     ConversationId: string;
+    TicketId?: string;
+    id?: string;
     TenantId?: string;
     Title: string;
     Status: "OPEN" | "RESOLVED";

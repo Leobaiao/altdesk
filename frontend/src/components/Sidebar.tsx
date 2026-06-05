@@ -215,8 +215,15 @@ export function Sidebar({ setView }: { setView: (view: any) => void }) {
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
                                 {getChannelIcon(c.SourceChannel, c.Kind)}
-                                <div className="title" style={{ fontWeight: 700, color: "var(--text-primary)", fontSize: "0.95rem" }}>
-                                    {getConversationTitle(c, userId, role)}
+                                <div className="title" style={{ fontWeight: 700, color: "var(--text-primary)", fontSize: "0.95rem", display: "flex", alignItems: "center", gap: 5 }}>
+                                    {c.TicketId && (
+                                        <span style={{ color: "var(--accent)", fontWeight: 700, flexShrink: 0 }}>
+                                            #{c.TicketId.substring(0, 5).toUpperCase()}
+                                        </span>
+                                    )}
+                                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                        {getConversationTitle(c, userId, role)}
+                                    </span>
                                 </div>
                             </div>
                             <div style={{ display: "flex", gap: 5, alignItems: "center" }}>

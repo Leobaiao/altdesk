@@ -291,7 +291,7 @@ export function TicketDetail({ ticket, onBack, profile, role, onTicketUpdate, on
         }).filter(t => !!t);
 
         setKbForm({
-            title: `Solução: ${ticket.Title || "Chamado #" + ticket.id}`,
+            title: `Solução: ${ticket.Title || "Chamado #" + (ticket.id ? ticket.id.substring(0, 5).toUpperCase() : "")}`,
             content: contentLines.join('\n\n'),
             category: "Resolvidos"
         });
@@ -310,7 +310,14 @@ export function TicketDetail({ ticket, onBack, profile, role, onTicketUpdate, on
                             <ArrowLeft size={20} />
                         </button>
                         <div>
-                            <h2 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 700 }}>{ticket.Title || "Ticket #" + ticket.id}</h2>
+                            <h2 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
+                                {ticket.id && (
+                                    <span style={{ color: "var(--accent)", fontWeight: 700 }}>
+                                        #{ticket.id.substring(0, 5).toUpperCase()}
+                                    </span>
+                                )}
+                                <span>{ticket.Title || "Ticket"}</span>
+                            </h2>
                             <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 2 }}>
                                 ID: {ticket.id} · Aberto em {formatDateTime(ticket.CreatedAt || "")}
                             </div>

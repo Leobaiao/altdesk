@@ -11,6 +11,7 @@ import { api } from "../lib/api";
 
 export interface TicketData {
     id: string;
+    TicketId?: string;
     conversationId: string;
     ConversationId: string;
     Title: string;
@@ -316,6 +317,11 @@ export function TicketList({ onSelect, selectedId, onBack, refreshKey, onStatsUp
                                     overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                                     color: 'var(--text-primary, #1f2937)'
                                 }}>
+                                    {t.TicketId && (
+                                        <span style={{ color: "var(--accent, #6366f1)", marginRight: 6, fontWeight: 700 }}>
+                                            #{t.TicketId.substring(0, 5).toUpperCase()}
+                                        </span>
+                                    )}
                                     {formatTitle(t.Title || t.ContactName || t.ExternalUserId || "Sem assunto")}
                                 </div>
                                 {t.SlaStatus && (

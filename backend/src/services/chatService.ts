@@ -92,7 +92,7 @@ export async function getConversationDetails(user: UserContext, conversationId: 
              q.Name AS QueueName,
              assignedUser.DisplayName AS AssignedUserName,
              ISNULL(ct.Name, requesterUser.DisplayName) AS ContactName,
-              t.Priority, t.SlaStatus, t.SLAFirstResponseDue, t.SLAResolutionDue, t.EscalationLevel, t.ResolutionDescription,
+              t.TicketId, t.TicketId AS id, t.Priority, t.SlaStatus, t.SLAFirstResponseDue, t.SLAResolutionDue, t.EscalationLevel, t.ResolutionDescription,
               (
                 SELECT t.TagId, t.Name, t.Color
                 FROM altdesk.Tag t
@@ -181,7 +181,7 @@ export async function listConversations(user: UserContext, limit: number = 50, o
              ISNULL(ct.Name, requesterUser.DisplayName) AS ContactName,
              ct.CPF AS ContactCPF,
               ct.Phone AS ContactPhone,
-              t.Priority, t.SlaStatus, t.SLAFirstResponseDue, t.SLAResolutionDue, t.EscalationLevel, t.ResolutionDescription,
+              t.TicketId, t.TicketId AS id, t.Priority, t.SlaStatus, t.SLAFirstResponseDue, t.SLAResolutionDue, t.EscalationLevel, t.ResolutionDescription,
               (
                 SELECT t.TagId, t.Name, t.Color
                 FROM altdesk.Tag t
