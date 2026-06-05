@@ -125,6 +125,14 @@ services:
       DB_HOST: db
     expose:
       - "3002"
+    volumes:
+      - altdesk_uploads:/app/backend/public/uploads
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3002/api/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 30s
     restart: always
     networks:
       - internal
@@ -138,7 +146,8 @@ services:
         - VITE_API_URL=${VITE_API_URL_APP}
     container_name: altdesk_web_prod
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     expose:
       - "80"
     restart: always
@@ -162,6 +171,12 @@ services:
       DB_HOST: db
     expose:
       - "3002"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3002/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
     restart: always
     networks:
       - internal
@@ -175,7 +190,8 @@ services:
         - VITE_API_URL=${VITE_API_URL_ADMIN}
     container_name: altdesk_admin_web_prod
     depends_on:
-      - admin-backend
+      admin-backend:
+        condition: service_healthy
     expose:
       - "80"
     restart: always
@@ -190,3 +206,4 @@ volumes:
   mssql_data_prod:
   caddy_data:
   caddy_config:
+  altdesk_uploads:

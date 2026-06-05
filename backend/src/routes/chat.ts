@@ -267,7 +267,7 @@ router.post("/:id/reply", validateBody(z.object({
                   userMessage = `Falha ao enviar: ${errMsg.substring(0, 150)}`;
                 }
 
-                return res.status(502).json({ 
+                return res.status(500).json({ 
                     error: userMessage,
                     provider: metadata.provider
                 });

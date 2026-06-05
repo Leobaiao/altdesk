@@ -121,6 +121,14 @@ services:
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:?Defina ENCRYPTION_KEY no .env}
     ports:
       - "3005:3002"
+    volumes:
+      - ./backend/public/uploads:/app/backend/public/uploads
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3002/api/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 30s
     restart: always
 
   # Frontend (React + Nginx)
@@ -132,7 +140,8 @@ services:
         - VITE_API_URL=
     container_name: altdesk_web
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     ports:
       - "80:80"
       # - "443:443"  # Uncomment for production HTTPS
@@ -158,6 +167,12 @@ services:
       JWT_SECRET: ${JWT_SECRET:?Defina JWT_SECRET no .env}
     ports:
       - "3004:3002"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3002/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
     restart: always
 
   # Admin Frontend (Painel SuperAdmin)
@@ -169,7 +184,8 @@ services:
         - VITE_API_URL=
     container_name: altdesk_admin_web
     depends_on:
-      - admin-backend
+      admin-backend:
+        condition: service_healthy
     ports:
       - "8080:80"
       # - "8443:443"  # Uncomment for production HTTPS
