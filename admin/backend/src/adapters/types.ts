@@ -30,6 +30,14 @@ export interface ChannelAdapter {
   parseStatusUpdate?(body: any, connector: Connector): StatusUpdate | null;
   sendText(connector: Connector, toExternalUserId: string, text: string, options?: { inReplyTo?: string, subject?: string }): Promise<string | undefined>;
   sendMenu?(connector: Connector, toExternalUserId: string, title: string, options: Array<{ id: string; text: string }>): Promise<void>;
+  sendMedia?(
+    connector: Connector,
+    toExternalUserId: string,
+    mediaUrl: string,
+    mediaType: "image" | "audio" | "video" | "document",
+    caption?: string,
+    options?: { inReplyTo?: string, subject?: string }
+  ): Promise<string | undefined>;
   setWebhook?(connector: Connector, options: {
     url: string;
     enabled?: boolean;

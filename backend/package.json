@@ -11,6 +11,7 @@
     "db:migrate-help": "node dist/backend/src/scripts/migrate-help-articles.js"
   },
   "dependencies": {
+    "@types/multer": "^2.1.0",
     "@types/pdfkit": "^0.17.6",
     "axios": "^1.16.1",
     "bcrypt": "^6.0.0",
@@ -23,6 +24,7 @@
     "jsonwebtoken": "^9.0.2",
     "mailparser": "^3.9.8",
     "mssql": "^11.0.0",
+    "multer": "^2.1.1",
     "nodemailer": "^8.0.7",
     "pdfkit": "^0.18.0",
     "pino": "^10.3.1",

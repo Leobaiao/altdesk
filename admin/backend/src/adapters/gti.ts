@@ -144,6 +144,61 @@ export class GtiAdapter implements ChannelAdapter {
     }
   }
 
+  async sendMedia(
+    connector: any,
+    to: string,
+    mediaUrl: string,
+    mediaType: "image" | "audio" | "video" | "document",
+    caption?: string,
+    options?: { inReplyTo?: string, subject?: string }
+  ): Promise<string | undefined> {
+    if (!connector.ConfigJson) {
+      throw new Error(`Configuração do conector GTI (${connector.ConnectorId}) está vazia.`);
+    }
+    const cfg = JSON.parse(connector.ConfigJson);
+    const baseUrl = cfg.baseUrl ?? "https://api.gtiapi.workers.dev";
+    const url = `${baseUrl}/send/media`;
+
+    const cleanNumber = to.split("@")[0];
+    const token = cfg.token || cfg.apiKey;
+    const instance = cfg.instance || cfg.instanceId;
+
+    if (!token) {
+      throw new Error(`Token/ApiKey não configurado para o conector GTI (${connector.ConnectorId}).`);
+    }
+
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "token": token,
+          "apikey": token,
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          instance: instance,
+          number: cleanNumber,
+          type: mediaType,
+          url: mediaUrl,
+          caption: caption || ""
+        })
+      });
+
+      if (!response.ok) {
+        const errBody = await response.text();
+        console.error(`[GTI] sendMedia falhou: ${response.status} - ${errBody}`);
+        throw new Error(`GTI sendMedia() falhou: ${response.status} - ${errBody}`);
+      }
+
+      const respJson = await response.json();
+      return respJson.messageid || respJson.id;
+    } catch (err: any) {
+      console.error(`[GTI] Erro no sendMedia:`, err);
+      throw err;
+    }
+  }
+
   async sendMenu(connector: any, to: string, title: string, options: Array<{ id: string; text: string }>) {
     const cfg = JSON.parse(connector.ConfigJson);
     const baseUrl = cfg.baseUrl ?? "https://api.gtiapi.workers.dev";

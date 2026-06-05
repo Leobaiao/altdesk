@@ -394,7 +394,7 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
           <div className="chat-area" style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
             <div style={{ flex: 1, overflow: "hidden", position: "relative", display: "flex", flexDirection: "column" }}>
               <Routes>
-                <Route path="/" element={<Navigate to={localStorage.getItem("defaultPage") || (role === 'END_USER' ? "/tickets" : "/chat")} replace />} />
+                <Route path="/" element={<Navigate to={localStorage.getItem("defaultPage") || "/tickets"} replace />} />
                 <Route path="/chat" element={<ChatWindow setView={(v: any) => {
                   if (typeof v === 'string') navigate(`/${v.toLowerCase()}`);
                   else if (v?.type === 'TICKET') navigate('/tickets', { state: { ticketId: v.id } });
@@ -420,7 +420,7 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
                 <Route path="/billing" element={<Billing onBack={() => navigate("/settings")} />} />
                 <Route path="/audit" element={<AuditLogs onBack={() => navigate("/settings")} />} />
 
-                <Route path="*" element={<Navigate to={localStorage.getItem("defaultPage") || (role === 'END_USER' ? "/dashboard" : "/chat")} replace />} />
+                <Route path="*" element={<Navigate to={localStorage.getItem("defaultPage") || "/tickets"} replace />} />
               </Routes>
             </div>
           </div>
@@ -471,10 +471,8 @@ function AppContent() {
     const defaultPage = localStorage.getItem("defaultPage");
     if (defaultPage) {
       navigate(defaultPage);
-    } else if (newRole === 'END_USER') {
-      navigate("/tickets");
     } else {
-      navigate("/chat");
+      navigate("/tickets");
     }
   }
 

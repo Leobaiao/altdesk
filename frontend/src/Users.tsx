@@ -16,7 +16,8 @@ import {
     Lock,
     Briefcase,
     KeySquare,
-    ShieldCheck
+    ShieldCheck,
+    Upload
 } from "lucide-react";
 
 import { api } from "./lib/api";
@@ -47,6 +48,10 @@ export function Users({ token, onBack, role, livePermissions }: Props) {
     const [profileDefaultPage, setProfileDefaultPage] = useState("");
     const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "dark");
     const [savingProfile, setSavingProfile] = useState(false);
+
+    // Profile photo preview states
+    const [avatarFile, setAvatarFile] = useState<File | null>(null);
+    const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
 
     // Form states
     const [name, setName] = useState("");
@@ -83,7 +88,7 @@ export function Users({ token, onBack, role, livePermissions }: Props) {
 
     const isSafeUrl = (url: string) => {
         if (!url) return false;
-        return url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:image/");
+        return url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:image/") || url.startsWith("/");
     };
 
     function toggleTheme(newTheme: string) {
@@ -114,10 +119,26 @@ export function Users({ token, onBack, role, livePermissions }: Props) {
         setSavingProfile(true);
         setMsg("");
         try {
+            let finalAvatar = profileAvatar;
+
+            if (avatarFile) {
+                const formData = new FormData();
+                formData.append("file", avatarFile);
+                
+                const res = await api.post("/api/upload/avatar", formData, {
+                    headers: { "Content-Type": "multipart/form-data" }
+                });
+                
+                if (res.data && res.data.url) {
+                    finalAvatar = res.data.url;
+                    setProfileAvatar(finalAvatar);
+                }
+            }
+
             await api.put("/api/profile", {
                 name: profileName || undefined,
                 password: profilePassword || undefined,
-                avatar: profileAvatar || undefined,
+                avatar: finalAvatar || undefined,
                 position: profilePosition || undefined,
                 defaultPage: profileDefaultPage || undefined
             });
@@ -126,8 +147,19 @@ export function Users({ token, onBack, role, livePermissions }: Props) {
             } else {
                 localStorage.removeItem("defaultPage");
             }
-            setMsg("✅ Perfil atualizado com sucesso!");
+
+            // Clean up preview states
+            setAvatarFile(null);
+            if (avatarPreviewUrl) {
+                URL.revokeObjectURL(avatarPreviewUrl);
+                setAvatarPreviewUrl(null);
+            }
+
+            setMsg("✅ Perfil atualizado com sucesso! Recarregando...");
             setProfilePassword("");
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
         } catch (err: any) {
             const errorMsg = err.response?.data?.error || err.message;
             setMsg("❌ Erro no Perfil: " + errorMsg);
@@ -135,6 +167,27 @@ export function Users({ token, onBack, role, livePermissions }: Props) {
             setSavingProfile(false);
         }
     };
+
+    const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files || e.target.files.length === 0) return;
+        const file = e.target.files[0];
+        
+        setAvatarFile(file);
+        
+        if (avatarPreviewUrl) {
+            URL.revokeObjectURL(avatarPreviewUrl);
+        }
+        setAvatarPreviewUrl(URL.createObjectURL(file));
+        showToast("Avatar selecionado! Clique em 'Salvar Perfil' para confirmar.", "success");
+    };
+
+    useEffect(() => {
+        return () => {
+            if (avatarPreviewUrl) {
+                URL.revokeObjectURL(avatarPreviewUrl);
+            }
+        };
+    }, [avatarPreviewUrl]);
 
     const techUsers = users.filter(u => (u.Role === "ADMIN" || u.Role === "SUPERADMIN" || u.Role === "AGENT") && 
         (u.Name?.toLowerCase().includes(searchTerm.toLowerCase()) || u.Email.toLowerCase().includes(searchTerm.toLowerCase())));
@@ -562,26 +615,79 @@ export function Users({ token, onBack, role, livePermissions }: Props) {
                                         marginBottom: 16, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center",
                                         position: "relative"
                                     }}>
-                                        {isSafeUrl(profileAvatar) ? (
+                                        {avatarPreviewUrl ? (
+                                            <div style={{ width: "100%", height: "100%", position: "relative" }}>
+                                                <img src={avatarPreviewUrl} alt="Avatar Preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                                <div style={{
+                                                    position: "absolute", bottom: 0, left: 0, right: 0,
+                                                    background: "rgba(0, 168, 132, 0.8)", color: "white",
+                                                    fontSize: "0.7rem", fontWeight: "bold", padding: "2px 0",
+                                                    textAlign: "center"
+                                                }}>
+                                                    Pré-visualização
+                                                </div>
+                                            </div>
+                                        ) : isSafeUrl(profileAvatar) ? (
                                             <img src={profileAvatar} alt="Avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                                         ) : (
                                             <UserIcon size={48} className="text-secondary" />
                                         )}
                                     </div>
                                     
-                                    <div style={{ width: "100%", textAlign: "left" }}>
-                                        <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, color: "var(--text-secondary)", fontSize: "0.85rem" }}>
-                                            <ImageIcon size={14} /> URL da Imagem de Perfil
+                                    <div style={{ width: "100%", textAlign: "left", marginTop: 10 }}>
+                                        <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12, color: "var(--text-secondary)", fontSize: "0.85rem" }}>
+                                            <ImageIcon size={14} /> Imagem de Perfil
                                         </label>
+                                        
+                                        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                                            <label className="btn btn-secondary" style={{ cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 16px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)" }}>
+                                                <Upload size={16} /> Enviar Imagem
+                                                <input 
+                                                    type="file" 
+                                                    accept="image/*" 
+                                                    onChange={handleAvatarUpload}
+                                                    style={{ display: "none" }} 
+                                                    disabled={savingProfile}
+                                                />
+                                            </label>
+                                            <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>ou digite a URL abaixo:</span>
+                                        </div>
+
+                                        {avatarFile && (
+                                            <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8, fontSize: "0.82rem", color: "var(--text-secondary)" }}>
+                                                <span>Selecionado: <strong>{avatarFile.name}</strong></span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setAvatarFile(null);
+                                                        if (avatarPreviewUrl) {
+                                                            URL.revokeObjectURL(avatarPreviewUrl);
+                                                            setAvatarPreviewUrl(null);
+                                                        }
+                                                    }}
+                                                    style={{ background: "none", border: "none", color: "var(--danger)", cursor: "pointer", fontWeight: 600 }}
+                                                >
+                                                    Remover
+                                                </button>
+                                            </div>
+                                        )}
+                                        
                                         <input
                                             type="text"
-                                            value={profileAvatar}
-                                            onChange={e => setProfileAvatar(e.target.value)}
+                                            value={avatarFile ? `Arquivo local: ${avatarFile.name}` : profileAvatar}
+                                            onChange={e => {
+                                                setProfileAvatar(e.target.value);
+                                                setAvatarFile(null);
+                                                if (avatarPreviewUrl) {
+                                                    URL.revokeObjectURL(avatarPreviewUrl);
+                                                    setAvatarPreviewUrl(null);
+                                                }
+                                            }}
                                             placeholder="https://..."
                                             className="settings-input"
-                                            style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", transition: "all 0.2s" }}
+                                            style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", transition: "all 0.2s", marginTop: 12 }}
+                                            disabled={!!avatarFile}
                                         />
-                                        <p style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 8 }}>Cole o link de uma imagem pública para usar como seu avatar.</p>
                                     </div>
                                 </div>
 

@@ -40,6 +40,7 @@ import emailChannelsRouter from "./routes/emailChannels.js";
 import { startEmailWorker, setIoInstance } from "./services/emailWorker.js";
 import helpRouter from "./routes/help.js";
 import ticketsRouter from "./routes/tickets.js";
+import uploadRouter from "./routes/upload.js";
 
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(",")
@@ -195,6 +196,7 @@ app.use("/api/audit", auditRouter);
 app.use("/api/reports", reportsRouter);
 
 app.use("/api/public", publicRouter);
+app.use("/api/upload", uploadRouter);
 
 // Email Channels (gestão de canais de email)
 app.use("/api/email-channels", emailChannelsRouter);

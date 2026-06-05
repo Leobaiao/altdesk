@@ -9,7 +9,7 @@ const router = Router();
 
 const ProfileSchema = z.object({
     password: z.string().min(6).optional(),
-    avatar: z.string().url().optional().or(z.literal("")),
+    avatar: z.string().optional().or(z.literal("")),
     name: z.string().min(2).optional(),
     position: z.string().optional(),
     defaultPage: z.string().optional()

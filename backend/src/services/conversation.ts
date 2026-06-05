@@ -209,7 +209,7 @@ export async function updateMessageStatus(tenantId: string, externalMessageId: s
   return r.recordset.length > 0 ? r.recordset[0].ConversationId : null;
 }
 
-export async function saveOutboundMessage(tenantId: string, conversationId: string, body: string, externalMessageId?: string, senderUserId?: string) {
+export async function saveOutboundMessage(tenantId: string, conversationId: string, body: string, externalMessageId?: string, senderUserId?: string, mediaUrl?: string, mediaType?: string) {
   const pool = await getPool();
   const created = await pool.request()
     .input("tenantId", tenantId)
@@ -218,10 +218,12 @@ export async function saveOutboundMessage(tenantId: string, conversationId: stri
     .input("body", body)
     .input("externalMessageId", externalMessageId || null)
     .input("senderUserId", senderUserId || null)
+    .input("mediaUrl", mediaUrl || null)
+    .input("mediaType", mediaType || null)
     .query(`
       DECLARE @msgId UNIQUEIDENTIFIER = NEWID();
-      INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, ExternalMessageId, SenderUserId)
-      VALUES (@msgId, @tenantId, @conversationId, @direction, @body, @externalMessageId, @senderUserId);
+      INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, ExternalMessageId, SenderUserId, MediaUrl, MediaType)
+      VALUES (@msgId, @tenantId, @conversationId, @direction, @body, @externalMessageId, @senderUserId, @mediaUrl, @mediaType);
 
       UPDATE altdesk.Conversation 
       SET LastMessageAt = SYSUTCDATETIME(),

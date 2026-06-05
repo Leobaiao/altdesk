@@ -184,11 +184,20 @@ router.get("/:id/messages", (async (req: AuthenticatedRequest, res: Response, ne
     }
 }) as any);
 
-router.post("/:id/reply", validateBody(z.object({ text: z.string().min(1) })), (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+router.post("/:id/reply", validateBody(z.object({ 
+    text: z.string().optional(),
+    mediaUrl: z.string().optional(),
+    mediaType: z.string().optional(),
+    originalName: z.string().optional()
+})), (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const conversationId = req.params.id;
-        const { text } = req.body;
+        const { text, mediaUrl, mediaType, originalName } = req.body;
         const user = req.user;
+
+        if (!text && !mediaUrl) {
+            return res.status(400).json({ error: "Mensagem ou anexo é obrigatório" });
+        }
 
         const { allowed, tenantId } = await checkConversationAccess(user, conversationId);
         if (!allowed) {
@@ -207,13 +216,32 @@ router.post("/:id/reply", validateBody(z.object({ text: z.string().min(1) })), (
             }
 
             try {
-                externalMessageId = await adapter.sendText(metadata.connector, metadata.externalUserId, text, {
-                    inReplyTo: metadata.lastExternalMessageId,
-                    subject: metadata.subject
-                });
+                if (mediaUrl && typeof adapter.sendMedia === "function") {
+                    externalMessageId = await adapter.sendMedia(
+                        metadata.connector,
+                        metadata.externalUserId,
+                        mediaUrl,
+                        (mediaType as any) || "document",
+                        text,
+                        {
+                            inReplyTo: metadata.lastExternalMessageId,
+                            subject: metadata.subject
+                        }
+                    );
+                } else {
+                    let textToSend = text || "";
+                    if (mediaUrl) {
+                        textToSend = textToSend ? `${textToSend}\n\n[Anexo: ${originalName || 'Arquivo'}](${process.env.PUBLIC_URL || ''}${mediaUrl})` : `[Anexo: ${originalName || 'Arquivo'}](${process.env.PUBLIC_URL || ''}${mediaUrl})`;
+                    }
+
+                    externalMessageId = await adapter.sendText(metadata.connector, metadata.externalUserId, textToSend, {
+                        inReplyTo: metadata.lastExternalMessageId,
+                        subject: metadata.subject
+                    });
+                }
             } catch (adapterErr: any) {
                 const { logger } = await import("../lib/logger.js");
-                logger.error({ err: adapterErr, conversationId, provider: metadata.provider }, "[Reply] Adapter sendText failed");
+                logger.error({ err: adapterErr, conversationId, provider: metadata.provider }, "[Reply] Adapter send failed");
 
                 // Mensagens de erro específicas para o usuário
                 const errMsg = adapterErr?.message || adapterErr?.cause?.message || "";
@@ -258,10 +286,12 @@ router.post("/:id/reply", validateBody(z.object({ text: z.string().min(1) })), (
                 channel: "PORTAL",
                 timestamp: Date.now(),
                 text: text,
+                mediaUrl: mediaUrl,
+                mediaType: mediaType,
                 raw: {}
             }, conversationId, user.userId);
         } else {
-            messageId = await saveOutboundMessage(user.tenantId || "", conversationId, text, externalMessageId, user.userId);
+            messageId = await saveOutboundMessage(user.tenantId || "", conversationId, text || "", externalMessageId, user.userId, mediaUrl, mediaType);
         }
 
         // Audit log
@@ -284,12 +314,14 @@ router.post("/:id/reply", validateBody(z.object({ text: z.string().min(1) })), (
                 senderExternalId: user.role === 'END_USER' ? user.userId : "agent",
                 SenderUserId: user.userId,
                 SenderName: user.displayName,
-                text,
+                text: text || "",
+                mediaUrl: mediaUrl,
+                mediaType: mediaType,
                 direction
             });
             emitConversationEvent(io, tenantId!, conversationId, "conversation:updated", {
                 conversationId,
-                lastMessage: text,
+                lastMessage: text || (mediaUrl ? "[Anexo]" : ""),
                 direction,
                 timestamp: new Date().toISOString()
             });

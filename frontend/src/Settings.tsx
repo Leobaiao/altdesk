@@ -18,7 +18,7 @@ export function Settings({ token, onBack, role, livePermissions }: Props) {
 
     const isSafeUrl = (url: string) => {
         if (!url) return false;
-        return url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:image/");
+        return url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:image/") || url.startsWith("/");
     };
 
     // Config states

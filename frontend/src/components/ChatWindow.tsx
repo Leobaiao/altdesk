@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
-import { MessageCircleOff, ArrowLeft, Trash2, CheckCircle, RotateCcw, Users as UsersIcon, Zap, ChevronDown, Smile, FileText, Send, UserPlus, StickyNote, MessageSquare, Mail, Monitor, BookOpen, ArrowUpRight, Sparkles } from "lucide-react";
+import { MessageCircleOff, ArrowLeft, Trash2, CheckCircle, RotateCcw, Users as UsersIcon, Zap, ChevronDown, Smile, FileText, Send, UserPlus, StickyNote, MessageSquare, Mail, Monitor, BookOpen, ArrowUpRight, Sparkles, Paperclip, X, Tag as TagIcon, AlertCircle, Video, Music } from "lucide-react";
 
 import { useChat } from "../contexts/ChatContext";
 import { AudioPlayer } from "./AudioPlayer";
@@ -110,6 +110,12 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
 
     const [showCloseConfirm, setShowCloseConfirm] = useState(false);
     const [resolutionDescription, setResolutionDescription] = useState("");
+
+    // WhatsApp-style file sending states
+    const [pendingFile, setPendingFile] = useState<File | null>(null);
+    const [captionText, setCaptionText] = useState("");
+    const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
+    const [sendingFile, setSendingFile] = useState(false);
 
     const selectedConversation = conversations.find((c) => c.ConversationId === selectedConversationId);
 
@@ -262,6 +268,86 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
         }
     }
 
+    const handleFileSelection = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files || e.target.files.length === 0) return;
+        if (!selectedConversationId) return;
+
+        const file = e.target.files[0];
+        setPendingFile(file);
+        setCaptionText("");
+
+        if (file.type.startsWith("image/") || file.type.startsWith("video/")) {
+            setFilePreviewUrl(URL.createObjectURL(file));
+        } else {
+            setFilePreviewUrl(null);
+        }
+
+        e.target.value = '';
+    };
+
+    const handleCancelSendFile = () => {
+        setPendingFile(null);
+        setCaptionText("");
+        if (filePreviewUrl) {
+            URL.revokeObjectURL(filePreviewUrl);
+            setFilePreviewUrl(null);
+        }
+    };
+
+    const handleConfirmSendFile = async () => {
+        if (!pendingFile || !selectedConversationId || sendingFile) return;
+
+        const fileToSend = pendingFile;
+        const captionToSend = captionText;
+
+        const formData = new FormData();
+        formData.append("file", fileToSend);
+
+        setSendingFile(true);
+        try {
+            const uploadRes = await api.post("/api/upload/attachment", formData, {
+                headers: { "Content-Type": "multipart/form-data" }
+            });
+            const { url, mediaType, originalName } = uploadRes.data;
+
+            await api.post(`/api/conversations/${selectedConversationId}/reply`, {
+                text: captionToSend, 
+                mediaUrl: url,
+                mediaType,
+                originalName
+            });
+
+            // Reset and close
+            setPendingFile(null);
+            setCaptionText("");
+            if (filePreviewUrl) {
+                URL.revokeObjectURL(filePreviewUrl);
+                setFilePreviewUrl(null);
+            }
+            setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+        } catch (err: any) {
+            console.error("Erro ao enviar anexo:", err);
+            showToast("Erro ao enviar anexo: " + (err.response?.data?.error || err.message), "error");
+        } finally {
+            setSendingFile(false);
+        }
+    };
+
+    const handleCaptionKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            handleConfirmSendFile();
+        }
+    };
+
+    useEffect(() => {
+        return () => {
+            if (filePreviewUrl) {
+                URL.revokeObjectURL(filePreviewUrl);
+            }
+        };
+    }, [filePreviewUrl]);
+
     async function handleStatus(status: "OPEN" | "RESOLVED", resolution?: string) {
         if (!selectedConversationId) return;
         try {
@@ -350,7 +436,7 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
             {!hideHeader && (
                 <div className="chat-header" style={{ height: "85px", background: "var(--bg-primary)", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 25px", flexShrink: 0 }}>
                 <div className="info" style={{ display: "flex", alignItems: "center", gap: 15, minWidth: 0 }}>
-                    <button className="mobile-back-btn" onClick={() => setSelectedConversationId(null)} style={{ marginRight: 10 }}>
+                    <button type="button" className="mobile-back-btn" onClick={() => setSelectedConversationId(null)} style={{ marginRight: 10 }}>
                         <ArrowLeft size={24} />
                     </button>
                     <div style={{ width: 44, height: 44, borderRadius: 12, background: "var(--bg-hover)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.2rem", fontWeight: 700, color: "var(--accent)", flexShrink: 0 }}>
@@ -384,6 +470,7 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
                             ))}
                             <div style={{ position: "relative" }}>
                                 <button
+                                    type="button"
                                     onClick={() => setShowTagMenu(!showTagMenu)}
                                     style={{ background: "rgba(0,168,132,0.1)", border: "1px dashed #00a884", color: "#00a884", cursor: "pointer", fontSize: "0.7rem", padding: "2px 8px", borderRadius: 8, display: "flex", alignItems: "center", fontWeight: 600 }}
                                 >
@@ -412,7 +499,7 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
 
                     {!activeTicket ? (
                         role !== 'END_USER' && (
-                            <button onClick={() => setShowTicketModal(true)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", background: "var(--accent)", border: "none", color: "white", borderRadius: 10, cursor: "pointer", fontWeight: 600, fontSize: "0.85rem", boxShadow: "0 4px 10px rgba(0, 168, 132, 0.2)" }} title="Abrir Ticket">
+                            <button type="button" onClick={() => setShowTicketModal(true)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", background: "var(--accent)", border: "none", color: "white", borderRadius: 10, cursor: "pointer", fontWeight: 600, fontSize: "0.85rem", boxShadow: "0 4px 10px rgba(0, 168, 132, 0.2)" }} title="Abrir Ticket">
                                 <FileText size={16} /> Abrir Ticket
                             </button>
                         )
@@ -421,6 +508,7 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
                             TICKET #{activeTicket.TicketId?.substring(0, 5)}
                             {setView && (
                                 <button 
+                                    type="button"
                                     onClick={() => setView({ type: "TICKET", id: activeTicket.TicketId })}
                                     style={{ marginLeft: 8, background: "transparent", border: "none", color: "#00a884", cursor: "pointer", display: "flex", alignItems: "center", padding: 0 }}
                                     title="Ir para o Ticket"
@@ -436,25 +524,26 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
                             <div style={{ width: 1, height: 24, background: "var(--border)", margin: "0 5px" }} />
 
                             {!selectedConversation.AssignedUserId && (
-                                <button onClick={() => handleAssign(selectedConversation.QueueId || null, currentUserId)} style={{ background: "#00a884", border: "none", color: "white", padding: "8px 12px", borderRadius: 8, cursor: "pointer", fontSize: "0.8rem", fontWeight: 600 }}>
+                                <button type="button" onClick={() => handleAssign(selectedConversation.QueueId || null, currentUserId)} style={{ background: "#00a884", border: "none", color: "white", padding: "8px 12px", borderRadius: 8, cursor: "pointer", fontSize: "0.8rem", fontWeight: 600 }}>
                                     Assumir
                                 </button>
                             )}
 
                             {selectedConversation.AssignedUserId === currentUserId && (
-                                <button onClick={() => handleAssign(null, null)} style={{ background: "var(--bg-hover)", border: "none", color: "var(--text-secondary)", width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }} title="Devolver para Fila">
+                                <button type="button" onClick={() => handleAssign(null, null)} style={{ background: "var(--bg-hover)", border: "none", color: "var(--text-secondary)", width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }} title="Devolver para Fila">
                                     <RotateCcw size={18} />
                                 </button>
                             )}
 
                             {selectedConversation.Status === "OPEN" && (
-                                <button onClick={openAssignModal} style={{ background: "var(--bg-hover)", border: "none", color: "var(--text-secondary)", width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }} title="Transferir Atendimento">
+                                <button type="button" onClick={openAssignModal} style={{ background: "var(--bg-hover)", border: "none", color: "var(--text-secondary)", width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }} title="Transferir Atendimento">
                                     <UsersIcon size={18} />
                                 </button>
                             )}
 
                             {!contactExists && (
                                 <button
+                                    type="button"
                                     onClick={() => {
                                         const phone = selectedConversation.ExternalUserId?.replace("@s.whatsapp.net", "") || "";
                                         const title = selectedConversation.Title || "";
@@ -470,6 +559,7 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
                             )}
 
                             <button
+                                type="button"
                                 onClick={() => setShowConnectorModal(true)}
                                 style={{ background: "var(--bg-hover)", border: "none", color: "var(--text-secondary)", width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
                                 title="Trocar Provider"
@@ -484,11 +574,11 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
                     {role !== 'END_USER' && (
                         <>
                             {selectedConversation.Status === "OPEN" ? (
-                                <button onClick={() => setShowCloseConfirm(true)} style={{ background: "rgba(0, 168, 132, 0.1)", border: "none", color: "#00a884", width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }} title="Resolver Conversa">
+                                <button type="button" onClick={() => setShowCloseConfirm(true)} style={{ background: "rgba(0, 168, 132, 0.1)", border: "none", color: "#00a884", width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }} title="Resolver Conversa">
                                     <CheckCircle size={20} />
                                 </button>
                             ) : (
-                                <button onClick={() => handleStatus("OPEN")} style={{ background: "rgba(255, 152, 0, 0.1)", border: "none", color: "#ff9800", width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }} title="Reabrir Conversa">
+                                <button type="button" onClick={() => handleStatus("OPEN")} style={{ background: "rgba(255, 152, 0, 0.1)", border: "none", color: "#ff9800", width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }} title="Reabrir Conversa">
                                     <RotateCcw size={20} />
                                 </button>
                             )}
@@ -497,6 +587,7 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
 
                     {role !== 'END_USER' && (
                         <button
+                            type="button"
                             onClick={() => {
                                 showConfirm({
                                     title: "Apagar Conversa",
@@ -594,6 +685,7 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
                                 </div>
                                 {role !== 'END_USER' && (
                                     <button 
+                                        type="button"
                                         onClick={() => handleDeleteMessage(m.MessageId)} 
                                         className="msg-delete-btn"
                                         style={{ background: "none", border: "none", color: "rgba(0,0,0,0.2)", cursor: "pointer", padding: 2, display: "flex", alignItems: "center", transition: "color 0.2s" }}
@@ -613,6 +705,7 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
 
             {showScrollButton && (
                 <button
+                    type="button"
                     onClick={() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })}
                     style={{
                         position: "absolute", bottom: 80, right: 20, width: 40, height: 40, borderRadius: "50%",
@@ -669,18 +762,31 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
                         ))}
                     </div>
                 )}
-                <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} style={{ background: "none", border: "none", cursor: "pointer", padding: "0 10px", color: "var(--text-secondary)" }} title="Emojis">
+                <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} style={{ background: "none", border: "none", cursor: "pointer", padding: "0 10px", color: "var(--text-secondary)" }} title="Emojis">
                     <Smile size={24} />
                 </button>
+                <label style={{ cursor: "pointer", padding: "0 10px", color: "var(--text-secondary)", display: "flex", alignItems: "center" }} title="Anexar Arquivo">
+                    <Paperclip size={24} />
+                    <input 
+                        type="file" 
+                        onChange={handleFileSelection}
+                        style={{ display: "none" }} 
+                        disabled={sending}
+                    />
+                </label>
                 {role !== 'END_USER' && (
                     <>
-                        <button onClick={() => setShowCannedMenu(!showCannedMenu)} style={{ background: "none", border: "none", cursor: "pointer", padding: "0 10px", color: "var(--text-secondary)" }} title="Respostas Rápidas">
+                        <button type="button" onClick={() => setShowTagMenu(!showTagMenu)} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center" }} title="Adicionar Tag">
+                            <TagIcon size={16} color="var(--text-secondary)" />
+                        </button>
+                        <button type="button" onClick={() => setShowCannedMenu(!showCannedMenu)} style={{ background: "none", border: "none", cursor: "pointer", padding: "0 10px", color: "var(--text-secondary)" }} title="Respostas Rápidas">
                             <Sparkles size={24} />
                         </button>
-                        <button onClick={loadKbArticles} style={{ background: "none", border: "none", cursor: "pointer", padding: "0 10px", color: "var(--text-secondary)" }} title="Base de Conhecimento">
+                        <button type="button" onClick={loadKbArticles} style={{ background: "none", border: "none", cursor: "pointer", padding: "0 10px", color: "var(--text-secondary)" }} title="Base de Conhecimento">
                             <BookOpen size={24} />
                         </button>
                         <button
+                            type="button"
                             onClick={() => setNoteMode(!noteMode)}
                             style={{ background: "none", border: "none", cursor: "pointer", padding: "0 10px", color: noteMode ? "#f59e0b" : "var(--text-secondary)" }}
                             title={noteMode ? "Modo Nota (clique para voltar)" : "Nota Interna"}
@@ -698,7 +804,7 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
                     onKeyDown={handleKeyDown}
                     style={noteMode ? { background: "#fef3c7", color: "#78350f" } : undefined}
                 />
-                <button className={noteMode ? "btn" : "btn btn-primary"} onClick={() => sendReply()} disabled={sending} style={{ display: "flex", alignItems: "center", gap: 6, ...(noteMode ? { background: "#f59e0b", color: "#fff", border: "none", borderRadius: 6, padding: "8px 16px", cursor: "pointer" } : {}) }}>
+                <button type="button" className={noteMode ? "btn" : "btn btn-primary"} onClick={() => sendReply()} disabled={sending} style={{ display: "flex", alignItems: "center", gap: 6, ...(noteMode ? { background: "#f59e0b", color: "#fff", border: "none", borderRadius: 6, padding: "8px 16px", cursor: "pointer" } : {}) }}>
                     {noteMode ? <StickyNote size={18} /> : <Send size={18} />} {sending ? "Enviando…" : noteMode ? "Nota" : "Enviar"}
                 </button>
             </div>
@@ -731,8 +837,8 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
                         </div>
 
                         <div style={{ display: "flex", gap: 10, marginTop: 25 }}>
-                            <button onClick={() => setShowTicketModal(false)} className="btn btn-ghost" style={{ flex: 1 }}>Cancelar</button>
-                            <button onClick={handleCreateTicket} className="btn btn-primary" style={{ flex: 1 }} disabled={!ticketTitle.trim()}>Criar Ticket</button>
+                            <button type="button" onClick={() => setShowTicketModal(false)} className="btn btn-ghost" style={{ flex: 1 }}>Cancelar</button>
+                            <button type="button" onClick={handleCreateTicket} className="btn btn-primary" style={{ flex: 1 }} disabled={!ticketTitle.trim()}>Criar Ticket</button>
                         </div>
                     </div>
                 </div>
@@ -743,7 +849,7 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
                     <div style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", width: "100%", maxWidth: 450, padding: 28, borderRadius: 16, boxShadow: "0 20px 40px rgba(0,0,0,0.4)" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                             <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700 }}>Resolver Conversa</h3>
-                            <button onClick={() => setShowCloseConfirm(false)} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer" }}><X size={20} /></button>
+                            <button type="button" onClick={() => setShowCloseConfirm(false)} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer" }}><X size={20} /></button>
                         </div>
                         <p style={{ fontSize: "0.88rem", color: "var(--text-secondary)", marginBottom: 16 }}>
                             Deseja realmente marcar esta conversa como resolvida? Por favor, descreva como o problema foi resolvido.
@@ -776,6 +882,7 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
                         </div>
                         <div style={{ display: "flex", gap: 12 }}>
                             <button
+                                type="button"
                                 onClick={() => { setShowCloseConfirm(false); setResolutionDescription(""); }}
                                 className="btn btn-ghost"
                                 style={{ flex: 1, padding: "10px 16px", borderRadius: 10, border: "1px solid var(--border)", cursor: "pointer" }}
@@ -784,6 +891,7 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
                                 Cancelar
                             </button>
                             <button
+                                type="button"
                                 onClick={() => handleStatus("RESOLVED", resolutionDescription)}
                                 className="btn btn-primary"
                                 style={{ flex: 1, padding: "10px 16px", borderRadius: 10, background: "var(--accent)", color: "#fff", border: "none", cursor: "pointer", fontWeight: 700 }}
@@ -1026,6 +1134,237 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
                     onClose={() => setShowConnectorModal(false)}
                     onChanged={() => refreshConversations()}
                 />
+            )}
+
+            {pendingFile && (
+                <div style={{
+                    position: "fixed",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: "rgba(11, 20, 26, 0.95)",
+                    backdropFilter: "blur(10px)",
+                    display: "flex",
+                    flexDirection: "column",
+                    zIndex: 10000,
+                    color: "#e9edef"
+                }}>
+                    {/* Modal Header */}
+                    <div style={{
+                        height: "60px",
+                        display: "flex",
+                        alignItems: "center",
+                        padding: "0 24px",
+                        borderBottom: "1px solid rgba(255,255,255,0.08)",
+                        justifyContent: "space-between"
+                    }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                            <button
+                                type="button"
+                                onClick={handleCancelSendFile}
+                                style={{
+                                    background: "none",
+                                    border: "none",
+                                    color: "#8696a0",
+                                    cursor: "pointer",
+                                    display: "flex",
+                                    alignItems: "center"
+                                }}
+                                disabled={sendingFile}
+                            >
+                                <X size={24} />
+                            </button>
+                            <span style={{ fontWeight: 600, fontSize: "1.1rem" }}>Enviar arquivo</span>
+                        </div>
+                    </div>
+
+                    {/* Modal Content / Preview Area */}
+                    <div style={{
+                        flex: 1,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        padding: "24px",
+                        overflow: "hidden",
+                        position: "relative"
+                    }}>
+                        {sendingFile && (
+                            <div style={{
+                                position: "absolute",
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                bottom: 0,
+                                background: "rgba(11, 20, 26, 0.7)",
+                                display: "flex",
+                                flexDirection: "column",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                zIndex: 10,
+                                gap: 16
+                            }}>
+                                <div className="spinner" style={{ borderTopColor: "var(--accent)" }}></div>
+                                <span style={{ fontWeight: 500 }}>Enviando arquivo...</span>
+                            </div>
+                        )}
+
+                        <div style={{
+                            maxWidth: "100%",
+                            maxHeight: "100%",
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: 16
+                        }}>
+                            {pendingFile.type.startsWith("image/") && filePreviewUrl ? (
+                                <img
+                                    src={filePreviewUrl}
+                                    alt="Preview"
+                                    style={{
+                                        maxWidth: "100%",
+                                        maxHeight: "60vh",
+                                        objectFit: "contain",
+                                        borderRadius: "8px",
+                                        boxShadow: "0 8px 24px rgba(0,0,0,0.3)"
+                                    }}
+                                />
+                            ) : pendingFile.type.startsWith("video/") && filePreviewUrl ? (
+                                <video
+                                    src={filePreviewUrl}
+                                    controls
+                                    style={{
+                                        maxWidth: "100%",
+                                        maxHeight: "60vh",
+                                        borderRadius: "8px",
+                                        boxShadow: "0 8px 24px rgba(0,0,0,0.3)"
+                                    }}
+                                />
+                            ) : pendingFile.type.startsWith("audio/") ? (
+                                <div style={{
+                                    background: "rgba(255, 255, 255, 0.05)",
+                                    border: "1px solid rgba(255, 255, 255, 0.1)",
+                                    borderRadius: "16px",
+                                    padding: "40px",
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    alignItems: "center",
+                                    gap: 16,
+                                    width: "300px",
+                                    boxShadow: "0 8px 24px rgba(0,0,0,0.2)"
+                                }}>
+                                    <Music size={64} style={{ color: "var(--accent)" }} />
+                                    <div style={{
+                                        fontWeight: 600,
+                                        fontSize: "1.1rem",
+                                        textAlign: "center",
+                                        wordBreak: "break-all",
+                                        color: "#e9edef"
+                                    }}>
+                                        {pendingFile.name}
+                                    </div>
+                                    <div style={{
+                                        fontSize: "0.85rem",
+                                        color: "#8696a0"
+                                    }}>
+                                        {(pendingFile.size / (1024 * 1024)).toFixed(2)} MB
+                                    </div>
+                                </div>
+                            ) : (
+                                <div style={{
+                                    background: "rgba(255, 255, 255, 0.05)",
+                                    border: "1px solid rgba(255, 255, 255, 0.1)",
+                                    borderRadius: "16px",
+                                    padding: "40px",
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    alignItems: "center",
+                                    gap: 16,
+                                    width: "300px",
+                                    boxShadow: "0 8px 24px rgba(0,0,0,0.2)"
+                                }}>
+                                    <FileText size={64} style={{ color: "var(--accent)" }} />
+                                    <div style={{
+                                        fontWeight: 600,
+                                        fontSize: "1.1rem",
+                                        textAlign: "center",
+                                        wordBreak: "break-all",
+                                        color: "#e9edef"
+                                    }}>
+                                        {pendingFile.name}
+                                    </div>
+                                    <div style={{
+                                        fontSize: "0.85rem",
+                                        color: "#8696a0"
+                                    }}>
+                                        {(pendingFile.size / (1024 * 1024)).toFixed(2)} MB
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Modal Footer / Caption and Send bar */}
+                    <div style={{
+                        background: "rgba(11, 20, 26, 0.5)",
+                        padding: "20px 24px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        borderTop: "1px solid rgba(255,255,255,0.05)"
+                    }}>
+                        <div style={{
+                            width: "100%",
+                            maxWidth: "800px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 12
+                        }}>
+                            <input
+                                type="text"
+                                placeholder="Adicione uma legenda..."
+                                value={captionText}
+                                onChange={(e) => setCaptionText(e.target.value)}
+                                onKeyDown={handleCaptionKeyDown}
+                                disabled={sendingFile}
+                                style={{
+                                    flex: 1,
+                                    padding: "14px 20px",
+                                    borderRadius: "12px",
+                                    border: "none",
+                                    background: "#2a3942",
+                                    color: "#e9edef",
+                                    fontSize: "0.95rem",
+                                    outline: "none"
+                                }}
+                                autoFocus
+                            />
+                            <button
+                                type="button"
+                                onClick={handleConfirmSendFile}
+                                disabled={sendingFile}
+                                style={{
+                                    width: "48px",
+                                    height: "48px",
+                                    borderRadius: "50%",
+                                    background: "var(--accent)",
+                                    color: "white",
+                                    border: "none",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    cursor: "pointer",
+                                    transition: "transform 0.1s"
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.05)"}
+                                onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
+                            >
+                                <Send size={20} />
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </>
     );
