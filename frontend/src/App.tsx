@@ -319,12 +319,25 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
                 </div>
 
                {profile?.Avatar ? (
-                   <img src={profile.Avatar} alt="Profile" style={{ width: 36, height: 36, borderRadius: 10, objectFit: "cover", border: "2px solid var(--border)" }} />
-               ) : (
-                   <div style={{ width: 36, height: 36, borderRadius: 10, background: "var(--accent)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: "1rem" }}>
-                       {profile?.Name ? profile.Name.charAt(0).toUpperCase() : role.charAt(0)}
-                   </div>
-               )}
+                   <img 
+                       src={profile.Avatar} 
+                       alt="Profile" 
+                       style={{ width: 36, height: 36, borderRadius: 10, objectFit: "cover", border: "2px solid var(--border)" }} 
+                       onError={(e) => {
+                           // Avatar not found — hide img and show fallback initials
+                           (e.target as HTMLImageElement).style.display = "none";
+                           const fallback = (e.target as HTMLImageElement).nextElementSibling as HTMLElement;
+                           if (fallback) fallback.style.display = "flex";
+                       }}
+                   />
+               ) : null}
+               <div style={{ 
+                   width: 36, height: 36, borderRadius: 10, background: "var(--accent)", color: "#fff", 
+                   display: profile?.Avatar ? "none" : "flex", 
+                   alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: "1rem" 
+               }}>
+                   {profile?.Name ? profile.Name.charAt(0).toUpperCase() : role.charAt(0)}
+               </div>
             </div>
         </div>
     </div>

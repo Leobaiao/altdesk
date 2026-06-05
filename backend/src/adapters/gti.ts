@@ -1,6 +1,22 @@
 import { ChannelAdapter, NormalizedInbound, StatusUpdate } from "./types.js";
 import { logger } from "../lib/logger.js";
 
+async function handleGtiError(response: any): Promise<never> {
+  const errBody = await response.text();
+  try {
+    const parsed = JSON.parse(errBody);
+    const userFriendlyMsg = parsed.provider_message_ptbr || parsed.message_ptbr || parsed.error_ptbr || parsed.message || parsed.error;
+    if (userFriendlyMsg) {
+      throw new Error(userFriendlyMsg);
+    }
+  } catch (e: any) {
+    if (e.message && !e.message.includes("Unexpected token")) {
+      throw e;
+    }
+  }
+  throw new Error(`GTI falhou com status ${response.status}: ${errBody}`);
+}
+
 /**
  * GTI Adapter (uazapi)
  * Mapeamento baseado no payload real do webhook GTI/uazapi.
@@ -128,6 +144,12 @@ export class GtiAdapter implements ChannelAdapter {
       throw new Error(`Token/ApiKey não configurado para o conector GTI (${connector.ConnectorId}).`);
     }
 
+    if (!instance) {
+      throw new Error(`Instance/InstanceId não configurado para o conector GTI (${connector.ConnectorId}).`);
+    }
+
+    logger.debug({ url, instance, to: cleanNumber }, "[GTI] sendText chamado");
+
     try {
       const response = await fetch(url, {
         method: "POST",
@@ -138,22 +160,25 @@ export class GtiAdapter implements ChannelAdapter {
           "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({
-          instance: instance,
           number: cleanNumber,
-          text: text
+          text: text,
+          linkPreview: false,
+          replyid: options?.inReplyTo ?? "",
+          mentions: "",
+          readchat: true,
+          delay: 0
         })
       });
 
       if (!response.ok) {
-        const errBody = await response.text();
-        logger.error({ status: response.status, errBody }, "[GTI] sendText falhou");
-        throw new Error(`GTI sendText() falhou: ${response.status} - ${errBody}`);
+        await handleGtiError(response);
       }
 
       const respJson = await response.json();
+      logger.debug({ messageId: respJson.messageid || respJson.id }, "[GTI] sendText sucesso");
       return respJson.messageid || respJson.id;
     } catch (err: any) {
-      logger.error({ err }, "[GTI] Erro no sendText");
+      logger.error({ err, url, instance, to: cleanNumber }, "[GTI] Erro no sendText");
       // Repassar o erro para que a UI mostre que falhou, já que o usuário confirmou que não enviou
       throw err;
     }
@@ -192,18 +217,20 @@ export class GtiAdapter implements ChannelAdapter {
           "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({
-          instance: instance,
           number: cleanNumber,
+          text: caption || "",
           type: mediaType,
-          url: mediaUrl,
-          caption: caption || ""
+          file: mediaUrl,
+          docName: options?.subject || "",
+          replyid: options?.inReplyTo ?? "",
+          mentions: "",
+          readchat: true,
+          delay: 0
         })
       });
 
       if (!response.ok) {
-        const errBody = await response.text();
-        logger.error({ status: response.status, errBody }, "[GTI] sendMedia falhou");
-        throw new Error(`GTI sendMedia() falhou: ${response.status} - ${errBody}`);
+        await handleGtiError(response);
       }
 
       const respJson = await response.json();

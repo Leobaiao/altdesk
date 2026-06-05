@@ -1,5 +1,21 @@
 import { ChannelAdapter, NormalizedInbound, StatusUpdate } from "./types.js";
 
+async function handleGtiError(response: any): Promise<never> {
+  const errBody = await response.text();
+  try {
+    const parsed = JSON.parse(errBody);
+    const userFriendlyMsg = parsed.provider_message_ptbr || parsed.message_ptbr || parsed.error_ptbr || parsed.message || parsed.error;
+    if (userFriendlyMsg) {
+      throw new Error(userFriendlyMsg);
+    }
+  } catch (e: any) {
+    if (e.message && !e.message.includes("Unexpected token")) {
+      throw e;
+    }
+  }
+  throw new Error(`GTI falhou com status ${response.status}: ${errBody}`);
+}
+
 /**
  * GTI Adapter (uazapi)
  * Mapeamento baseado no payload real do webhook GTI/uazapi.
@@ -117,23 +133,30 @@ export class GtiAdapter implements ChannelAdapter {
     const baseUrl = cfg.baseUrl ?? "https://api.gtiapi.workers.dev";
     const url = `${baseUrl}/send/text`;
 
+    const cleanNumber = to.split("@")[0];
+    const token = cfg.token || cfg.apiKey;
+
     const response = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "token": cfg.token || cfg.apiKey,
-        "apikey": cfg.token || cfg.apiKey
+        "token": token,
+        "apikey": token,
+        "Authorization": `Bearer ${token}`
       },
       body: JSON.stringify({
-        instance: cfg.instance,
-        number: to,
-        text: text
+        number: cleanNumber,
+        text: text,
+        linkPreview: false,
+        replyid: options?.inReplyTo ?? "",
+        mentions: "",
+        readchat: true,
+        delay: 0
       })
     });
 
     if (!response.ok) {
-      const errBody = await response.text();
-      throw new Error(`GTI sendText() falhou: ${response.status} ${response.statusText} - ${errBody}`);
+      await handleGtiError(response);
     }
 
     try {
@@ -161,7 +184,6 @@ export class GtiAdapter implements ChannelAdapter {
 
     const cleanNumber = to.split("@")[0];
     const token = cfg.token || cfg.apiKey;
-    const instance = cfg.instance || cfg.instanceId;
 
     if (!token) {
       throw new Error(`Token/ApiKey não configurado para o conector GTI (${connector.ConnectorId}).`);
@@ -177,18 +199,20 @@ export class GtiAdapter implements ChannelAdapter {
           "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({
-          instance: instance,
           number: cleanNumber,
+          text: caption || "",
           type: mediaType,
-          url: mediaUrl,
-          caption: caption || ""
+          file: mediaUrl,
+          docName: options?.subject || "",
+          replyid: options?.inReplyTo ?? "",
+          mentions: "",
+          readchat: true,
+          delay: 0
         })
       });
 
       if (!response.ok) {
-        const errBody = await response.text();
-        console.error(`[GTI] sendMedia falhou: ${response.status} - ${errBody}`);
-        throw new Error(`GTI sendMedia() falhou: ${response.status} - ${errBody}`);
+        await handleGtiError(response);
       }
 
       const respJson = await response.json();

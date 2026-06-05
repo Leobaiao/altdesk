@@ -241,7 +241,14 @@ router.post("/:id/reply", validateBody(z.object({
                 }
             } catch (adapterErr: any) {
                 const { logger } = await import("../lib/logger.js");
-                logger.error({ err: adapterErr, conversationId, provider: metadata.provider }, "[Reply] Adapter send failed");
+                logger.error({ 
+                    err: adapterErr, 
+                    conversationId, 
+                    provider: metadata.provider,
+                    externalUserId: metadata.externalUserId,
+                    connectorId: metadata.connector.ConnectorId,
+                    errMessage: adapterErr?.message
+                }, "[Reply] Adapter send failed");
 
                 // Mensagens de erro específicas para o usuário
                 const errMsg = adapterErr?.message || adapterErr?.cause?.message || "";
@@ -262,7 +269,7 @@ router.post("/:id/reply", validateBody(z.object({
                 } else if (errMsg.includes("429")) {
                   userMessage = `Limite de envios atingido no provedor. Aguarde alguns segundos e tente novamente.`;
                 } else if (errMsg.includes("500") || errMsg.includes("502") || errMsg.includes("503")) {
-                  userMessage = `O provedor está com erro interno. Tente novamente em alguns instantes.`;
+                  userMessage = `O provedor (${metadata.provider.toUpperCase()}) retornou erro interno. Detalhes: ${errMsg.substring(0, 200)}`;
                 } else {
                   userMessage = `Falha ao enviar: ${errMsg.substring(0, 150)}`;
                 }
