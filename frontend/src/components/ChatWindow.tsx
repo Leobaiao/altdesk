@@ -72,6 +72,26 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
 
     const [showScrollButton, setShowScrollButton] = useState(false);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    const emojiPickerRef = useRef<HTMLDivElement>(null);
+    const emojiButtonRef = useRef<HTMLButtonElement>(null);
+
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (
+                emojiPickerRef.current && 
+                !emojiPickerRef.current.contains(event.target as Node) &&
+                emojiButtonRef.current &&
+                !emojiButtonRef.current.contains(event.target as Node)
+            ) {
+                setShowEmojiPicker(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, []);
+
     const [showConnectorModal, setShowConnectorModal] = useState(false);
     const [viewingImage, setViewingImage] = useState<string | null>(null);
 
@@ -741,7 +761,7 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
                 )}
 
                 {showEmojiPicker && (
-                    <div style={{ position: "absolute", bottom: "60px", left: "0" }}>
+                    <div ref={emojiPickerRef} style={{ position: "absolute", bottom: "60px", left: "0" }}>
                         <EmojiPicker onSelect={(emoji) => setText(prev => prev + emoji)} onClose={() => setShowEmojiPicker(false)} />
                     </div>
                 )}
@@ -762,7 +782,7 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
                         ))}
                     </div>
                 )}
-                <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} style={{ background: "none", border: "none", cursor: "pointer", padding: "0 10px", color: "var(--text-secondary)" }} title="Emojis">
+                <button ref={emojiButtonRef} type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} style={{ background: "none", border: "none", cursor: "pointer", padding: "0 10px", color: "var(--text-secondary)" }} title="Emojis">
                     <Smile size={24} />
                 </button>
                 <label style={{ cursor: "pointer", padding: "0 10px", color: "var(--text-secondary)", display: "flex", alignItems: "center" }} title="Anexar Arquivo">
