@@ -9,14 +9,15 @@ export async function authMw(req: any, res: Response, next: NextFunction) {
   try {
     const decoded = verifyToken(h.slice(7));
 
-    // Fetch fresh permissions from DB
     const pool = await getPool();
     const r = await pool.request()
       .input("userId", decoded.userId)
       .query(`
-        SELECT Role, PermissionsJson, IsActive, DeletedAt
-        FROM altdesk.[User]
-        WHERE UserId = @userId
+        SELECT u.Role, u.PermissionsJson, u.IsActive, u.DeletedAt,
+               s.ExpiresAt, s.PlanCode, s.IsActive as SubActive
+        FROM altdesk.[User] u
+        LEFT JOIN altdesk.Subscription s ON s.TenantId = u.TenantId
+        WHERE u.UserId = @userId
       `);
 
     if (r.recordset.length === 0) return res.status(401).json({ error: "User not found" });
@@ -24,6 +25,18 @@ export async function authMw(req: any, res: Response, next: NextFunction) {
 
     if (!u.IsActive || u.DeletedAt) {
       return res.status(403).json({ error: "Account deactivated or deleted" });
+    }
+
+    if (u.SubActive === false) {
+      return res.status(403).json({ error: "Account suspended" });
+    }
+
+    if (u.ExpiresAt && new Date(u.ExpiresAt) < new Date()) {
+      const allowedPaths = ['/api/billing', '/api/settings/extend-trial', '/api/auth/me'];
+      const isAllowed = allowedPaths.some(p => req.originalUrl.startsWith(p));
+      if (!isAllowed) {
+          return res.status(402).json({ error: "Assinatura Expirada", planCode: u.PlanCode });
+      }
     }
 
     decoded.role = u.Role;

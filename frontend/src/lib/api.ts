@@ -36,6 +36,10 @@ api.interceptors.response.use(
             localStorage.removeItem("token");
             window.location.href = "/login"; // Faz um refresh forcado p/ login matando o app tree
         }
+        if (error.response && error.response.status === 402) {
+            console.warn("Assinatura expirada (402). Exibindo modal de bloqueio...");
+            window.dispatchEvent(new CustomEvent('trial-expired', { detail: error.response.data }));
+        }
         return Promise.reject(error);
     }
 );

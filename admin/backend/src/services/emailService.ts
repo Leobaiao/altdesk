@@ -20,29 +20,37 @@ interface EmailOptions {
 
 export async function sendEmail({ to, subject, html, text, inReplyTo, references, config }: EmailOptions) {
     try {
-        const defaultTransporter = nodemailer.createTransport({
+        const transporterConfig: any = {
             host: process.env.SMTP_HOST || "localhost",
             port: Number(process.env.SMTP_PORT) || 1025,
             secure: process.env.SMTP_SECURE === "true",
-            auth: {
+        };
+
+        if (process.env.SMTP_USER) {
+            transporterConfig.auth = {
                 user: process.env.SMTP_USER,
                 pass: process.env.SMTP_PASS,
-            },
-        });
+            };
+        }
+
+        const defaultTransporter = nodemailer.createTransport(transporterConfig);
 
         let transporter = defaultTransporter;
         let from = process.env.SMTP_FROM || '"AltDesk" <noreply@altdesk.com>';
 
         if (config) {
-            transporter = nodemailer.createTransport({
+            const configOptions: any = {
                 host: config.host,
                 port: config.port,
                 secure: config.secure,
-                auth: {
+            };
+            if (config.user) {
+                configOptions.auth = {
                     user: config.user,
                     pass: config.pass,
-                },
-            });
+                };
+            }
+            transporter = nodemailer.createTransport(configOptions);
             from = config.from || `"${config.user}" <${config.user}>`;
         }
 

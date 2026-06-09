@@ -35,7 +35,17 @@ export async function getTicketsByStatusReport(
   const ticketWhereChart = buildTicketWhereClause(reqChart, filters, tenantId, "t");
   const chartResult = await reqChart.query(`
     SELECT
-      t.Status AS label,
+      CASE t.Status 
+        WHEN 'NEW' THEN 'Novo'
+        WHEN 'OPEN' THEN 'Aberto'
+        WHEN 'TRIAGE' THEN 'Em Triagem'
+        WHEN 'IN_PROGRESS' THEN 'Em Atendimento'
+        WHEN 'WAITING_CUSTOMER' THEN 'Aguard. Cliente'
+        WHEN 'WAITING_THIRD_PARTY' THEN 'Aguard. Terceiro'
+        WHEN 'ESCALATED' THEN 'Escalado'
+        WHEN 'RESOLVED' THEN 'Resolvido'
+        WHEN 'CLOSED' THEN 'Fechado'
+        ELSE t.Status END AS label,
       COUNT(*) AS value
     FROM altdesk.Ticket t
     LEFT JOIN altdesk.Conversation c ON c.ConversationId = t.ConversationId AND c.DeletedAt IS NULL
@@ -119,7 +129,13 @@ export async function getTicketsByPriorityReport(
   const ticketWhereChart = buildTicketWhereClause(reqChart, filters, tenantId, "t");
   const chartResult = await reqChart.query(`
     SELECT
-      t.Priority AS label,
+      CASE t.Priority
+        WHEN 'LOW' THEN 'Baixa'
+        WHEN 'MEDIUM' THEN 'Média'
+        WHEN 'HIGH' THEN 'Alta'
+        WHEN 'CRITICAL' THEN 'Crítica'
+        WHEN 'URGENT' THEN 'Urgente'
+        ELSE t.Priority END AS label,
       COUNT(*) AS value
     FROM altdesk.Ticket t
     LEFT JOIN altdesk.Conversation c ON c.ConversationId = t.ConversationId AND c.DeletedAt IS NULL
@@ -400,7 +416,14 @@ export async function getSlaComplianceReport(
   const ticketWhereChart = buildTicketWhereClause(reqChart, filters, tenantId, "t");
   const chartResult = await reqChart.query(`
     SELECT
-      t.SlaStatus AS label,
+      CASE t.SlaStatus
+        WHEN 'ON_TIME' THEN 'No Prazo'
+        WHEN 'OK' THEN 'No Prazo'
+        WHEN 'WARNING' THEN 'Em Risco'
+        WHEN 'VIOLATED' THEN 'Fora do SLA'
+        WHEN 'BREACHED' THEN 'Fora do SLA'
+        WHEN 'PENDING' THEN 'Pendente'
+        ELSE t.SlaStatus END AS label,
       COUNT(*) AS value
     FROM altdesk.Ticket t
     LEFT JOIN altdesk.Conversation c ON c.ConversationId = t.ConversationId AND c.DeletedAt IS NULL

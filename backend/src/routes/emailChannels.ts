@@ -325,6 +325,56 @@ router.delete("/:id", requireRole("ADMIN"), (async (req: AuthenticatedRequest, r
 }) as any);
 
 /**
+ * POST /api/email-channels/verify-imap
+ * Testa a conexão IMAP com credenciais enviadas no body (sem precisar salvar)
+ */
+router.post("/verify-imap", requireRole("ADMIN"), (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const { providerType, inbound } = req.body;
+        if (!inbound) return res.status(400).json({ error: "Configurações de entrada não fornecidas" });
+
+        const provider = createInboundProvider(providerType || "imap_smtp");
+        await provider.testConnection({} as any, {
+            Protocol: "IMAP",
+            ImapHost: inbound.imapHost,
+            ImapPort: inbound.imapPort,
+            ImapSecure: inbound.imapSecure,
+            Username: inbound.username,
+            EncryptedPassword: inbound.password // provider expects the real password here for tests
+        } as any);
+
+        res.json({ ok: true, message: "Conexão IMAP bem-sucedida!" });
+    } catch (error: any) {
+        res.status(400).json({ ok: false, error: `Falha na conexão IMAP: ${error.message || error}` });
+    }
+}) as any);
+
+/**
+ * POST /api/email-channels/verify-smtp
+ * Testa a conexão SMTP com credenciais enviadas no body (sem precisar salvar)
+ */
+router.post("/verify-smtp", requireRole("ADMIN"), (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const { providerType, outbound } = req.body;
+        if (!outbound) return res.status(400).json({ error: "Configurações de saída não fornecidas" });
+
+        const provider = createOutboundProvider(providerType || "imap_smtp");
+        await provider.testConnection({} as any, {
+            Protocol: "SMTP",
+            SmtpHost: outbound.smtpHost,
+            SmtpPort: outbound.smtpPort,
+            SmtpSecure: outbound.smtpSecure,
+            Username: outbound.username,
+            EncryptedPassword: outbound.password // provider expects the real password here for tests
+        } as any);
+
+        res.json({ ok: true, message: "Conexão SMTP bem-sucedida!" });
+    } catch (error: any) {
+        res.status(400).json({ ok: false, error: `Falha na conexão SMTP: ${error.message || error}` });
+    }
+}) as any);
+
+/**
  * POST /api/email-channels/:id/test-inbound
  * Testa a conexão IMAP (verifica credenciais e acesso à INBOX).
  */

@@ -322,7 +322,7 @@ export function Dashboard({ token, onBack }: { token: string; onBack: () => void
                             {stats.dailyVolume.map((item, i) => {
                                 const maxDaily = Math.max(...stats.dailyVolume.map(d => d.count), 1);
                                 const height = (item.count / maxDaily) * 100;
-                                const dayStr = new Date(item.day).toLocaleDateString("pt-BR", { weekday: "short" });
+                                const dayStr = new Date(item.day).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
                                 return (
                                     <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
                                         <div style={{

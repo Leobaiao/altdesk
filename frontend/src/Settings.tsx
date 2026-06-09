@@ -5,6 +5,7 @@ import { User, Briefcase, Image as ImageIcon, Lock, MonitorSmartphone, KeySquare
 import { useNavigate } from "react-router-dom";
 import { parseJwt } from "./lib/auth";
 import { EmailChannelsTab } from "./components/EmailChannelsTab";
+import { SlaSettingsTab } from "./components/SlaSettingsTab";
 interface Props {
     token: string;
     onBack: () => void;
@@ -112,6 +113,26 @@ export function Settings({ token, onBack, role, livePermissions }: Props) {
         }
     };
 
+    const handleTestConnection = async () => {
+        if (!selectedConnectorId) return;
+        setLoading(true);
+        setMsg("⏳ Testando conexão...");
+        try {
+            const res = await api.post(`/api/settings/instances/${selectedConnectorId}/test`);
+            if (res.data.connectionState?.state) {
+                setMsg(`✅ Conexão OK: Estado atual = ${res.data.connectionState.state}`);
+            } else if (res.data.msg) {
+                setMsg(`ℹ️ ${res.data.msg}`);
+            } else {
+                setMsg("✅ Conexão alcançada com sucesso.");
+            }
+        } catch (err: any) {
+            setMsg(`❌ Falha no teste: ${err.response?.data?.error || err.message}`);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const navItems = [
         { label: "Calendário (Horários)", path: "/business-hours", desc: "Cronograma e expedientes", perm: "settings" },
         { label: "Respostas Rápidas", path: "/canned", desc: "Atalhos de texto", perm: "settings" },
@@ -183,6 +204,17 @@ export function Settings({ token, onBack, role, livePermissions }: Props) {
                         }}
                     >
                         <Mail size={18} /> Canais de E-mail
+                    </button>
+                    <button 
+                        onClick={() => { setActiveTab("sla"); setMsg(""); }}
+                        style={{ 
+                            padding: "10px 20px", borderRadius: 10, cursor: "pointer", border: "none", 
+                            background: activeTab === "sla" ? "var(--accent)" : "transparent",
+                            color: activeTab === "sla" ? "#fff" : "var(--text-secondary)",
+                            fontWeight: 600, display: "flex", alignItems: "center", gap: 8, transition: "all 0.2s"
+                        }}
+                    >
+                        <ShieldCheck size={18} /> Políticas de SLA
                     </button>
                 </div>
             )}
@@ -317,15 +349,25 @@ export function Settings({ token, onBack, role, livePermissions }: Props) {
                                         Atualize a instância padrão de chat e as permissões de acesso dos funcionários.
                                     </p>
                                 </div>
-                                <button
-                                    onClick={handleSaveIntegrations}
-                                    disabled={loading}
-                                    className="btn btn-primary"
-                                    style={{ padding: "14px 40px", borderRadius: 10, fontWeight: 600, fontSize: "1rem", display: "flex", alignItems: "center", gap: 8 }}
-                                >
-                                    <ShieldCheck size={18} />
-                                    {loading ? "Salvando..." : "Salvar Integrações"}
-                                </button>
+                                <div style={{ display: "flex", gap: 10 }}>
+                                    <button
+                                        onClick={handleTestConnection}
+                                        disabled={loading || !selectedConnectorId}
+                                        className="btn btn-secondary"
+                                        style={{ padding: "14px 20px", borderRadius: 10, fontWeight: 600, fontSize: "0.95rem", display: "flex", alignItems: "center", gap: 8, background: "transparent", border: "1px solid var(--border)", color: "var(--text-primary)", cursor: loading ? "not-allowed" : "pointer" }}
+                                    >
+                                        Testar Conexão
+                                    </button>
+                                    <button
+                                        onClick={handleSaveIntegrations}
+                                        disabled={loading}
+                                        className="btn btn-primary"
+                                        style={{ padding: "14px 40px", borderRadius: 10, fontWeight: 600, fontSize: "1rem", display: "flex", alignItems: "center", gap: 8 }}
+                                    >
+                                        <ShieldCheck size={18} />
+                                        {loading ? "Processando..." : "Salvar Integrações"}
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     )
@@ -334,6 +376,12 @@ export function Settings({ token, onBack, role, livePermissions }: Props) {
                 {activeTab === "email" && isAdmin && (
                     <div style={{ background: "var(--bg-secondary)", padding: 30, borderRadius: 16, border: "1px solid var(--border)" }}>
                         <EmailChannelsTab />
+                    </div>
+                )}
+
+                {activeTab === "sla" && isAdmin && (
+                    <div style={{ background: "var(--bg-secondary)", padding: 30, borderRadius: 16, border: "1px solid var(--border)" }}>
+                        <SlaSettingsTab />
                     </div>
                 )}
             </div>

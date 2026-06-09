@@ -23,6 +23,7 @@ export function EmailChannelsTab() {
     const [selectedPreset, setSelectedPreset] = useState<string>("gmail");
     const [syncCredentials, setSyncCredentials] = useState<boolean>(true);
     const [showAdvanced, setShowAdvanced] = useState<boolean>(false);
+    const [validating, setValidating] = useState({ inbound: false, outbound: false });
 
     useEffect(() => {
         loadChannels();
@@ -57,6 +58,35 @@ export function EmailChannelsTab() {
             setTestResults(prev => ({ ...prev, [channelId]: { ...prev[channelId], outbound: true, loadingOut: false } }));
         } catch (err) {
             setTestResults(prev => ({ ...prev, [channelId]: { ...prev[channelId], outbound: false, loadingOut: false } }));
+        }
+    };
+
+    const handleVerifyInbound = async () => {
+        setValidating(prev => ({ ...prev, inbound: true }));
+        try {
+            const res = await api.post("/api/email-channels/verify-imap", editingChannel);
+            alert(res.data.message || "Conexão IMAP bem-sucedida!");
+        } catch (err: any) {
+            alert(err.response?.data?.error || "Falha na conexão IMAP");
+        } finally {
+            setValidating(prev => ({ ...prev, inbound: false }));
+        }
+    };
+
+    const handleVerifyOutbound = async () => {
+        setValidating(prev => ({ ...prev, outbound: true }));
+        const payload = { ...editingChannel };
+        if (syncCredentials) {
+            payload.outbound.username = payload.inbound.username;
+            payload.outbound.password = payload.inbound.password;
+        }
+        try {
+            const res = await api.post("/api/email-channels/verify-smtp", payload);
+            alert(res.data.message || "Conexão SMTP bem-sucedida!");
+        } catch (err: any) {
+            alert(err.response?.data?.error || "Falha na conexão SMTP");
+        } finally {
+            setValidating(prev => ({ ...prev, outbound: false }));
         }
     };
 
@@ -518,11 +548,21 @@ export function EmailChannelsTab() {
                             </div>
                         </div>
 
-                        <div style={{ padding: "24px 32px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end", gap: 12, background: "var(--bg-primary)", borderBottomLeftRadius: 24, borderBottomRightRadius: 24 }}>
-                            <button type="button" onClick={() => setEditingChannel(null)} className="btn btn-secondary" style={{ padding: "12px 24px", borderRadius: 12, fontWeight: 600, fontSize: "0.95rem" }}>Cancelar</button>
-                            <button type="submit" className="btn btn-primary" style={{ padding: "12px 32px", borderRadius: 12, display: "flex", alignItems: "center", gap: 8, fontWeight: 600, fontSize: "0.95rem" }}>
-                                <CheckCircle2 size={20} /> Salvar Configuração
-                            </button>
+                        <div style={{ padding: "24px 32px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--bg-primary)", borderBottomLeftRadius: 24, borderBottomRightRadius: 24 }}>
+                            <div style={{ display: "flex", gap: 12 }}>
+                                <button type="button" onClick={handleVerifyInbound} disabled={validating.inbound} className="btn btn-secondary" style={{ padding: "10px 16px", borderRadius: 10, fontSize: "0.85rem", display: "flex", alignItems: "center", gap: 6 }}>
+                                    <Inbox size={16} /> {validating.inbound ? "Testando..." : "Testar IMAP"}
+                                </button>
+                                <button type="button" onClick={handleVerifyOutbound} disabled={validating.outbound} className="btn btn-secondary" style={{ padding: "10px 16px", borderRadius: 10, fontSize: "0.85rem", display: "flex", alignItems: "center", gap: 6 }}>
+                                    <Send size={16} /> {validating.outbound ? "Testando..." : "Testar SMTP"}
+                                </button>
+                            </div>
+                            <div style={{ display: "flex", gap: 12 }}>
+                                <button type="button" onClick={() => setEditingChannel(null)} className="btn btn-secondary" style={{ padding: "12px 24px", borderRadius: 12, fontWeight: 600, fontSize: "0.95rem" }}>Cancelar</button>
+                                <button type="submit" className="btn btn-primary" style={{ padding: "12px 32px", borderRadius: 12, display: "flex", alignItems: "center", gap: 8, fontWeight: 600, fontSize: "0.95rem" }}>
+                                    <CheckCircle2 size={20} /> Salvar Configuração
+                                </button>
+                            </div>
                         </div>
                     </form>
                 </div>

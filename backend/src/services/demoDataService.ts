@@ -252,8 +252,508 @@ export async function preloadDemoData(tenantId: string, model: "basic" | "demo",
                 }
             }
         } else if (model === "demo") {
-            logger.info({ tenantId }, "Seeding rich historical demo dataset");
-            // Run a single comprehensive SQL script to seed all backdated tickets, messages, SLAs, CSATs, and assignments
+            logger.info({ tenantId }, "Seeding rich historical demo dataset (50 tickets)");
+
+            const names = [
+                "Marcos Pereira", "Fernanda Alves", "João Batista", "Paula Mendes", "Ricardo Nunes",
+                "Luciana Costa", "Beatriz Lima", "Gustavo Azevedo", "Simone Prado", "Diego Martins",
+                "Patricia Freitas", "Eduardo Ramos", "Roberto Carlos", "Julio Cesar", "Camila Pitanga",
+                "Renato Aragão", "Aline Santos", "Bruno Souza", "Carolina Oliveira", "Daniel Silva",
+                "Eliana Costa", "Fabio Rocha", "Gabriela Martins", "Hugo Torres", "Isabela Lima",
+                "Jefferson Alves", "Karina Prado", "Leonardo Ramos", "Marina Mendes", "Nelson Pereira",
+                "Olivia Nunes", "Pedro Silveira", "Renata Costa", "Samuel Souza", "Tatiane Oliveira",
+                "Valter Silva", "Yasmin Santos", "Alexandre Rocha", "Bianca Torres", "Claudio Lima",
+                "Debora Alves", "Emilio Prado", "Flavia Ramos", "Gerson Mendes", "Helena Pereira",
+                "Igor Nunes", "Juliana Costa", "Katia Silveira", "Lucas Souza", "Milena Oliveira"
+            ];
+
+            const suporteScripts = [
+                {
+                    subject: "Instabilidade no sistema",
+                    messages: [
+                        { dir: "IN", body: "Olá, o sistema está apresentando lentidão hoje?" },
+                        { dir: "OUT", body: "Olá! Tivemos uma breve instabilidade nos servidores, mas já foi resolvido. Pode atualizar a página?" },
+                        { dir: "IN", body: "Ah, agora carregou! Obrigado pelo retorno rápido." }
+                    ]
+                },
+                {
+                    subject: "Erro 500 ao gerar relatório",
+                    messages: [
+                        { dir: "IN", body: "Erro 500 constante ao tentar gerar relatório de auditoria do último mês." },
+                        { dir: "OUT", body: "Olá, identificamos que o filtro de datas estava estourando a query. Já aplicamos a correção." },
+                        { dir: "IN", body: "Perfeito, acabei de testar aqui e funcionou." }
+                    ]
+                },
+                {
+                    subject: "Configuração do chat widget",
+                    messages: [
+                        { dir: "IN", body: "Como altero a cor do chat widget no meu site?" },
+                        { dir: "OUT", body: "Olá! Basta ir em Configurações > Widget e alterar a cor primária no painel de personalização." },
+                        { dir: "IN", body: "Ok, vou dar uma olhada. Obrigado!" }
+                    ]
+                },
+                {
+                    subject: "Integração API travada",
+                    messages: [
+                        { dir: "IN", body: "Nossa integração com o CRM parou de funcionar do nada." },
+                        { dir: "OUT", body: "Olá! Identificamos um excesso de requisições excedendo a cota do plano. Ajustamos as cotas." },
+                        { dir: "IN", body: "Ah, agora voltou a sincronizar. Valeu!" }
+                    ]
+                },
+                {
+                    subject: "Como resetar senha de outro agente?",
+                    messages: [
+                        { dir: "IN", body: "Olá, sou admin e preciso resetar a senha de um dos agentes." },
+                        { dir: "OUT", body: "Olá! Você pode ir em Configurações > Agentes, selecionar o agente e clicar em 'Redefinir Senha'." },
+                        { dir: "IN", body: "Deu certo, obrigado!" }
+                    ]
+                }
+            ];
+
+            const financeiroScripts = [
+                {
+                    subject: "Dúvida sobre cobrança adicional",
+                    messages: [
+                        { dir: "IN", body: "Recebi uma cobrança a mais na minha fatura deste mês. O que seria?" },
+                        { dir: "OUT", body: "Olá! Essa cobrança refere-se ao excedente de agentes ativos contratados no dia 15." },
+                        { dir: "IN", body: "Ah, verdade. Havíamos adicionado 2 novos agentes. Obrigado pelo esclarecimento." }
+                    ]
+                },
+                {
+                    subject: "Boleto não recebido este mês",
+                    messages: [
+                        { dir: "IN", body: "Não recebi meu boleto deste mês. Podem reenviar?" },
+                        { dir: "OUT", body: "Olá! Claro, acabo de enviar a segunda via atualizada para o seu e-mail de cadastro." },
+                        { dir: "IN", body: "Recebido, obrigado!" }
+                    ]
+                },
+                {
+                    subject: "Alteração de dados de faturamento (CNPJ)",
+                    messages: [
+                        { dir: "IN", body: "Preciso alterar o CNPJ da minha conta de faturamento." },
+                        { dir: "OUT", body: "Olá! Por favor envie o contrato social atualizado para realizarmos a alteração no sistema." },
+                        { dir: "IN", body: "Segue o documento anexo." },
+                        { dir: "OUT", body: "Alteração realizada com sucesso! As próximas notas fiscais serão emitidas no novo CNPJ." }
+                    ]
+                },
+                {
+                    subject: "Segunda via da nota fiscal",
+                    messages: [
+                        { dir: "IN", body: "Poderiam me enviar a nota fiscal da última mensalidade?" },
+                        { dir: "OUT", body: "Olá! A nota fiscal foi emitida e anexada ao seu ticket. Você também pode baixá-la no menu Faturamento." },
+                        { dir: "IN", body: "Perfeito, baixei aqui." }
+                    ]
+                }
+            ];
+
+            const comercialScripts = [
+                {
+                    subject: "Solicitação de proposta para 50 agentes",
+                    messages: [
+                        { dir: "IN", body: "Gostaria de uma proposta comercial personalizada para 50 agentes de atendimento." },
+                        { dir: "OUT", body: "Olá! Com certeza, temos descontos progressivos excelentes para essa escala. Qual o seu melhor e-mail corporativo?" },
+                        { dir: "IN", body: "Pode mandar no comercial@empresa.com.br" },
+                        { dir: "OUT", body: "Proposta enviada! Se tiver dúvidas, podemos marcar uma call rápida." }
+                    ]
+                },
+                {
+                    subject: "Demonstração do plano Enterprise",
+                    messages: [
+                        { dir: "IN", body: "Gostaria de agendar uma demonstração completa do plano Enterprise." },
+                        { dir: "OUT", body: "Olá! Claro, acesse o link calendly.com/altdesk-demo para escolher o melhor horário." },
+                        { dir: "IN", body: "Agendado para quinta-feira. Obrigado!" }
+                    ]
+                },
+                {
+                    subject: "Dúvidas sobre canais inclusos",
+                    messages: [
+                        { dir: "IN", body: "O plano Starter inclui integração com Instagram?" },
+                        { dir: "OUT", body: "Olá! O plano Starter inclui WhatsApp e Webchat. A integração com Instagram está disponível a partir do plano Professional." },
+                        { dir: "IN", body: "Entendido. Vou analisar o Professional." }
+                    ]
+                },
+                {
+                    subject: "Preços para envio de SMS",
+                    messages: [
+                        { dir: "IN", body: "Vocês enviam SMS corporativo? Qual o valor por mensagem?" },
+                        { dir: "OUT", body: "Olá! Sim, temos suporte a SMS. O custo é de R$ 0,08 por SMS enviado. Quer que eu ative na sua conta?" },
+                        { dir: "IN", body: "Sim, por favor." }
+                    ]
+                }
+            ];
+
+            const implantacaoScripts = [
+                {
+                    subject: "Dificuldade na homologação do WhatsApp",
+                    messages: [
+                        { dir: "IN", body: "Não estou conseguindo validar o número na API Cloud do WhatsApp." },
+                        { dir: "OUT", body: "Olá! Verifique se a sua conta comercial do Facebook Business está com a verificação concluída." },
+                        { dir: "IN", body: "Verifiquei e o Facebook está pedindo mais documentos." },
+                        { dir: "OUT", body: "Certo. Vamos marcar uma chamada de 15 minutos para te auxiliar com essa documentação?" }
+                    ]
+                },
+                {
+                    subject: "Migração de dados do Zendesk",
+                    messages: [
+                        { dir: "IN", body: "Como faço para migrar o histórico de tickets que tenho no Zendesk?" },
+                        { dir: "OUT", body: "Olá! Nós realizamos a migração de histórico através da nossa API de importação. Vou te passar o escopo do serviço." },
+                        { dir: "IN", body: "Legal, me manda a proposta de migração." }
+                    ]
+                },
+                {
+                    subject: "Configuração do domínio personalizado",
+                    messages: [
+                        { dir: "IN", body: "Já fiz o apontamento CNAME na minha hospedagem, mas a Central de Ajuda ainda não carrega." },
+                        { dir: "OUT", body: "Olá! A propagação de DNS pode levar até 24 horas. Vou monitorar o status do seu certificado SSL." },
+                        { dir: "IN", body: "Ah, ok. Vou aguardar então." }
+                    ]
+                },
+                {
+                    subject: "Ajuste de horário de atendimento",
+                    messages: [
+                        { dir: "IN", body: "Como configuro a mensagem automática para quando a equipe estiver fora do horário comercial?" },
+                        { dir: "OUT", body: "Olá! Vá em Configurações > Horários de Atendimento, defina seus horários e configure a mensagem de ausência." },
+                        { dir: "IN", body: "Consegui configurar aqui, obrigado!" }
+                    ]
+                }
+            ];
+
+            const escapeSql = (str: string): string => {
+                return str.replace(/'/g, "''");
+            };
+
+            const getContactEmail = (name: string, prefix: string): string => {
+                const normalized = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ".");
+                return `${normalized}.${prefix}@cliente.demo`;
+            };
+
+            const getContactPhone = (index: number): string => {
+                const suffix = (1001 + index).toString();
+                return `551198888${suffix}`;
+            };
+
+            let declarations = "";
+            let sqlQueries = `
+                -- Clean up default contacts to avoid duplicate phones/emails
+                DELETE FROM altdesk.Contact WHERE TenantId = @tenantId;
+
+                -- Get Agent / User IDs
+                DECLARE @admin_userId UNIQUEIDENTIFIER = @adminId;
+                DECLARE @admin_agentId UNIQUEIDENTIFIER = (SELECT TOP 1 AgentId FROM altdesk.Agent WHERE UserId = @admin_userId);
+
+                DECLARE @n1_userId UNIQUEIDENTIFIER = (SELECT TOP 1 UserId FROM altdesk.[User] WHERE TenantId = @tenantId AND Email LIKE 'suporte.n1.%');
+                DECLARE @n1_agentId UNIQUEIDENTIFIER = (SELECT TOP 1 AgentId FROM altdesk.Agent WHERE UserId = @n1_userId);
+
+                DECLARE @vendas_userId UNIQUEIDENTIFIER = (SELECT TOP 1 UserId FROM altdesk.[User] WHERE TenantId = @tenantId AND Email LIKE 'vendas.%');
+                DECLARE @vendas_agentId UNIQUEIDENTIFIER = (SELECT TOP 1 AgentId FROM altdesk.Agent WHERE UserId = @vendas_userId);
+
+                DECLARE @fin_userId UNIQUEIDENTIFIER = (SELECT TOP 1 UserId FROM altdesk.[User] WHERE TenantId = @tenantId AND Email LIKE 'financeiro.%');
+                DECLARE @fin_agentId UNIQUEIDENTIFIER = (SELECT TOP 1 AgentId FROM altdesk.Agent WHERE UserId = @fin_userId);
+
+                DECLARE @carlos_userId UNIQUEIDENTIFIER = (SELECT TOP 1 UserId FROM altdesk.[User] WHERE TenantId = @tenantId AND Email LIKE 'carlos.lima.%');
+                DECLARE @carlos_agentId UNIQUEIDENTIFIER = (SELECT TOP 1 AgentId FROM altdesk.Agent WHERE UserId = @carlos_userId);
+
+                DECLARE @juliana_userId UNIQUEIDENTIFIER = (SELECT TOP 1 UserId FROM altdesk.[User] WHERE TenantId = @tenantId AND Email LIKE 'juliana.rocha.%');
+                DECLARE @juliana_agentId UNIQUEIDENTIFIER = (SELECT TOP 1 AgentId FROM altdesk.Agent WHERE UserId = @juliana_userId);
+
+                DECLARE @rafael_userId UNIQUEIDENTIFIER = (SELECT TOP 1 UserId FROM altdesk.[User] WHERE TenantId = @tenantId AND Email LIKE 'rafael.torres.%');
+                DECLARE @rafael_agentId UNIQUEIDENTIFIER = (SELECT TOP 1 AgentId FROM altdesk.Agent WHERE UserId = @rafael_userId);
+
+                -- Fallbacks
+                SET @n1_userId = COALESCE(@n1_userId, @admin_userId);
+                SET @n1_agentId = COALESCE(@n1_agentId, @admin_agentId);
+
+                SET @vendas_userId = COALESCE(@vendas_userId, @admin_userId);
+                SET @vendas_agentId = COALESCE(@vendas_agentId, @admin_agentId);
+
+                SET @fin_userId = COALESCE(@fin_userId, @admin_userId);
+                SET @fin_agentId = COALESCE(@fin_agentId, @admin_agentId);
+
+                SET @carlos_userId = COALESCE(@carlos_userId, @admin_userId);
+                SET @carlos_agentId = COALESCE(@carlos_agentId, @admin_agentId);
+
+                SET @juliana_userId = COALESCE(@juliana_userId, @admin_userId);
+                SET @juliana_agentId = COALESCE(@juliana_agentId, @admin_agentId);
+
+                SET @rafael_userId = COALESCE(@rafael_userId, @admin_userId);
+                SET @rafael_agentId = COALESCE(@rafael_agentId, @admin_agentId);
+
+                -- Get Queue IDs
+                DECLARE @q_suporte UNIQUEIDENTIFIER = (SELECT TOP 1 QueueId FROM altdesk.Queue WHERE TenantId = @tenantId AND Name = 'Suporte');
+                DECLARE @q_financeiro UNIQUEIDENTIFIER = (SELECT TOP 1 QueueId FROM altdesk.Queue WHERE TenantId = @tenantId AND Name = 'Financeiro');
+                DECLARE @q_implantacao UNIQUEIDENTIFIER = (SELECT TOP 1 QueueId FROM altdesk.Queue WHERE TenantId = @tenantId AND Name = N'Implantação');
+                DECLARE @q_comercial UNIQUEIDENTIFIER = (SELECT TOP 1 QueueId FROM altdesk.Queue WHERE TenantId = @tenantId AND Name = 'Comercial');
+            `;
+
+            for (let i = 0; i < 50; i++) {
+                const name = names[i % names.length];
+                const phone = getContactPhone(i);
+                const prefix = tenantId.substring(0, 5);
+                const email = getContactEmail(name, prefix);
+
+                // Determine Queue
+                let queueVar = "@q_suporte";
+                let scripts = suporteScripts;
+                let queueName = "Suporte";
+                if (i % 5 === 2) {
+                    queueVar = "@q_financeiro";
+                    scripts = financeiroScripts;
+                    queueName = "Financeiro";
+                } else if (i % 5 === 3) {
+                    queueVar = "@q_comercial";
+                    scripts = comercialScripts;
+                    queueName = "Comercial";
+                } else if (i % 5 === 4) {
+                    queueVar = "@q_implantacao";
+                    scripts = implantacaoScripts;
+                    queueName = "Implantação";
+                }
+
+                const script = scripts[(i + Math.floor(i / 5)) % scripts.length];
+                const subject = script.subject;
+
+                // Determine Status
+                let ticketStatus = "RESOLVED";
+                let convStatus = "RESOLVED";
+                let kanbanOrder = 0;
+                if (i >= 30 && i < 38) {
+                    ticketStatus = "OPEN";
+                    convStatus = "OPEN";
+                    kanbanOrder = 0;
+                } else if (i >= 38 && i < 44) {
+                    ticketStatus = "IN_PROGRESS";
+                    convStatus = "OPEN";
+                    kanbanOrder = 1;
+                } else if (i >= 44 && i < 48) {
+                    ticketStatus = "WAITING_CUSTOMER";
+                    convStatus = "OPEN";
+                    kanbanOrder = 2;
+                } else if (i >= 48 && i < 50) {
+                    ticketStatus = "ESCALATED";
+                    convStatus = "OPEN";
+                    kanbanOrder = 3;
+                }
+
+                // Determine Priority
+                let priority = "MEDIUM";
+                let priorityHours = 12;
+                let responseHours = 2;
+                if (i % 6 === 0) {
+                    priority = "CRITICAL";
+                    priorityHours = 1;
+                    responseHours = 0.25;
+                } else if (i % 6 === 1 || i % 6 === 2) {
+                    priority = "HIGH";
+                    priorityHours = 4;
+                    responseHours = 1;
+                } else if (i % 6 === 5) {
+                    priority = "LOW";
+                    priorityHours = 24;
+                    responseHours = 4;
+                }
+
+                // Determine Channel
+                let channelVar = "@whatsapp_chId";
+                let sourceChannel = "WHATSAPP";
+                let externalChatId = phone;
+                let externalUserId = `${phone}@s.whatsapp.net`;
+                let connectorIdSuffix = "whatsapp";
+
+                if (i % 4 === 1) {
+                    channelVar = "@email_chId";
+                    sourceChannel = "EMAIL";
+                    externalChatId = email;
+                    externalUserId = email;
+                    connectorIdSuffix = "email";
+                } else if (i % 4 === 2) {
+                    channelVar = "@webchat_chId";
+                    sourceChannel = "PLATFORM";
+                    externalChatId = phone;
+                    externalUserId = phone;
+                    connectorIdSuffix = "webchat";
+                } else if (i % 4 === 3) {
+                    channelVar = "@sms_chId";
+                    sourceChannel = "SMS";
+                    externalChatId = phone;
+                    externalUserId = phone;
+                    connectorIdSuffix = "sms";
+                }
+
+                const connectorId = `demo_${connectorIdSuffix}_conn_` + tenantId.substring(0, 8);
+
+                // Determine Assigned Agent
+                let agentUserVar = "@admin_userId";
+                let agentVar = "@admin_agentId";
+                if (queueName === "Financeiro") {
+                    agentUserVar = i % 2 === 0 ? "@fin_userId" : "@rafael_userId";
+                    agentVar = i % 2 === 0 ? "@fin_agentId" : "@rafael_agentId";
+                } else if (queueName === "Comercial") {
+                    agentUserVar = i % 2 === 0 ? "@vendas_userId" : "@carlos_userId";
+                    agentVar = i % 2 === 0 ? "@vendas_agentId" : "@carlos_agentId";
+                } else if (queueName === "Implantação") {
+                    agentUserVar = i % 2 === 0 ? "@carlos_userId" : "@admin_userId";
+                    agentVar = i % 2 === 0 ? "@carlos_agentId" : "@admin_agentId";
+                } else {
+                    agentUserVar = i % 3 === 0 ? "@n1_userId" : (i % 3 === 1 ? "@juliana_userId" : "@admin_userId");
+                    agentVar = i % 3 === 0 ? "@n1_agentId" : (i % 3 === 1 ? "@juliana_agentId" : "@admin_agentId");
+                }
+
+                // Determine SLA status
+                let slaStatus = "MET";
+                let ticketSlaStatus = "ON_TIME";
+                if (i % 7 === 0) {
+                    slaStatus = "VIOLATED";
+                    ticketSlaStatus = "VIOLATED";
+                } else if (i % 7 === 3 && ticketStatus !== "RESOLVED") {
+                    slaStatus = "WARNING";
+                    ticketSlaStatus = "WARNING";
+                } else if (ticketStatus !== "RESOLVED") {
+                    slaStatus = "PENDING";
+                    ticketSlaStatus = "ON_TIME";
+                }
+
+                // Timestamps (calculated in JS to prevent -- T-SQL comment syntax issues)
+                const createdMinsAgo = 200 + i * 850;
+                const createdAtOffset = -createdMinsAgo;
+                const slaFirstResponseDueOffset = -createdMinsAgo + Math.round(responseHours * 60);
+                const slaResolutionDueOffset = -createdMinsAgo + Math.round(priorityHours * 60);
+
+                const createdAtSql = `DATEADD(minute, ${createdAtOffset}, GETUTCDATE())`;
+                const slaFirstResponseDueSql = `DATEADD(minute, ${slaFirstResponseDueOffset}, GETUTCDATE())`;
+                const slaResolutionDueSql = `DATEADD(minute, ${slaResolutionDueOffset}, GETUTCDATE())`;
+
+                let firstResponseAtSql = "NULL";
+                if (ticketStatus === "RESOLVED" || i % 5 !== 0) {
+                    const responseDelay = slaStatus === "VIOLATED" ? Math.round(responseHours * 60 + 20) : 10;
+                    const firstResponseAtOffset = -createdMinsAgo + responseDelay;
+                    firstResponseAtSql = `DATEADD(minute, ${firstResponseAtOffset}, GETUTCDATE())`;
+                }
+
+                let resolvedAtSql = "NULL";
+                let csatScoreSql = "NULL";
+                let csatCreatedAtSql = "NULL";
+                if (ticketStatus === "RESOLVED") {
+                    const resolutionDelay = slaStatus === "VIOLATED" ? Math.round(priorityHours * 60 + 120) : 40;
+                    const resolvedAtOffset = -createdMinsAgo + resolutionDelay;
+                    resolvedAtSql = `DATEADD(minute, ${resolvedAtOffset}, GETUTCDATE())`;
+                    
+                    if (i % 3 === 0) {
+                        csatScoreSql = "5";
+                    } else if (i % 3 === 1) {
+                        csatScoreSql = "4";
+                    } else if (i % 3 === 2 && i % 9 === 2) {
+                        csatScoreSql = "2";
+                    } else if (i % 3 === 2) {
+                        csatScoreSql = "3";
+                    }
+
+                    const csatCreatedAtOffset = resolvedAtOffset + 5;
+                    csatCreatedAtSql = `DATEADD(minute, ${csatCreatedAtOffset}, GETUTCDATE())`;
+                }
+
+                const lastMessageAtOffset = ticketStatus === "RESOLVED" 
+                    ? (-createdMinsAgo + 40)
+                    : (-createdMinsAgo + 20);
+                const lastMessageAtSql = `DATEADD(minute, ${lastMessageAtOffset}, GETUTCDATE())`;
+
+                declarations += `
+                DECLARE @c_${i} UNIQUEIDENTIFIER = NEWID();
+                DECLARE @conv_${i} UNIQUEIDENTIFIER = NEWID();
+                DECLARE @ticket_${i} UNIQUEIDENTIFIER = NEWID();
+                `;
+
+                sqlQueries += `
+                -- Contact
+                INSERT INTO altdesk.Contact (ContactId, TenantId, Name, Phone, Email, Tags, CreatedAt)
+                VALUES (@c_${i}, @tenantId, '${escapeSql(name)}', '${phone}', '${email}', '["Demonstração", "${queueName}"]', ${createdAtSql});
+
+                -- Conversation
+                INSERT INTO altdesk.Conversation (
+                    ConversationId, TenantId, ChannelId, QueueId, AssignedUserId, 
+                    OpenedByContactId, Title, Kind, Status, SourceChannel, 
+                    LastMessageAt, CreatedAt, ClosedAt, CsatScore, SlaDeadline, 
+                    SlaStatus, FirstResponseAt
+                ) VALUES (
+                    @conv_${i}, @tenantId, ${channelVar}, ${queueVar}, ${agentUserVar}, 
+                    @c_${i}, '${escapeSql(subject)}', 'DIRECT', '${convStatus}', '${sourceChannel}', 
+                    ${lastMessageAtSql}, ${createdAtSql}, ${resolvedAtSql}, ${csatScoreSql}, ${slaResolutionDueSql}, 
+                    '${slaStatus}', ${firstResponseAtSql}
+                );
+
+                -- External Thread Map
+                INSERT INTO altdesk.ExternalThreadMap (TenantId, ConnectorId, ExternalChatId, ExternalUserId, ConversationId)
+                VALUES (@tenantId, '${connectorId}', '${externalChatId}', '${externalUserId}', @conv_${i});
+                `;
+
+                // Messages generation
+                const numMsgs = Math.min(script.messages.length, ticketStatus === "RESOLVED" ? 4 : 3);
+                for (let m = 0; m < numMsgs; m++) {
+                    const msg = script.messages[m];
+                    let msgOffset = m * 15;
+                    if (m === 1 && slaStatus === "VIOLATED") {
+                        msgOffset = Math.round(responseHours * 60 + 20);
+                    } else if (m === 3 && slaStatus === "VIOLATED") {
+                        msgOffset = Math.round(priorityHours * 60 + 120);
+                    }
+                    const msgCreatedAtOffset = -createdMinsAgo + msgOffset;
+                    const msgCreatedAtSql = `DATEADD(minute, ${msgCreatedAtOffset}, GETUTCDATE())`;
+                    
+                    if (msg.dir === "IN") {
+                        sqlQueries += `
+                        INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, SenderExternalId, Status, CreatedAt)
+                        VALUES (NEWID(), @tenantId, @conv_${i}, 'IN', '${escapeSql(msg.body)}', '${externalChatId}', 'READ', ${msgCreatedAtSql});
+                        `;
+                    } else {
+                        sqlQueries += `
+                        INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, SenderUserId, Status, CreatedAt)
+                        VALUES (NEWID(), @tenantId, @conv_${i}, 'OUT', '${escapeSql(msg.body)}', ${agentUserVar}, 'READ', ${msgCreatedAtSql});
+                        `;
+                    }
+                }
+
+                // Ticket
+                sqlQueries += `
+                INSERT INTO altdesk.Ticket (
+                    TicketId, TenantId, ConversationId, Priority, Status, 
+                    AssignedAgentId, SLAFirstResponseDue, SLAResolutionDue, 
+                    FirstResponseAt, ResolvedAt, SlaStatus, KanbanOrder, CreatedAt, UpdatedAt
+                ) VALUES (
+                    @ticket_${i}, @tenantId, @conv_${i}, '${priority}', '${ticketStatus}', 
+                    ${agentVar}, ${slaFirstResponseDueSql}, ${slaResolutionDueSql}, 
+                    ${firstResponseAtSql}, ${resolvedAtSql}, '${ticketSlaStatus}', ${kanbanOrder}, ${createdAtSql}, ${lastMessageAtSql}
+                );
+
+                -- Ticket Event
+                INSERT INTO altdesk.TicketEvent (TenantId, TicketId, EventType, NewValue, ActorUserId, CreatedAt)
+                VALUES (@tenantId, @ticket_${i}, 'CREATED', 'NEW', @admin_userId, ${createdAtSql});
+                `;
+
+                if (ticketStatus === "RESOLVED") {
+                    sqlQueries += `
+                    INSERT INTO altdesk.TicketEvent (TenantId, TicketId, EventType, NewValue, ActorUserId, CreatedAt)
+                    VALUES (@tenantId, @ticket_${i}, 'STATUS_CHANGE', 'RESOLVED', ${agentUserVar}, ${resolvedAtSql});
+                    `;
+                    
+                    if (csatScoreSql !== "NULL") {
+                        let csatComment = "Atendimento excelente!";
+                        if (csatScoreSql === "4") csatComment = "Muito bom, resolveu meu problema.";
+                        if (csatScoreSql === "3") csatComment = "Atendimento normal.";
+                        if (csatScoreSql === "2") csatComment = "Demorou bastante para responder.";
+                        
+                        sqlQueries += `
+                        INSERT INTO altdesk.SatisfactionRating (ConversationId, Score, Comment, CreatedAt)
+                        VALUES (@conv_${i}, ${csatScoreSql}, '${escapeSql(csatComment)}', ${csatCreatedAtSql});
+                        `;
+                    }
+                } else {
+                    sqlQueries += `
+                    INSERT INTO altdesk.TicketEvent (TenantId, TicketId, EventType, NewValue, ActorUserId, CreatedAt)
+                    VALUES (@tenantId, @ticket_${i}, 'STATUS_CHANGE', '${ticketStatus}', ${agentUserVar}, ${firstResponseAtSql !== "NULL" ? firstResponseAtSql : createdAtSql});
+                    `;
+                }
+            }
+
+            const fullQuery = declarations + "\n" + sqlQueries;
             await pool.request()
                 .input("tenantId", tenantId)
                 .input("adminId", adminId || null)
@@ -261,487 +761,7 @@ export async function preloadDemoData(tenantId: string, model: "basic" | "demo",
                 .input("email_chId", emailChannelId)
                 .input("webchat_chId", webchatChannelId)
                 .input("sms_chId", smsChannelId)
-                .query(`
-                    -- Clean up default contacts to avoid duplicate phones/emails
-                    DELETE FROM altdesk.Contact WHERE TenantId = @tenantId;
-
-                    DECLARE @convId UNIQUEIDENTIFIER, @ticketId UNIQUEIDENTIFIER;
-
-                    -- Declare all contact IDs
-                    DECLARE @c1 UNIQUEIDENTIFIER = NEWID(), @c2 UNIQUEIDENTIFIER = NEWID(), @c3 UNIQUEIDENTIFIER = NEWID(), @c4 UNIQUEIDENTIFIER = NEWID();
-                    DECLARE @c5 UNIQUEIDENTIFIER = NEWID(), @c6 UNIQUEIDENTIFIER = NEWID(), @c7 UNIQUEIDENTIFIER = NEWID(), @c8 UNIQUEIDENTIFIER = NEWID();
-                    DECLARE @c9 UNIQUEIDENTIFIER = NEWID(), @c10 UNIQUEIDENTIFIER = NEWID(), @c11 UNIQUEIDENTIFIER = NEWID(), @c12 UNIQUEIDENTIFIER = NEWID();
-                    DECLARE @c13 UNIQUEIDENTIFIER = NEWID(), @c14 UNIQUEIDENTIFIER = NEWID(), @c15 UNIQUEIDENTIFIER = NEWID(), @c16 UNIQUEIDENTIFIER = NEWID();
-
-                    -- Get Agent / User IDs
-                    DECLARE @admin_userId UNIQUEIDENTIFIER = @adminId;
-                    DECLARE @admin_agentId UNIQUEIDENTIFIER = (SELECT TOP 1 AgentId FROM altdesk.Agent WHERE UserId = @admin_userId);
-
-                    DECLARE @n1_userId UNIQUEIDENTIFIER = (SELECT TOP 1 UserId FROM altdesk.[User] WHERE TenantId = @tenantId AND Email LIKE 'suporte.n1.%');
-                    DECLARE @n1_agentId UNIQUEIDENTIFIER = (SELECT TOP 1 AgentId FROM altdesk.Agent WHERE UserId = @n1_userId);
-
-                    DECLARE @vendas_userId UNIQUEIDENTIFIER = (SELECT TOP 1 UserId FROM altdesk.[User] WHERE TenantId = @tenantId AND Email LIKE 'vendas.%');
-                    DECLARE @vendas_agentId UNIQUEIDENTIFIER = (SELECT TOP 1 AgentId FROM altdesk.Agent WHERE UserId = @vendas_userId);
-
-                    DECLARE @fin_userId UNIQUEIDENTIFIER = (SELECT TOP 1 UserId FROM altdesk.[User] WHERE TenantId = @tenantId AND Email LIKE 'financeiro.%');
-                    DECLARE @fin_agentId UNIQUEIDENTIFIER = (SELECT TOP 1 AgentId FROM altdesk.Agent WHERE UserId = @fin_userId);
-
-                    DECLARE @carlos_userId UNIQUEIDENTIFIER = (SELECT TOP 1 UserId FROM altdesk.[User] WHERE TenantId = @tenantId AND Email LIKE 'carlos.lima.%');
-                    DECLARE @carlos_agentId UNIQUEIDENTIFIER = (SELECT TOP 1 AgentId FROM altdesk.Agent WHERE UserId = @carlos_userId);
-
-                    DECLARE @juliana_userId UNIQUEIDENTIFIER = (SELECT TOP 1 UserId FROM altdesk.[User] WHERE TenantId = @tenantId AND Email LIKE 'juliana.rocha.%');
-                    DECLARE @juliana_agentId UNIQUEIDENTIFIER = (SELECT TOP 1 AgentId FROM altdesk.Agent WHERE UserId = @juliana_userId);
-
-                    DECLARE @rafael_userId UNIQUEIDENTIFIER = (SELECT TOP 1 UserId FROM altdesk.[User] WHERE TenantId = @tenantId AND Email LIKE 'rafael.torres.%');
-                    DECLARE @rafael_agentId UNIQUEIDENTIFIER = (SELECT TOP 1 AgentId FROM altdesk.Agent WHERE UserId = @rafael_userId);
-
-                    -- Fallbacks
-                    SET @n1_userId = COALESCE(@n1_userId, @admin_userId);
-                    SET @n1_agentId = COALESCE(@n1_agentId, @admin_agentId);
-
-                    SET @vendas_userId = COALESCE(@vendas_userId, @admin_userId);
-                    SET @vendas_agentId = COALESCE(@vendas_agentId, @admin_agentId);
-
-                    SET @fin_userId = COALESCE(@fin_userId, @admin_userId);
-                    SET @fin_agentId = COALESCE(@fin_agentId, @admin_agentId);
-
-                    SET @carlos_userId = COALESCE(@carlos_userId, @admin_userId);
-                    SET @carlos_agentId = COALESCE(@carlos_agentId, @admin_agentId);
-
-                    SET @juliana_userId = COALESCE(@juliana_userId, @admin_userId);
-                    SET @juliana_agentId = COALESCE(@juliana_agentId, @admin_agentId);
-
-                    SET @rafael_userId = COALESCE(@rafael_userId, @admin_userId);
-                    SET @rafael_agentId = COALESCE(@rafael_agentId, @admin_agentId);
-
-                    -- Get Queue IDs
-                    DECLARE @q_suporte UNIQUEIDENTIFIER = (SELECT TOP 1 QueueId FROM altdesk.Queue WHERE TenantId = @tenantId AND Name = 'Suporte');
-                    DECLARE @q_financeiro UNIQUEIDENTIFIER = (SELECT TOP 1 QueueId FROM altdesk.Queue WHERE TenantId = @tenantId AND Name = 'Financeiro');
-                    DECLARE @q_implantacao UNIQUEIDENTIFIER = (SELECT TOP 1 QueueId FROM altdesk.Queue WHERE TenantId = @tenantId AND Name = N'Implantação');
-                    DECLARE @q_comercial UNIQUEIDENTIFIER = (SELECT TOP 1 QueueId FROM altdesk.Queue WHERE TenantId = @tenantId AND Name = 'Comercial');
-
-                    -- Scenario 1: Closed ticket, low priority, WhatsApp, assigned to Suporte N1, created 9 days ago.
-                    INSERT INTO altdesk.Contact (ContactId, TenantId, Name, Phone, Email, Tags, CreatedAt)
-                    VALUES (@c1, @tenantId, 'Marcos Pereira', '5511988881001', 'marcos.pereira@cliente.demo', '["Demonstração", "Suporte"]', DATEADD(day, -9, GETUTCDATE()));
-
-                    SET @convId = NEWID();
-                    INSERT INTO altdesk.Conversation (ConversationId, TenantId, ChannelId, QueueId, AssignedUserId, OpenedByContactId, Title, Kind, Status, SourceChannel, LastMessageAt, CreatedAt, ClosedAt, CsatScore, SlaDeadline, SlaStatus, FirstResponseAt)
-                    VALUES (@convId, @tenantId, @whatsapp_chId, @q_suporte, @n1_userId, @c1, 'Marcos Pereira', 'DIRECT', 'RESOLVED', 'WHATSAPP', DATEADD(minute, 40, DATEADD(day, -9, GETUTCDATE())), DATEADD(day, -9, GETUTCDATE()), DATEADD(minute, 40, DATEADD(day, -9, GETUTCDATE())), 5, DATEADD(hour, 4, DATEADD(day, -9, GETUTCDATE())), 'MET', DATEADD(minute, 10, DATEADD(day, -9, GETUTCDATE())));
-
-                    INSERT INTO altdesk.ExternalThreadMap (TenantId, ConnectorId, ExternalChatId, ExternalUserId, ConversationId)
-                    VALUES (@tenantId, 'demo_whatsapp_conn_' + LEFT(CAST(@tenantId AS NVARCHAR(36)), 8), '5511988881001', '5511988881001@s.whatsapp.net', @convId);
-
-                    INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, SenderExternalId, Status, CreatedAt)
-                    VALUES (NEWID(), @tenantId, @convId, 'IN', 'Olá, preciso tirar uma dúvida', '5511988881001', 'READ', DATEADD(day, -9, GETUTCDATE()));
-
-                    INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, SenderUserId, Status, CreatedAt)
-                    VALUES (NEWID(), @tenantId, @convId, 'OUT', 'Claro, no que posso ajudar?', @n1_userId, 'READ', DATEADD(minute, 10, DATEADD(day, -9, GETUTCDATE())));
-
-                    INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, SenderExternalId, Status, CreatedAt)
-                    VALUES (NEWID(), @tenantId, @convId, 'IN', 'Onde vejo minhas faturas?', '5511988881001', 'READ', DATEADD(minute, 15, DATEADD(day, -9, GETUTCDATE())));
-
-                    INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, SenderUserId, Status, CreatedAt)
-                    VALUES (NEWID(), @tenantId, @convId, 'OUT', 'Você pode ver em Configurações > Faturas.', @n1_userId, 'READ', DATEADD(minute, 30, DATEADD(day, -9, GETUTCDATE())));
-
-                    INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, SenderExternalId, Status, CreatedAt)
-                    VALUES (NEWID(), @tenantId, @convId, 'IN', 'Obrigado!', '5511988881001', 'READ', DATEADD(minute, 35, DATEADD(day, -9, GETUTCDATE())));
-
-                    SET @ticketId = NEWID();
-                    INSERT INTO altdesk.Ticket (TicketId, TenantId, ConversationId, Priority, Status, AssignedAgentId, SLAFirstResponseDue, SLAResolutionDue, FirstResponseAt, ResolvedAt, SlaStatus, KanbanOrder, CreatedAt, UpdatedAt)
-                    VALUES (@ticketId, @tenantId, @convId, 'LOW', 'RESOLVED', @n1_agentId, DATEADD(hour, 4, DATEADD(day, -9, GETUTCDATE())), DATEADD(day, 1, DATEADD(day, -9, GETUTCDATE())), DATEADD(minute, 10, DATEADD(day, -9, GETUTCDATE())), DATEADD(minute, 40, DATEADD(day, -9, GETUTCDATE())), 'ON_TIME', 0, DATEADD(day, -9, GETUTCDATE()), DATEADD(minute, 40, DATEADD(day, -9, GETUTCDATE())));
-
-                    INSERT INTO altdesk.TicketEvent (TenantId, TicketId, EventType, NewValue, ActorUserId, CreatedAt)
-                    VALUES (@tenantId, @ticketId, 'CREATED', 'NEW', @n1_userId, DATEADD(day, -9, GETUTCDATE())),
-                           (@tenantId, @ticketId, 'STATUS_CHANGE', 'RESOLVED', @n1_userId, DATEADD(minute, 40, DATEADD(day, -9, GETUTCDATE())));
-
-                    INSERT INTO altdesk.SatisfactionRating (ConversationId, Score, Comment, CreatedAt)
-                    VALUES (@convId, 5, 'Excelente atendimento, rápido e objetivo.', DATEADD(minute, 45, DATEADD(day, -9, GETUTCDATE())));
-
-                    -- Scenario 2: Closed ticket, high priority, Email, assigned to Financeiro, created 8 days ago.
-                    INSERT INTO altdesk.Contact (ContactId, TenantId, Name, Phone, Email, Tags, CreatedAt)
-                    VALUES (@c2, @tenantId, 'Fernanda Alves', '5511988881002', 'fernanda.alves@cliente.demo', '["Demonstração", "Financeiro"]', DATEADD(day, -8, GETUTCDATE()));
-
-                    SET @convId = NEWID();
-                    INSERT INTO altdesk.Conversation (ConversationId, TenantId, ChannelId, QueueId, AssignedUserId, OpenedByContactId, Title, Kind, Status, SourceChannel, LastMessageAt, CreatedAt, ClosedAt, CsatScore, SlaDeadline, SlaStatus, FirstResponseAt)
-                    VALUES (@convId, @tenantId, @email_chId, @q_financeiro, @fin_userId, @c2, 'Problema na Fatura #4820', 'DIRECT', 'RESOLVED', 'EMAIL', DATEADD(hour, 3, DATEADD(day, -8, GETUTCDATE())), DATEADD(day, -8, GETUTCDATE()), DATEADD(hour, 3, DATEADD(day, -8, GETUTCDATE())), 4, DATEADD(hour, 1, DATEADD(day, -8, GETUTCDATE())), 'MET', DATEADD(minute, 45, DATEADD(day, -8, GETUTCDATE())));
-
-                    INSERT INTO altdesk.ExternalThreadMap (TenantId, ConnectorId, ExternalChatId, ExternalUserId, ConversationId)
-                    VALUES (@tenantId, 'demo_email_conn_' + LEFT(CAST(@tenantId AS NVARCHAR(36)), 8), 'fernanda.alves@cliente.demo', 'fernanda.alves@cliente.demo', @convId);
-
-                    INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, SenderExternalId, Status, CreatedAt)
-                    VALUES (NEWID(), @tenantId, @convId, 'IN', 'Problema no pagamento da fatura vencida', 'fernanda.alves@cliente.demo', 'READ', DATEADD(day, -8, GETUTCDATE()));
-
-                    INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, SenderUserId, Status, CreatedAt)
-                    VALUES (NEWID(), @tenantId, @convId, 'OUT', 'Olá, identificamos que o banco rejeitou o cartão. Pode tentar novamente?', @fin_userId, 'READ', DATEADD(minute, 45, DATEADD(day, -8, GETUTCDATE())));
-
-                    INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, SenderExternalId, Status, CreatedAt)
-                    VALUES (NEWID(), @tenantId, @convId, 'IN', 'Consegui realizar o pagamento agora, obrigado!', 'fernanda.alves@cliente.demo', 'READ', DATEADD(hour, 3, DATEADD(day, -8, GETUTCDATE())));
-
-                    SET @ticketId = NEWID();
-                    INSERT INTO altdesk.Ticket (TicketId, TenantId, ConversationId, Priority, Status, AssignedAgentId, SLAFirstResponseDue, SLAResolutionDue, FirstResponseAt, ResolvedAt, SlaStatus, KanbanOrder, CreatedAt, UpdatedAt)
-                    VALUES (@ticketId, @tenantId, @convId, 'HIGH', 'RESOLVED', @fin_agentId, DATEADD(hour, 1, DATEADD(day, -8, GETUTCDATE())), DATEADD(hour, 4, DATEADD(day, -8, GETUTCDATE())), DATEADD(minute, 45, DATEADD(day, -8, GETUTCDATE())), DATEADD(hour, 3, DATEADD(day, -8, GETUTCDATE())), 'ON_TIME', 0, DATEADD(day, -8, GETUTCDATE()), DATEADD(hour, 3, DATEADD(day, -8, GETUTCDATE())));
-
-                    INSERT INTO altdesk.TicketEvent (TenantId, TicketId, EventType, NewValue, ActorUserId, CreatedAt)
-                    VALUES (@tenantId, @ticketId, 'CREATED', 'NEW', @fin_userId, DATEADD(day, -8, GETUTCDATE())),
-                           (@tenantId, @ticketId, 'STATUS_CHANGE', 'RESOLVED', @fin_userId, DATEADD(hour, 3, DATEADD(day, -8, GETUTCDATE())));
-
-                    INSERT INTO altdesk.SatisfactionRating (ConversationId, Score, Comment, CreatedAt)
-                    VALUES (@convId, 4, 'Resolvido rápido.', DATEADD(hour, 4, DATEADD(day, -8, GETUTCDATE())));
-
-                    -- Scenario 3: Closed ticket, critical priority, WhatsApp, assigned to Admin, created 7 days ago.
-                    INSERT INTO altdesk.Contact (ContactId, TenantId, Name, Phone, Email, Tags, CreatedAt)
-                    VALUES (@c3, @tenantId, 'João Batista', '5511988881003', 'joao.batista@cliente.demo', '["Demonstração", "Servidor"]', DATEADD(day, -7, GETUTCDATE()));
-
-                    SET @convId = NEWID();
-                    INSERT INTO altdesk.Conversation (ConversationId, TenantId, ChannelId, QueueId, AssignedUserId, OpenedByContactId, Title, Kind, Status, SourceChannel, LastMessageAt, CreatedAt, ClosedAt, CsatScore, SlaDeadline, SlaStatus, FirstResponseAt)
-                    VALUES (@convId, @tenantId, @whatsapp_chId, @q_suporte, @admin_userId, @c3, 'Sistema Instável', 'DIRECT', 'RESOLVED', 'WHATSAPP', DATEADD(minute, 15, DATEADD(day, -7, GETUTCDATE())), DATEADD(day, -7, GETUTCDATE()), DATEADD(minute, 15, DATEADD(day, -7, GETUTCDATE())), 5, DATEADD(minute, 15, DATEADD(day, -7, GETUTCDATE())), 'MET', DATEADD(minute, 5, DATEADD(day, -7, GETUTCDATE())));
-
-                    INSERT INTO altdesk.ExternalThreadMap (TenantId, ConnectorId, ExternalChatId, ExternalUserId, ConversationId)
-                    VALUES (@tenantId, 'demo_whatsapp_conn_' + LEFT(CAST(@tenantId AS NVARCHAR(36)), 8), '5511988881003', '5511988881003@s.whatsapp.net', @convId);
-
-                    INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, SenderExternalId, Status, CreatedAt)
-                    VALUES (NEWID(), @tenantId, @convId, 'IN', 'Sistema está fora do ar!', '5511988881003', 'READ', DATEADD(day, -7, GETUTCDATE()));
-
-                    INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, SenderUserId, Status, CreatedAt)
-                    VALUES (NEWID(), @tenantId, @convId, 'OUT', 'Estamos cientes e nossa equipe já está trabalhando. Deve normalizar em 5 minutos.', @admin_userId, 'READ', DATEADD(minute, 5, DATEADD(day, -7, GETUTCDATE())));
-
-                    INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, SenderExternalId, Status, CreatedAt)
-                    VALUES (NEWID(), @tenantId, @convId, 'IN', 'Confirmado, voltou aqui. Obrigado.', '5511988881003', 'READ', DATEADD(minute, 15, DATEADD(day, -7, GETUTCDATE())));
-
-                    SET @ticketId = NEWID();
-                    INSERT INTO altdesk.Ticket (TicketId, TenantId, ConversationId, Priority, Status, AssignedAgentId, SLAFirstResponseDue, SLAResolutionDue, FirstResponseAt, ResolvedAt, SlaStatus, KanbanOrder, CreatedAt, UpdatedAt)
-                    VALUES (@ticketId, @tenantId, @convId, 'CRITICAL', 'RESOLVED', @admin_agentId, DATEADD(minute, 15, DATEADD(day, -7, GETUTCDATE())), DATEADD(hour, 1, DATEADD(day, -7, GETUTCDATE())), DATEADD(minute, 5, DATEADD(day, -7, GETUTCDATE())), DATEADD(minute, 15, DATEADD(day, -7, GETUTCDATE())), 'ON_TIME', 0, DATEADD(day, -7, GETUTCDATE()), DATEADD(minute, 15, DATEADD(day, -7, GETUTCDATE())));
-
-                    INSERT INTO altdesk.TicketEvent (TenantId, TicketId, EventType, NewValue, ActorUserId, CreatedAt)
-                    VALUES (@tenantId, @ticketId, 'CREATED', 'NEW', @admin_userId, DATEADD(day, -7, GETUTCDATE())),
-                           (@tenantId, @ticketId, 'STATUS_CHANGE', 'RESOLVED', @admin_userId, DATEADD(minute, 15, DATEADD(day, -7, GETUTCDATE())));
-
-                    INSERT INTO altdesk.SatisfactionRating (ConversationId, Score, Comment, CreatedAt)
-                    VALUES (@convId, 5, 'Salvaram meu dia!', DATEADD(minute, 20, DATEADD(day, -7, GETUTCDATE())));
-
-                    -- Scenario 4: Open ticket, medium priority, Platform (Webchat), assigned to Carlos Lima, created 6 days ago.
-                    INSERT INTO altdesk.Contact (ContactId, TenantId, Name, Phone, Email, Tags, CreatedAt)
-                    VALUES (@c4, @tenantId, 'Paula Mendes', '5511988881004', 'paula.mendes@cliente.demo', '["Demonstração", "Vendas"]', DATEADD(day, -6, GETUTCDATE()));
-
-                    SET @convId = NEWID();
-                    INSERT INTO altdesk.Conversation (ConversationId, TenantId, ChannelId, QueueId, AssignedUserId, OpenedByContactId, Title, Kind, Status, SourceChannel, LastMessageAt, CreatedAt, ClosedAt, CsatScore, SlaDeadline, SlaStatus, FirstResponseAt)
-                    VALUES (@convId, @tenantId, @webchat_chId, @q_comercial, @carlos_userId, @c4, 'Paula Mendes', 'DIRECT', 'OPEN', 'PLATFORM', DATEADD(hour, 2, DATEADD(day, -6, GETUTCDATE())), DATEADD(day, -6, GETUTCDATE()), NULL, NULL, DATEADD(hour, 2, DATEADD(day, -6, GETUTCDATE())), 'MET', DATEADD(hour, 2, DATEADD(day, -6, GETUTCDATE())));
-
-                    INSERT INTO altdesk.ExternalThreadMap (TenantId, ConnectorId, ExternalChatId, ExternalUserId, ConversationId)
-                    VALUES (@tenantId, 'demo_webchat_conn_' + LEFT(CAST(@tenantId AS NVARCHAR(36)), 8), '5511988881004', '5511988881004', @convId);
-
-                    INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, SenderExternalId, Status, CreatedAt)
-                    VALUES (NEWID(), @tenantId, @convId, 'IN', 'Como faço para importar meus contatos antigos?', 'paula.mendes@cliente.demo', 'READ', DATEADD(day, -6, GETUTCDATE()));
-
-                    INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, SenderUserId, Status, CreatedAt)
-                    VALUES (NEWID(), @tenantId, @convId, 'OUT', 'Temos uma ferramenta de importação em contatos...', @carlos_userId, 'READ', DATEADD(hour, 2, DATEADD(day, -6, GETUTCDATE())));
-
-                    SET @ticketId = NEWID();
-                    INSERT INTO altdesk.Ticket (TicketId, TenantId, ConversationId, Priority, Status, AssignedAgentId, SLAFirstResponseDue, SLAResolutionDue, FirstResponseAt, ResolvedAt, SlaStatus, KanbanOrder, CreatedAt, UpdatedAt)
-                    VALUES (@ticketId, @tenantId, @convId, 'MEDIUM', 'IN_PROGRESS', @carlos_agentId, DATEADD(hour, 2, DATEADD(day, -6, GETUTCDATE())), DATEADD(hour, 12, DATEADD(day, -6, GETUTCDATE())), DATEADD(hour, 2, DATEADD(day, -6, GETUTCDATE())), NULL, 'ON_TIME', 1, DATEADD(day, -6, GETUTCDATE()), DATEADD(hour, 2, DATEADD(day, -6, GETUTCDATE())));
-
-                    INSERT INTO altdesk.TicketEvent (TenantId, TicketId, EventType, NewValue, ActorUserId, CreatedAt)
-                    VALUES (@tenantId, @ticketId, 'CREATED', 'NEW', @carlos_userId, DATEADD(day, -6, GETUTCDATE())),
-                           (@tenantId, @ticketId, 'STATUS_CHANGE', 'IN_PROGRESS', @carlos_userId, DATEADD(hour, 2, DATEADD(day, -6, GETUTCDATE())));
-
-                    -- Scenario 5: Closed ticket (SLA Violated), critical priority, SMS, assigned to Juliana Rocha, created 5 days ago.
-                    INSERT INTO altdesk.Contact (ContactId, TenantId, Name, Phone, Email, Tags, CreatedAt)
-                    VALUES (@c5, @tenantId, 'Ricardo Nunes', '5511988881005', 'ricardo.nunes@cliente.demo', '["Demonstração", "Urgente"]', DATEADD(day, -5, GETUTCDATE()));
-
-                    SET @convId = NEWID();
-                    INSERT INTO altdesk.Conversation (ConversationId, TenantId, ChannelId, QueueId, AssignedUserId, OpenedByContactId, Title, Kind, Status, SourceChannel, LastMessageAt, CreatedAt, ClosedAt, CsatScore, SlaDeadline, SlaStatus, FirstResponseAt)
-                    VALUES (@convId, @tenantId, @sms_chId, @q_suporte, @juliana_userId, @c5, 'Ricardo Nunes', 'DIRECT', 'RESOLVED', 'SMS', DATEADD(hour, 6, DATEADD(day, -5, GETUTCDATE())), DATEADD(day, -5, GETUTCDATE()), DATEADD(hour, 6, DATEADD(day, -5, GETUTCDATE())), 2, DATEADD(minute, 15, DATEADD(day, -5, GETUTCDATE())), 'VIOLATED', DATEADD(hour, 4, DATEADD(day, -5, GETUTCDATE())));
-
-                    INSERT INTO altdesk.ExternalThreadMap (TenantId, ConnectorId, ExternalChatId, ExternalUserId, ConversationId)
-                    VALUES (@tenantId, 'demo_sms_conn_' + LEFT(CAST(@tenantId AS NVARCHAR(36)), 8), '5511988881005', '5511988881005', @convId);
-
-                    INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, SenderExternalId, Status, CreatedAt)
-                    VALUES (NEWID(), @tenantId, @convId, 'IN', 'Preciso alterar meu CPF de cadastro urgente!', '5511988881005', 'READ', DATEADD(day, -5, GETUTCDATE()));
-
-                    INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, SenderUserId, Status, CreatedAt)
-                    VALUES (NEWID(), @tenantId, @convId, 'OUT', 'Desculpe a demora, para alterar envie o comprovante...', @juliana_userId, 'READ', DATEADD(hour, 4, DATEADD(day, -5, GETUTCDATE())));
-
-                    INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, SenderExternalId, Status, CreatedAt)
-                    VALUES (NEWID(), @tenantId, @convId, 'IN', 'Já enviei', '5511988881005', 'READ', DATEADD(hour, 5, DATEADD(day, -5, GETUTCDATE())));
-
-                    INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, SenderUserId, Status, CreatedAt)
-                    VALUES (NEWID(), @tenantId, @convId, 'OUT', 'Alterado com sucesso.', @juliana_userId, 'READ', DATEADD(hour, 6, DATEADD(day, -5, GETUTCDATE())));
-
-                    SET @ticketId = NEWID();
-                    INSERT INTO altdesk.Ticket (TicketId, TenantId, ConversationId, Priority, Status, AssignedAgentId, SLAFirstResponseDue, SLAResolutionDue, FirstResponseAt, ResolvedAt, SlaStatus, KanbanOrder, CreatedAt, UpdatedAt)
-                    VALUES (@ticketId, @tenantId, @convId, 'CRITICAL', 'RESOLVED', @juliana_agentId, DATEADD(minute, 15, DATEADD(day, -5, GETUTCDATE())), DATEADD(hour, 1, DATEADD(day, -5, GETUTCDATE())), DATEADD(hour, 4, DATEADD(day, -5, GETUTCDATE())), DATEADD(hour, 6, DATEADD(day, -5, GETUTCDATE())), 'VIOLATED', 0, DATEADD(day, -5, GETUTCDATE()), DATEADD(hour, 6, DATEADD(day, -5, GETUTCDATE())));
-
-                    INSERT INTO altdesk.TicketEvent (TenantId, TicketId, EventType, NewValue, ActorUserId, CreatedAt)
-                    VALUES (@tenantId, @ticketId, 'CREATED', 'NEW', @juliana_userId, DATEADD(day, -5, GETUTCDATE())),
-                           (@tenantId, @ticketId, 'STATUS_CHANGE', 'RESOLVED', @juliana_userId, DATEADD(hour, 6, DATEADD(day, -5, GETUTCDATE())));
-
-                    INSERT INTO altdesk.SatisfactionRating (ConversationId, Score, Comment, CreatedAt)
-                    VALUES (@convId, 2, 'Demorou muito para responder, quase perdi o prazo.', DATEADD(hour, 7, DATEADD(day, -5, GETUTCDATE())));
-
-                    -- Scenario 6: Open ticket (SLA Warning), high priority, WhatsApp, assigned to Suporte N1, created 50 minutes ago.
-                    INSERT INTO altdesk.Contact (ContactId, TenantId, Name, Phone, Email, Tags, CreatedAt)
-                    VALUES (@c6, @tenantId, 'Luciana Costa', '5511988881006', 'luciana.costa@cliente.demo', '["Demonstração", "Suporte"]', DATEADD(minute, -50, GETUTCDATE()));
-
-                    SET @convId = NEWID();
-                    INSERT INTO altdesk.Conversation (ConversationId, TenantId, ChannelId, QueueId, AssignedUserId, OpenedByContactId, Title, Kind, Status, SourceChannel, LastMessageAt, CreatedAt, ClosedAt, CsatScore, SlaDeadline, SlaStatus, FirstResponseAt)
-                    VALUES (@convId, @tenantId, @whatsapp_chId, @q_suporte, @n1_userId, @c6, 'Luciana Costa', 'DIRECT', 'OPEN', 'WHATSAPP', DATEADD(minute, -50, GETUTCDATE()), DATEADD(minute, -50, GETUTCDATE()), NULL, NULL, DATEADD(minute, 10, GETUTCDATE()), 'PENDING', NULL);
-
-                    INSERT INTO altdesk.ExternalThreadMap (TenantId, ConnectorId, ExternalChatId, ExternalUserId, ConversationId)
-                    VALUES (@tenantId, 'demo_whatsapp_conn_' + LEFT(CAST(@tenantId AS NVARCHAR(36)), 8), '5511988881006', '5511988881006@s.whatsapp.net', @convId);
-
-                    INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, SenderExternalId, Status, CreatedAt)
-                    VALUES (NEWID(), @tenantId, @convId, 'IN', 'Minha integração com o CRM parou de funcionar', '5511988881006', 'READ', DATEADD(minute, -50, GETUTCDATE()));
-
-                    SET @ticketId = NEWID();
-                    INSERT INTO altdesk.Ticket (TicketId, TenantId, ConversationId, Priority, Status, AssignedAgentId, SLAFirstResponseDue, SLAResolutionDue, FirstResponseAt, ResolvedAt, SlaStatus, KanbanOrder, CreatedAt, UpdatedAt)
-                    VALUES (@ticketId, @tenantId, @convId, 'HIGH', 'OPEN', @n1_agentId, DATEADD(minute, 10, GETUTCDATE()), DATEADD(hour, 3, DATEADD(minute, 10, GETUTCDATE())), NULL, NULL, 'WARNING', 0, DATEADD(minute, -50, GETUTCDATE()), GETUTCDATE());
-
-                    INSERT INTO altdesk.TicketEvent (TenantId, TicketId, EventType, NewValue, ActorUserId, CreatedAt)
-                    VALUES (@tenantId, @ticketId, 'CREATED', 'NEW', @n1_userId, DATEADD(minute, -50, GETUTCDATE()));
-
-                    -- Scenario 7: Closed ticket, medium priority, Email, assigned to Consultor Comercial, created 4 days ago.
-                    INSERT INTO altdesk.Contact (ContactId, TenantId, Name, Phone, Email, Tags, CreatedAt)
-                    VALUES (@c7, @tenantId, 'Beatriz Lima', '5511988881007', 'beatriz.lima@cliente.demo', '["Demonstração", "Upgrade"]', DATEADD(day, -4, GETUTCDATE()));
-
-                    SET @convId = NEWID();
-                    INSERT INTO altdesk.Conversation (ConversationId, TenantId, ChannelId, QueueId, AssignedUserId, OpenedByContactId, Title, Kind, Status, SourceChannel, LastMessageAt, CreatedAt, ClosedAt, CsatScore, SlaDeadline, SlaStatus, FirstResponseAt)
-                    VALUES (@convId, @tenantId, @email_chId, @q_comercial, @vendas_userId, @c7, 'Demonstração Plano Enterprise', 'DIRECT', 'RESOLVED', 'EMAIL', DATEADD(hour, 2, DATEADD(day, -4, GETUTCDATE())), DATEADD(day, -4, GETUTCDATE()), DATEADD(hour, 2, DATEADD(day, -4, GETUTCDATE())), 5, DATEADD(hour, 2, DATEADD(day, -4, GETUTCDATE())), 'MET', DATEADD(minute, 30, DATEADD(day, -4, GETUTCDATE())));
-
-                    INSERT INTO altdesk.ExternalThreadMap (TenantId, ConnectorId, ExternalChatId, ExternalUserId, ConversationId)
-                    VALUES (@tenantId, 'demo_email_conn_' + LEFT(CAST(@tenantId AS NVARCHAR(36)), 8), 'beatriz.lima@cliente.demo', 'beatriz.lima@cliente.demo', @convId);
-
-                    INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, SenderExternalId, Status, CreatedAt)
-                    VALUES (NEWID(), @tenantId, @convId, 'IN', 'Gostaria de agendar uma demonstração do plano Enterprise', 'beatriz.lima@cliente.demo', 'READ', DATEADD(day, -4, GETUTCDATE()));
-
-                    INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, SenderUserId, Status, CreatedAt)
-                    VALUES (NEWID(), @tenantId, @convId, 'OUT', 'Com certeza! Segue link do meu calendário...', @vendas_userId, 'READ', DATEADD(minute, 30, DATEADD(day, -4, GETUTCDATE())));
-
-                    INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, SenderExternalId, Status, CreatedAt)
-                    VALUES (NEWID(), @tenantId, @convId, 'IN', 'Agendado! Muito obrigado.', 'beatriz.lima@cliente.demo', 'READ', DATEADD(hour, 2, DATEADD(day, -4, GETUTCDATE())));
-
-                    SET @ticketId = NEWID();
-                    INSERT INTO altdesk.Ticket (TicketId, TenantId, ConversationId, Priority, Status, AssignedAgentId, SLAFirstResponseDue, SLAResolutionDue, FirstResponseAt, ResolvedAt, SlaStatus, KanbanOrder, CreatedAt, UpdatedAt)
-                    VALUES (@ticketId, @tenantId, @convId, 'MEDIUM', 'RESOLVED', @vendas_agentId, DATEADD(hour, 2, DATEADD(day, -4, GETUTCDATE())), DATEADD(hour, 12, DATEADD(day, -4, GETUTCDATE())), DATEADD(minute, 30, DATEADD(day, -4, GETUTCDATE())), DATEADD(hour, 2, DATEADD(day, -4, GETUTCDATE())), 'ON_TIME', 0, DATEADD(day, -4, GETUTCDATE()), DATEADD(hour, 2, DATEADD(day, -4, GETUTCDATE())));
-
-                    INSERT INTO altdesk.SatisfactionRating (ConversationId, Score, Comment, CreatedAt)
-                    VALUES (@convId, 5, 'Ótimo atendimento de vendas.', DATEADD(hour, 2, DATEADD(day, -4, GETUTCDATE())));
-
-                    -- Scenario 8: Closed ticket, low priority, WhatsApp, assigned to Admin, created 4 days ago.
-                    INSERT INTO altdesk.Contact (ContactId, TenantId, Name, Phone, Email, Tags, CreatedAt)
-                    VALUES (@c8, @tenantId, 'Gustavo Azevedo', '5511988881008', 'gustavo.azevedo@cliente.demo', '["Demonstração", "Dúvida"]', DATEADD(day, -4, GETUTCDATE()));
-
-                    SET @convId = NEWID();
-                    INSERT INTO altdesk.Conversation (ConversationId, TenantId, ChannelId, QueueId, AssignedUserId, OpenedByContactId, Title, Kind, Status, SourceChannel, LastMessageAt, CreatedAt, ClosedAt, CsatScore, SlaDeadline, SlaStatus, FirstResponseAt)
-                    VALUES (@convId, @tenantId, @whatsapp_chId, @q_suporte, @admin_userId, @c8, 'Gustavo Azevedo', 'DIRECT', 'RESOLVED', 'WHATSAPP', DATEADD(hour, 3, DATEADD(day, -4, GETUTCDATE())), DATEADD(day, -4, GETUTCDATE()), DATEADD(hour, 3, DATEADD(day, -4, GETUTCDATE())), 3, DATEADD(hour, 4, DATEADD(day, -4, GETUTCDATE())), 'MET', DATEADD(hour, 1, DATEADD(day, -4, GETUTCDATE())));
-
-                    INSERT INTO altdesk.ExternalThreadMap (TenantId, ConnectorId, ExternalChatId, ExternalUserId, ConversationId)
-                    VALUES (@tenantId, 'demo_whatsapp_conn_' + LEFT(CAST(@tenantId AS NVARCHAR(36)), 8), '5511988881008', '5511988881008@s.whatsapp.net', @convId);
-
-                    INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, SenderExternalId, Status, CreatedAt)
-                    VALUES (NEWID(), @tenantId, @convId, 'IN', 'Como altero a cor do chat widget?', '5511988881008', 'READ', DATEADD(day, -4, GETUTCDATE()));
-
-                    INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, SenderUserId, Status, CreatedAt)
-                    VALUES (NEWID(), @tenantId, @convId, 'OUT', 'Basta ir em Configurações > Widget...', @admin_userId, 'READ', DATEADD(hour, 1, DATEADD(day, -4, GETUTCDATE())));
-
-                    INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, SenderExternalId, Status, CreatedAt)
-                    VALUES (NEWID(), @tenantId, @convId, 'IN', 'Ok.', '5511988881008', 'READ', DATEADD(hour, 3, DATEADD(day, -4, GETUTCDATE())));
-
-                    SET @ticketId = NEWID();
-                    INSERT INTO altdesk.Ticket (TicketId, TenantId, ConversationId, Priority, Status, AssignedAgentId, SLAFirstResponseDue, SLAResolutionDue, FirstResponseAt, ResolvedAt, SlaStatus, KanbanOrder, CreatedAt, UpdatedAt)
-                    VALUES (@ticketId, @tenantId, @convId, 'LOW', 'RESOLVED', @admin_agentId, DATEADD(hour, 4, DATEADD(day, -4, GETUTCDATE())), DATEADD(day, 1, DATEADD(day, -4, GETUTCDATE())), DATEADD(hour, 1, DATEADD(day, -4, GETUTCDATE())), DATEADD(hour, 3, DATEADD(day, -4, GETUTCDATE())), 'ON_TIME', 0, DATEADD(day, -4, GETUTCDATE()), DATEADD(hour, 3, DATEADD(day, -4, GETUTCDATE())));
-
-                    INSERT INTO altdesk.SatisfactionRating (ConversationId, Score, Comment, CreatedAt)
-                    VALUES (@convId, 3, 'Resposta ok, mas poderia ter mais imagens no guia.', DATEADD(hour, 3, DATEADD(day, -4, GETUTCDATE())));
-
-                    -- Scenario 9: Open ticket, low priority, Email, assigned to Financeiro, created 3 days ago.
-                    INSERT INTO altdesk.Contact (ContactId, TenantId, Name, Phone, Email, Tags, CreatedAt)
-                    VALUES (@c9, @tenantId, 'Simone Prado', '5511988881009', 'simone.prado@cliente.demo', '["Demonstração", "Financeiro"]', DATEADD(day, -3, GETUTCDATE()));
-
-                    SET @convId = NEWID();
-                    INSERT INTO altdesk.Conversation (ConversationId, TenantId, ChannelId, QueueId, AssignedUserId, OpenedByContactId, Title, Kind, Status, SourceChannel, LastMessageAt, CreatedAt, ClosedAt, CsatScore, SlaDeadline, SlaStatus, FirstResponseAt)
-                    VALUES (@convId, @tenantId, @email_chId, @q_financeiro, @fin_userId, @c9, 'Boleto não Recebido', 'DIRECT', 'OPEN', 'EMAIL', DATEADD(hour, 5, DATEADD(day, -3, GETUTCDATE())), DATEADD(day, -3, GETUTCDATE()), NULL, NULL, DATEADD(hour, 4, DATEADD(day, -3, GETUTCDATE())), 'VIOLATED', DATEADD(hour, 5, DATEADD(day, -3, GETUTCDATE())));
-
-                    INSERT INTO altdesk.ExternalThreadMap (TenantId, ConnectorId, ExternalChatId, ExternalUserId, ConversationId)
-                    VALUES (@tenantId, 'demo_email_conn_' + LEFT(CAST(@tenantId AS NVARCHAR(36)), 8), 'simone.prado@cliente.demo', 'simone.prado@cliente.demo', @convId);
-
-                    INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, SenderExternalId, Status, CreatedAt)
-                    VALUES (NEWID(), @tenantId, @convId, 'IN', 'Não recebi meu boleto deste mês', 'simone.prado@cliente.demo', 'READ', DATEADD(day, -3, GETUTCDATE()));
-
-                    INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, SenderUserId, Status, CreatedAt)
-                    VALUES (NEWID(), @tenantId, @convId, 'OUT', 'Verificamos que o boleto foi enviado para o email X. Confirma?', @fin_userId, 'READ', DATEADD(hour, 5, DATEADD(day, -3, GETUTCDATE())));
-
-                    SET @ticketId = NEWID();
-                    INSERT INTO altdesk.Ticket (TicketId, TenantId, ConversationId, Priority, Status, AssignedAgentId, SLAFirstResponseDue, SLAResolutionDue, FirstResponseAt, ResolvedAt, SlaStatus, KanbanOrder, CreatedAt, UpdatedAt)
-                    VALUES (@ticketId, @tenantId, @convId, 'LOW', 'WAITING_CUSTOMER', @fin_agentId, DATEADD(hour, 4, DATEADD(day, -3, GETUTCDATE())), DATEADD(day, 1, DATEADD(day, -3, GETUTCDATE())), DATEADD(hour, 5, DATEADD(day, -3, GETUTCDATE())), NULL, 'VIOLATED', 2, DATEADD(day, -3, GETUTCDATE()), DATEADD(hour, 5, DATEADD(day, -3, GETUTCDATE())));
-
-                    -- Scenario 10: Closed ticket, high priority, Platform, assigned to Carlos Lima, created 3 days ago.
-                    INSERT INTO altdesk.Contact (ContactId, TenantId, Name, Phone, Email, Tags, CreatedAt)
-                    VALUES (@c10, @tenantId, 'Diego Martins', '5511988881010', 'diego.martins@cliente.demo', '["Demonstração", "Suporte"]', DATEADD(day, -3, GETUTCDATE()));
-
-                    SET @convId = NEWID();
-                    INSERT INTO altdesk.Conversation (ConversationId, TenantId, ChannelId, QueueId, AssignedUserId, OpenedByContactId, Title, Kind, Status, SourceChannel, LastMessageAt, CreatedAt, ClosedAt, CsatScore, SlaDeadline, SlaStatus, FirstResponseAt)
-                    VALUES (@convId, @tenantId, @webchat_chId, @q_suporte, @carlos_userId, @c10, 'Diego Martins', 'DIRECT', 'RESOLVED', 'PLATFORM', DATEADD(hour, 1, DATEADD(day, -3, GETUTCDATE())), DATEADD(day, -3, GETUTCDATE()), DATEADD(hour, 1, DATEADD(day, -3, GETUTCDATE())), 5, DATEADD(hour, 1, DATEADD(day, -3, GETUTCDATE())), 'MET', DATEADD(minute, 15, DATEADD(day, -3, GETUTCDATE())));
-
-                    INSERT INTO altdesk.ExternalThreadMap (TenantId, ConnectorId, ExternalChatId, ExternalUserId, ConversationId)
-                    VALUES (@tenantId, 'demo_webchat_conn_' + LEFT(CAST(@tenantId AS NVARCHAR(36)), 8), '5511988881010', '5511988881010', @convId);
-
-                    INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, SenderExternalId, Status, CreatedAt)
-                    VALUES (NEWID(), @tenantId, @convId, 'IN', 'Não consigo adicionar novos agentes', 'diego.martins@cliente.demo', 'READ', DATEADD(day, -3, GETUTCDATE()));
-
-                    INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, SenderUserId, Status, CreatedAt)
-                    VALUES (NEWID(), @tenantId, @convId, 'OUT', 'Verifiquei que seu plano Starter tem limite de 3 assentos. Quer fazer upgrade?', @carlos_userId, 'READ', DATEADD(minute, 15, DATEADD(day, -3, GETUTCDATE())));
-
-                    INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, SenderExternalId, Status, CreatedAt)
-                    VALUES (NEWID(), @tenantId, @convId, 'IN', 'Sim, por favor!', 'diego.martins@cliente.demo', 'READ', DATEADD(minute, 45, DATEADD(day, -3, GETUTCDATE())));
-
-                    INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, SenderUserId, Status, CreatedAt)
-                    VALUES (NEWID(), @tenantId, @convId, 'OUT', 'Upgrade realizado. Já pode adicionar!', @carlos_userId, 'READ', DATEADD(hour, 1, DATEADD(day, -3, GETUTCDATE())));
-
-                    SET @ticketId = NEWID();
-                    INSERT INTO altdesk.Ticket (TicketId, TenantId, ConversationId, Priority, Status, AssignedAgentId, SLAFirstResponseDue, SLAResolutionDue, FirstResponseAt, ResolvedAt, SlaStatus, KanbanOrder, CreatedAt, UpdatedAt)
-                    VALUES (@ticketId, @tenantId, @convId, 'HIGH', 'RESOLVED', @carlos_agentId, DATEADD(hour, 1, DATEADD(day, -3, GETUTCDATE())), DATEADD(hour, 4, DATEADD(day, -3, GETUTCDATE())), DATEADD(minute, 15, DATEADD(day, -3, GETUTCDATE())), DATEADD(hour, 1, DATEADD(day, -3, GETUTCDATE())), 'ON_TIME', 0, DATEADD(day, -3, GETUTCDATE()), DATEADD(hour, 1, DATEADD(day, -3, GETUTCDATE())));
-
-                    INSERT INTO altdesk.SatisfactionRating (ConversationId, Score, Comment, CreatedAt)
-                    VALUES (@convId, 5, 'Ótimo atendimento, rápido e resolveu.', DATEADD(hour, 1, DATEADD(day, -3, GETUTCDATE())));
-
-                    -- Scenario 11: Open ticket, medium priority, WhatsApp, assigned to Juliana Rocha, created 2 days ago.
-                    INSERT INTO altdesk.Contact (ContactId, TenantId, Name, Phone, Email, Tags, CreatedAt)
-                    VALUES (@c11, @tenantId, 'Patricia Freitas', '5511988881011', 'patricia.freitas@cliente.demo', '["Demonstração", "Bug"]', DATEADD(day, -2, GETUTCDATE()));
-
-                    SET @convId = NEWID();
-                    INSERT INTO altdesk.Conversation (ConversationId, TenantId, ChannelId, QueueId, AssignedUserId, OpenedByContactId, Title, Kind, Status, SourceChannel, LastMessageAt, CreatedAt, ClosedAt, CsatScore, SlaDeadline, SlaStatus, FirstResponseAt)
-                    VALUES (@convId, @tenantId, @whatsapp_chId, @q_suporte, @juliana_userId, @c11, 'Patricia Freitas', 'DIRECT', 'OPEN', 'WHATSAPP', DATEADD(day, -2, GETUTCDATE()), DATEADD(day, -2, GETUTCDATE()), NULL, NULL, DATEADD(hour, 2, DATEADD(day, -2, GETUTCDATE())), 'VIOLATED', NULL);
-
-                    INSERT INTO altdesk.ExternalThreadMap (TenantId, ConnectorId, ExternalChatId, ExternalUserId, ConversationId)
-                    VALUES (@tenantId, 'demo_whatsapp_conn_' + LEFT(CAST(@tenantId AS NVARCHAR(36)), 8), '5511988881011', '5511988881011@s.whatsapp.net', @convId);
-
-                    INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, SenderExternalId, Status, CreatedAt)
-                    VALUES (NEWID(), @tenantId, @convId, 'IN', 'Erro 500 ao tentar gerar relatório de auditoria', '5511988881011', 'READ', DATEADD(day, -2, GETUTCDATE()));
-
-                    SET @ticketId = NEWID();
-                    INSERT INTO altdesk.Ticket (TicketId, TenantId, ConversationId, Priority, Status, AssignedAgentId, SLAFirstResponseDue, SLAResolutionDue, FirstResponseAt, ResolvedAt, SlaStatus, KanbanOrder, CreatedAt, UpdatedAt)
-                    VALUES (@ticketId, @tenantId, @convId, 'MEDIUM', 'ESCALATED', @juliana_agentId, DATEADD(hour, 2, DATEADD(day, -2, GETUTCDATE())), DATEADD(hour, 12, DATEADD(day, -2, GETUTCDATE())), NULL, NULL, 'VIOLATED', 3, DATEADD(day, -2, GETUTCDATE()), GETUTCDATE());
-
-                    -- Scenario 12: Closed ticket, medium priority, WhatsApp, assigned to Admin, created 2 days ago.
-                    INSERT INTO altdesk.Contact (ContactId, TenantId, Name, Phone, Email, Tags, CreatedAt)
-                    VALUES (@c12, @tenantId, 'Eduardo Ramos', '5511988881012', 'eduardo.ramos@cliente.demo', '["Demonstração", "Suporte"]', DATEADD(day, -2, GETUTCDATE()));
-
-                    SET @convId = NEWID();
-                    INSERT INTO altdesk.Conversation (ConversationId, TenantId, ChannelId, QueueId, AssignedUserId, OpenedByContactId, Title, Kind, Status, SourceChannel, LastMessageAt, CreatedAt, ClosedAt, CsatScore, SlaDeadline, SlaStatus, FirstResponseAt)
-                    VALUES (@convId, @tenantId, @whatsapp_chId, @q_suporte, @admin_userId, @c12, 'Eduardo Ramos', 'DIRECT', 'RESOLVED', 'WHATSAPP', DATEADD(minute, 45, DATEADD(day, -2, GETUTCDATE())), DATEADD(day, -2, GETUTCDATE()), DATEADD(minute, 45, DATEADD(day, -2, GETUTCDATE())), 4, DATEADD(hour, 2, DATEADD(day, -2, GETUTCDATE())), 'MET', DATEADD(minute, 20, DATEADD(day, -2, GETUTCDATE())));
-
-                    INSERT INTO altdesk.ExternalThreadMap (TenantId, ConnectorId, ExternalChatId, ExternalUserId, ConversationId)
-                    VALUES (@tenantId, 'demo_whatsapp_conn_' + LEFT(CAST(@tenantId AS NVARCHAR(36)), 8), '5511988881012', '5511988881012@s.whatsapp.net', @convId);
-
-                    INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, SenderExternalId, Status, CreatedAt)
-                    VALUES (NEWID(), @tenantId, @convId, 'IN', 'Como ativo autenticação de dois fatores?', '5511988881012', 'READ', DATEADD(day, -2, GETUTCDATE()));
-
-                    INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, SenderUserId, Status, CreatedAt)
-                    VALUES (NEWID(), @tenantId, @convId, 'OUT', 'Vá em Configurações > Segurança...', @admin_userId, 'READ', DATEADD(minute, 20, DATEADD(day, -2, GETUTCDATE())));
-
-                    INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, SenderExternalId, Status, CreatedAt)
-                    VALUES (NEWID(), @tenantId, @convId, 'IN', 'Obrigado, funcionou!', '5511988881012', 'READ', DATEADD(minute, 40, DATEADD(day, -2, GETUTCDATE())));
-
-                    SET @ticketId = NEWID();
-                    INSERT INTO altdesk.Ticket (TicketId, TenantId, ConversationId, Priority, Status, AssignedAgentId, SLAFirstResponseDue, SLAResolutionDue, FirstResponseAt, ResolvedAt, SlaStatus, KanbanOrder, CreatedAt, UpdatedAt)
-                    VALUES (@ticketId, @tenantId, @convId, 'MEDIUM', 'RESOLVED', @admin_agentId, DATEADD(hour, 2, DATEADD(day, -2, GETUTCDATE())), DATEADD(hour, 12, DATEADD(day, -2, GETUTCDATE())), DATEADD(minute, 20, DATEADD(day, -2, GETUTCDATE())), DATEADD(minute, 45, DATEADD(day, -2, GETUTCDATE())), 'ON_TIME', 0, DATEADD(day, -2, GETUTCDATE()), DATEADD(minute, 45, DATEADD(day, -2, GETUTCDATE())));
-
-                    INSERT INTO altdesk.SatisfactionRating (ConversationId, Score, Comment, CreatedAt)
-                    VALUES (@convId, 4, 'Suporte bom.', DATEADD(minute, 50, DATEADD(day, -2, GETUTCDATE())));
-
-                    -- Scenario 13: Open ticket, high priority, Email, assigned to Rafael Torres, created 1 day ago.
-                    INSERT INTO altdesk.Contact (ContactId, TenantId, Name, Phone, Email, Tags, CreatedAt)
-                    VALUES (@c13, @tenantId, 'Roberto Carlos', '5511988881013', 'roberto.carlos@cliente.demo', '["Demonstração", "Financeiro"]', DATEADD(day, -1, GETUTCDATE()));
-
-                    SET @convId = NEWID();
-                    INSERT INTO altdesk.Conversation (ConversationId, TenantId, ChannelId, QueueId, AssignedUserId, OpenedByContactId, Title, Kind, Status, SourceChannel, LastMessageAt, CreatedAt, ClosedAt, CsatScore, SlaDeadline, SlaStatus, FirstResponseAt)
-                    VALUES (@convId, @tenantId, @email_chId, @q_financeiro, @rafael_userId, @c13, 'Fatura Duplicada no Sistema', 'DIRECT', 'OPEN', 'EMAIL', DATEADD(day, -1, GETUTCDATE()), DATEADD(day, -1, GETUTCDATE()), NULL, NULL, DATEADD(hour, 1, DATEADD(day, -1, GETUTCDATE())), 'VIOLATED', NULL);
-
-                    INSERT INTO altdesk.ExternalThreadMap (TenantId, ConnectorId, ExternalChatId, ExternalUserId, ConversationId)
-                    VALUES (@tenantId, 'demo_email_conn_' + LEFT(CAST(@tenantId AS NVARCHAR(36)), 8), 'roberto.carlos@cliente.demo', 'roberto.carlos@cliente.demo', @convId);
-
-                    INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, SenderExternalId, Status, CreatedAt)
-                    VALUES (NEWID(), @tenantId, @convId, 'IN', 'Erro de conciliação de faturas no final do mês', 'roberto.carlos@cliente.demo', 'READ', DATEADD(day, -1, GETUTCDATE()));
-
-                    SET @ticketId = NEWID();
-                    INSERT INTO altdesk.Ticket (TicketId, TenantId, ConversationId, Priority, Status, AssignedAgentId, SLAFirstResponseDue, SLAResolutionDue, FirstResponseAt, ResolvedAt, SlaStatus, KanbanOrder, CreatedAt, UpdatedAt)
-                    VALUES (@ticketId, @tenantId, @convId, 'HIGH', 'OPEN', @rafael_agentId, DATEADD(hour, 1, DATEADD(day, -1, GETUTCDATE())), DATEADD(hour, 4, DATEADD(day, -1, GETUTCDATE())), NULL, NULL, 'VIOLATED', 0, DATEADD(day, -1, GETUTCDATE()), GETUTCDATE());
-
-                    -- Scenario 14: Closed ticket, low priority, WhatsApp, assigned to Suporte N1, created 1 day ago.
-                    INSERT INTO altdesk.Contact (ContactId, TenantId, Name, Phone, Email, Tags, CreatedAt)
-                    VALUES (@c14, @tenantId, 'Julio Cesar', '5511988881014', 'julio.cesar@cliente.demo', '["Demonstração", "Suporte"]', DATEADD(day, -1, GETUTCDATE()));
-
-                    SET @convId = NEWID();
-                    INSERT INTO altdesk.Conversation (ConversationId, TenantId, ChannelId, QueueId, AssignedUserId, OpenedByContactId, Title, Kind, Status, SourceChannel, LastMessageAt, CreatedAt, ClosedAt, CsatScore, SlaDeadline, SlaStatus, FirstResponseAt)
-                    VALUES (@convId, @tenantId, @whatsapp_chId, @q_suporte, @n1_userId, @c14, 'Julio Cesar', 'DIRECT', 'RESOLVED', 'WHATSAPP', DATEADD(hour, 2, DATEADD(day, -1, GETUTCDATE())), DATEADD(day, -1, GETUTCDATE()), DATEADD(hour, 2, DATEADD(day, -1, GETUTCDATE())), 5, DATEADD(hour, 4, DATEADD(day, -1, GETUTCDATE())), 'MET', DATEADD(minute, 30, DATEADD(day, -1, GETUTCDATE())));
-
-                    INSERT INTO altdesk.ExternalThreadMap (TenantId, ConnectorId, ExternalChatId, ExternalUserId, ConversationId)
-                    VALUES (@tenantId, 'demo_whatsapp_conn_' + LEFT(CAST(@tenantId AS NVARCHAR(36)), 8), '5511988881014', '5511988881014@s.whatsapp.net', @convId);
-
-                    INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, SenderExternalId, Status, CreatedAt)
-                    VALUES (NEWID(), @tenantId, @convId, 'IN', 'Vocês aceitam Pix parcelado?', '5511988881014', 'READ', DATEADD(day, -1, GETUTCDATE()));
-
-                    INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, SenderUserId, Status, CreatedAt)
-                    VALUES (NEWID(), @tenantId, @convId, 'OUT', 'Atualmente apenas Pix à vista ou Cartão...', @n1_userId, 'READ', DATEADD(minute, 30, DATEADD(day, -1, GETUTCDATE())));
-
-                    INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, SenderExternalId, Status, CreatedAt)
-                    VALUES (NEWID(), @tenantId, @convId, 'IN', 'Ok, farei no cartão então.', '5511988881014', 'READ', DATEADD(hour, 2, DATEADD(day, -1, GETUTCDATE())));
-
-                    SET @ticketId = NEWID();
-                    INSERT INTO altdesk.Ticket (TicketId, TenantId, ConversationId, Priority, Status, AssignedAgentId, SLAFirstResponseDue, SLAResolutionDue, FirstResponseAt, ResolvedAt, SlaStatus, KanbanOrder, CreatedAt, UpdatedAt)
-                    VALUES (@ticketId, @tenantId, @convId, 'LOW', 'RESOLVED', @n1_agentId, DATEADD(hour, 4, DATEADD(day, -1, GETUTCDATE())), DATEADD(day, 1, DATEADD(day, -1, GETUTCDATE())), DATEADD(minute, 30, DATEADD(day, -1, GETUTCDATE())), DATEADD(hour, 2, DATEADD(day, -1, GETUTCDATE())), 'ON_TIME', 0, DATEADD(day, -1, GETUTCDATE()), DATEADD(hour, 2, DATEADD(day, -1, GETUTCDATE())));
-
-                    INSERT INTO altdesk.SatisfactionRating (ConversationId, Score, Comment, CreatedAt)
-                    VALUES (@convId, 5, 'Bem explicado!', DATEADD(hour, 2, DATEADD(day, -1, GETUTCDATE())));
-
-                    -- Scenario 15: Open ticket, low priority, SMS, assigned to Consultor Comercial, created 12 hours ago.
-                    INSERT INTO altdesk.Contact (ContactId, TenantId, Name, Phone, Email, Tags, CreatedAt)
-                    VALUES (@c15, @tenantId, 'Camila Pitanga', '5511988881015', 'camila.pitanga@cliente.demo', '["Demonstração", "Upgrade"]', DATEADD(hour, -12, GETUTCDATE()));
-
-                    SET @convId = NEWID();
-                    INSERT INTO altdesk.Conversation (ConversationId, TenantId, ChannelId, QueueId, AssignedUserId, OpenedByContactId, Title, Kind, Status, SourceChannel, LastMessageAt, CreatedAt, ClosedAt, CsatScore, SlaDeadline, SlaStatus, FirstResponseAt)
-                    VALUES (@convId, @tenantId, @sms_chId, @q_comercial, @vendas_userId, @c15, 'Camila Pitanga', 'DIRECT', 'OPEN', 'SMS', DATEADD(hour, -11, GETUTCDATE()), DATEADD(hour, -12, GETUTCDATE()), NULL, NULL, DATEADD(hour, -8, GETUTCDATE()), 'MET', DATEADD(hour, 1, DATEADD(hour, -12, GETUTCDATE())));
-
-                    INSERT INTO altdesk.ExternalThreadMap (TenantId, ConnectorId, ExternalChatId, ExternalUserId, ConversationId)
-                    VALUES (@tenantId, 'demo_sms_conn_' + LEFT(CAST(@tenantId AS NVARCHAR(36)), 8), '5511988881015', '5511988881015', @convId);
-
-                    INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, SenderExternalId, Status, CreatedAt)
-                    VALUES (NEWID(), @tenantId, @convId, 'IN', 'Tem desconto no plano anual?', '5511988881015', 'READ', DATEADD(hour, -12, GETUTCDATE()));
-
-                    INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, SenderUserId, Status, CreatedAt)
-                    VALUES (NEWID(), @tenantId, @convId, 'OUT', 'Sim, no plano anual oferecemos 20% de desconto...', @vendas_userId, 'READ', DATEADD(hour, -11, GETUTCDATE()));
-
-                    SET @ticketId = NEWID();
-                    INSERT INTO altdesk.Ticket (TicketId, TenantId, ConversationId, Priority, Status, AssignedAgentId, SLAFirstResponseDue, SLAResolutionDue, FirstResponseAt, ResolvedAt, SlaStatus, KanbanOrder, CreatedAt, UpdatedAt)
-                    VALUES (@ticketId, @tenantId, @convId, 'LOW', 'IN_PROGRESS', @vendas_agentId, DATEADD(hour, 4, DATEADD(hour, -12, GETUTCDATE())), DATEADD(day, 1, DATEADD(hour, -12, GETUTCDATE())), DATEADD(hour, -11, GETUTCDATE()), NULL, 'ON_TIME', 1, DATEADD(hour, -12, GETUTCDATE()), GETUTCDATE());
-
-                    -- Scenario 16: Closed ticket, medium priority, WhatsApp, assigned to Juliana Rocha, created 4 hours ago.
-                    INSERT INTO altdesk.Contact (ContactId, TenantId, Name, Phone, Email, Tags, CreatedAt)
-                    VALUES (@c16, @tenantId, 'Renato Aragão', '5511988881016', 'renato.aragao@cliente.demo', '["Demonstração", "Suporte"]', DATEADD(hour, -4, GETUTCDATE()));
-
-                    SET @convId = NEWID();
-                    INSERT INTO altdesk.Conversation (ConversationId, TenantId, ChannelId, QueueId, AssignedUserId, OpenedByContactId, Title, Kind, Status, SourceChannel, LastMessageAt, CreatedAt, ClosedAt, CsatScore, SlaDeadline, SlaStatus, FirstResponseAt)
-                    VALUES (@convId, @tenantId, @whatsapp_chId, @q_suporte, @juliana_userId, @c16, 'Renato Aragão', 'DIRECT', 'RESOLVED', 'WHATSAPP', DATEADD(hour, -3, GETUTCDATE()), DATEADD(hour, -4, GETUTCDATE()), DATEADD(hour, -3, GETUTCDATE()), 4, DATEADD(hour, -2, GETUTCDATE()), 'MET', DATEADD(minute, 10, DATEADD(hour, -4, GETUTCDATE())));
-
-                    INSERT INTO altdesk.ExternalThreadMap (TenantId, ConnectorId, ExternalChatId, ExternalUserId, ConversationId)
-                    VALUES (@tenantId, 'demo_whatsapp_conn_' + LEFT(CAST(@tenantId AS NVARCHAR(36)), 8), '5511988881016', '5511988881016@s.whatsapp.net', @convId);
-
-                    INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, SenderExternalId, Status, CreatedAt)
-                    VALUES (NEWID(), @tenantId, @convId, 'IN', 'Como faço para excluir uma tag?', '5511988881016', 'READ', DATEADD(hour, -4, GETUTCDATE()));
-
-                    INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, SenderUserId, Status, CreatedAt)
-                    VALUES (NEWID(), @tenantId, @convId, 'OUT', 'Vá em Configurações > Tags e clique na lixeira...', @juliana_userId, 'READ', DATEADD(minute, 10, DATEADD(hour, -4, GETUTCDATE())));
-
-                    INSERT INTO altdesk.Message (MessageId, TenantId, ConversationId, Direction, Body, SenderExternalId, Status, CreatedAt)
-                    VALUES (NEWID(), @tenantId, @convId, 'IN', 'Deu certo!', '5511988881016', 'READ', DATEADD(hour, -3, GETUTCDATE()));
-
-                    SET @ticketId = NEWID();
-                    INSERT INTO altdesk.Ticket (TicketId, TenantId, ConversationId, Priority, Status, AssignedAgentId, SLAFirstResponseDue, SLAResolutionDue, FirstResponseAt, ResolvedAt, SlaStatus, KanbanOrder, CreatedAt, UpdatedAt)
-                    VALUES (@ticketId, @tenantId, @convId, 'MEDIUM', 'RESOLVED', @juliana_agentId, DATEADD(hour, 2, DATEADD(hour, -4, GETUTCDATE())), DATEADD(hour, 12, DATEADD(hour, -4, GETUTCDATE())), DATEADD(minute, 10, DATEADD(hour, -4, GETUTCDATE())), DATEADD(hour, -3, GETUTCDATE())), 'ON_TIME', 0, DATEADD(hour, -4, GETUTCDATE()), DATEADD(hour, -3, GETUTCDATE()));
-
-                    INSERT INTO altdesk.SatisfactionRating (ConversationId, Score, Comment, CreatedAt)
-                    VALUES (@convId, 4, 'Resolvido.', DATEADD(hour, -3, GETUTCDATE()));
-                `);
+                .query(fullQuery);
         }
 
         logger.info({ tenantId }, "Demo data preload finished");

@@ -14,9 +14,16 @@ router.get("/", authMw, requirePermission('settings'), requireRole("ADMIN", "SUP
         const pool = await getPool();
         const tenantId = req.user.tenantId;
 
-        const r = await pool.request()
-            .input("tenantId", tenantId)
-            .query(`
+        const search = req.query.search as string;
+        const reqDb = pool.request().input("tenantId", tenantId);
+        
+        let searchWhere = "";
+        if (search) {
+            reqDb.input("search", `%${search}%`);
+            searchWhere = ` AND (al.Action LIKE @search OR u.DisplayName LIKE @search OR u.Email LIKE @search OR al.TargetTable LIKE @search OR al.TargetId LIKE @search)`;
+        }
+
+        const r = await reqDb.query(`
                 SELECT TOP 100 
                        al.*, 
                        u.Email as UserEmail,
@@ -24,6 +31,7 @@ router.get("/", authMw, requirePermission('settings'), requireRole("ADMIN", "SUP
                 FROM altdesk.AuditLog al
                 LEFT JOIN altdesk.[User] u ON u.UserId = al.UserId
                 WHERE al.TenantId = @tenantId
+                ${searchWhere}
                 ORDER BY al.CreatedAt DESC
             `);
 

@@ -142,3 +142,14 @@ export async function setTenantStatus(tenantId: string, active: boolean) {
         throw err;
     }
 }
+
+/**
+ * Limpa dados de demonstração (Tickets, Mensagens, Contatos gerados no onboarding)
+ * Executa a procedure altdesk.sp_altdesk_purge_demo_data
+ */
+export async function purgeTenantDemoData(tenantId: string) {
+    const pool = await getPool();
+    await pool.request()
+        .input("tenant_id", tenantId)
+        .execute("altdesk.sp_altdesk_purge_demo_data");
+}

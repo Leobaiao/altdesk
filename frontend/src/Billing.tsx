@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { api } from "./lib/api";
-import { ArrowLeft, CreditCard, FileText, CheckCircle, AlertTriangle, XCircle, Clock, X, Loader2 } from "lucide-react";
+import { ArrowLeft, CreditCard, FileText, CheckCircle, AlertTriangle, XCircle, Clock, X, Loader2, Trash2 } from "lucide-react";
 import { PageHeader } from "./components/PageHeader";
 
 interface Plan {
@@ -83,6 +83,7 @@ export function Billing({ onBack }: { onBack: () => void }) {
     email: "",
     billingType: "PIX" as "PIX" | "BOLETO" | "CREDIT_CARD",
   });
+  const [cleaning, setCleaning] = useState(false);
 
   const loadAll = () => {
     setLoading(true);
@@ -132,6 +133,20 @@ export function Billing({ onBack }: { onBack: () => void }) {
       setCheckoutError(msg || "Erro ao processar assinatura.");
     } finally {
       setCheckoutLoading(false);
+    }
+  };
+
+  const handleCleanup = async () => {
+    if (!window.confirm("Atenção! Isso apagará permanentemente todos os tickets, conversas e contatos de teste. Deseja continuar?")) return;
+    setCleaning(true);
+    try {
+        await api.post("/api/settings/tenant/cleanup");
+        alert("Dados de teste removidos com sucesso.");
+        // Optional: reload the page or navigate home
+    } catch (err: any) {
+        alert(err.response?.data?.error || "Falha ao limpar dados de teste.");
+    } finally {
+        setCleaning(false);
     }
   };
 
@@ -192,9 +207,17 @@ export function Billing({ onBack }: { onBack: () => void }) {
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 700, color: "#ff9800", fontSize: "0.95rem" }}>Período de Teste Ativo (Trial)</div>
-            <div style={{ color: "var(--text-secondary)", fontSize: "0.85rem" }}>
+            <div style={{ color: "var(--text-secondary)", fontSize: "0.85rem", marginBottom: 12 }}>
               Você está explorando o AltDesk com dados de demonstração. Assine um plano para liberar todas as funcionalidades e começar a usar com seus dados reais.
             </div>
+            <button 
+                onClick={handleCleanup} 
+                disabled={cleaning}
+                style={{ padding: "8px 14px", borderRadius: 8, fontSize: "0.8rem", display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(244, 67, 54, 0.1)", color: "#f44336", border: "1px solid rgba(244, 67, 54, 0.2)", cursor: "pointer", fontWeight: 600, transition: "all 0.2s" }}
+            >
+                {cleaning ? <Loader2 size={14} className="spin" /> : <Trash2 size={14} />} 
+                {cleaning ? "A limpar dados..." : "Limpar Dados de Teste Agora"}
+            </button>
           </div>
         </div>
       )}

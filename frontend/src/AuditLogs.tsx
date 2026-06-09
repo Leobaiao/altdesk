@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { api } from "./lib/api";
 import { PageHeader } from "./components/PageHeader";
-import { ListFilter, User, Clock, FileText, Database, ChevronRight, Eye } from "lucide-react";
+import { ListFilter, User, Clock, FileText, Database, ChevronRight, Eye, Search } from "lucide-react";
 
 interface AuditLog {
     AuditId: string;
@@ -26,8 +26,21 @@ export function AuditLogs({ onBack }: Props) {
     const [loading, setLoading] = useState(true);
     const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
 
+    const [searchTerm, setSearchTerm] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
+
+    // Debounce effect
     useEffect(() => {
-        api.get("/api/audit")
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchTerm);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
+
+    useEffect(() => {
+        setLoading(true);
+        const query = debouncedSearch ? `?search=${encodeURIComponent(debouncedSearch)}` : "";
+        api.get(`/api/audit${query}`)
             .then(res => {
                 setLogs(res.data || []);
                 setLoading(false);
@@ -36,7 +49,7 @@ export function AuditLogs({ onBack }: Props) {
                 console.error("Erro ao carregar logs:", err);
                 setLoading(false);
             });
-    }, []);
+    }, [debouncedSearch]);
 
     const formatDate = (dateStr: string) => {
         return new Date(dateStr).toLocaleString('pt-BR');
@@ -75,9 +88,21 @@ export function AuditLogs({ onBack }: Props) {
 
             <div style={{ display: "grid", gridTemplateColumns: selectedLog ? "1fr 400px" : "1fr", gap: 24, transition: "all 0.3s" }}>
                 <div style={{ background: "var(--bg-secondary)", borderRadius: 16, border: "1px solid var(--border)", overflow: "hidden" }}>
-                    <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ fontWeight: 600 }}>Ações Recentes</span>
-                        <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>Exibindo os últimos 100 registros</span>
+                    <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
+                        <div>
+                            <span style={{ fontWeight: 600, display: "block" }}>Ações Recentes</span>
+                            <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>Exibindo os últimos 100 registros</span>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", background: "var(--bg-primary)", padding: "8px 12px", borderRadius: 10, border: "1px solid var(--border)", width: 300 }}>
+                            <Search size={16} style={{ color: "var(--text-secondary)", marginRight: 8 }} />
+                            <input 
+                                type="text"
+                                placeholder="Buscar por ação, usuário, tabela ou ID..."
+                                value={searchTerm}
+                                onChange={e => setSearchTerm(e.target.value)}
+                                style={{ border: "none", background: "transparent", color: "var(--text-primary)", outline: "none", width: "100%", fontSize: "0.85rem" }}
+                            />
+                        </div>
                     </div>
 
                     {loading ? (

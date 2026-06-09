@@ -43,6 +43,7 @@ import {
   LogOut,
   Search,
   HelpCircle,
+  AlertTriangle
 } from "lucide-react";
 import { HelpProvider, useHelp } from "./contexts/HelpContext";
 import { HelpDrawer } from "./components/HelpDrawer";
@@ -462,6 +463,31 @@ function AppContent() {
   });
   const navigate = useNavigate();
 
+  const [trialExpiredData, setTrialExpiredData] = useState<any>(null);
+  const [extending, setExtending] = useState(false);
+
+  useEffect(() => {
+      const handler = (e: any) => {
+          setTrialExpiredData(e.detail);
+      };
+      window.addEventListener('trial-expired', handler);
+      return () => window.removeEventListener('trial-expired', handler);
+  }, []);
+
+  const handleExtendTrial = async () => {
+      setExtending(true);
+      try {
+          await api.post("/api/settings/extend-trial");
+          alert("Período de avaliação estendido com sucesso!");
+          setTrialExpiredData(null);
+          window.location.reload();
+      } catch (err: any) {
+          alert("Erro ao estender avaliação: " + (err.response?.data?.error || err.message));
+      } finally {
+          setExtending(false);
+      }
+  };
+
   // Validate token on load
   useEffect(() => {
     if (token) {
@@ -520,6 +546,41 @@ function AppContent() {
     <ChatProvider token={token} onLogout={handleLogout}>
       <HelpProvider>
         <MainLayout token={token} role={role || 'AGENT'} onLogout={handleLogout} />
+        {trialExpiredData && (
+            <div style={{
+                position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999,
+                background: "rgba(0,0,0,0.8)", backdropFilter: "blur(6px)",
+                display: "flex", alignItems: "center", justifyContent: "center"
+            }}>
+                <div style={{ background: "var(--bg-secondary)", padding: 40, borderRadius: 20, maxWidth: 450, textAlign: "center", border: "1px solid var(--border)", boxShadow: "0 20px 40px rgba(0,0,0,0.5)" }}>
+                    <div style={{ background: "rgba(244, 67, 54, 0.1)", width: 64, height: 64, borderRadius: "50%", display: "flex", alignItems: "center", justifyItems: "center", margin: "0 auto 20px auto" }}>
+                        <AlertTriangle size={32} color="#f44336" style={{ margin: "auto" }} />
+                    </div>
+                    <h2 style={{ margin: "0 0 16px 0", color: "var(--text-primary)", fontSize: "1.5rem" }}>Avaliação Expirada</h2>
+                    <p style={{ color: "var(--text-secondary)", marginBottom: 24, lineHeight: 1.5 }}>
+                        O seu período de testes do AltDesk chegou ao fim. Para continuar usando a plataforma, por favor regularize a sua assinatura ou, se precisar de mais tempo, estenda a avaliação por mais 7 dias.
+                    </p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                        <button 
+                            onClick={() => {
+                                setTrialExpiredData(null);
+                                navigate("/billing");
+                            }}
+                            className="btn btn-primary" style={{ padding: "12px 20px", borderRadius: 10, fontSize: "1rem" }}
+                        >
+                            Ver Planos e Assinar
+                        </button>
+                        <button 
+                            onClick={handleExtendTrial}
+                            disabled={extending}
+                            className="btn btn-secondary" style={{ padding: "12px 20px", borderRadius: 10, fontSize: "1rem" }}
+                        >
+                            {extending ? "Estendendo..." : "Preciso de mais tempo (+7 dias)"}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
       </HelpProvider>
     </ChatProvider>
   );

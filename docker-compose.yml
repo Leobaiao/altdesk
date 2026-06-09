@@ -119,6 +119,7 @@ services:
       SMTP_PORT: 1025
       JWT_SECRET: ${JWT_SECRET:?Defina JWT_SECRET no .env}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:?Defina ENCRYPTION_KEY no .env}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
     ports:
       - "3005:3002"
     volumes:

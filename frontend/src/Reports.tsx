@@ -112,6 +112,19 @@ const STATUS_COLORS: Record<string, string> = {
   OK: "#00a884",
   PENDING: "#f59e0b",
   BREACHED: "#ea4335",
+  NOVO: "#6366f1",
+  ABERTO: "#3b82f6",
+  "EM TRIAGEM": "#8b5cf6",
+  "EM ATENDIMENTO": "#0284c7",
+  "AGUARD. CLIENTE": "#f59e0b",
+  "AGUARD. TERCEIRO": "#f97316",
+  ESCALADO: "#ef4444",
+  RESOLVIDO: "#00a884",
+  FECHADO: "#667781",
+  "NO PRAZO": "#00a884",
+  "EM RISCO": "#f59e0b",
+  "FORA DO SLA": "#ea4335",
+  PENDENTE: "#f59e0b",
 };
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -120,6 +133,11 @@ const PRIORITY_COLORS: Record<string, string> = {
   HIGH: "#f97316",
   CRITICAL: "#ef4444",
   URGENT: "#ef4444",
+  BAIXA: "#9ca3af",
+  MÉDIA: "#3b82f6",
+  ALTA: "#f97316",
+  CRÍTICA: "#ef4444",
+  URGENTE: "#ef4444",
 };
 
 const CHANNEL_COLORS: Record<string, string> = {
@@ -204,20 +222,20 @@ export function Reports({ onBack }: { onBack: () => void }) {
   const REPORTS_SIDEBAR = useMemo(() => [
     {
       id: "status" as ReportType,
-      label: "Tickets por Status",
-      description: "Distribuição e volume de tickets em cada estágio do fluxo.",
+      label: "Chamados por Status",
+      description: "Distribuição e volume de chamados em cada estágio do fluxo.",
       icon: BarChart3
     },
     {
       id: "priority" as ReportType,
-      label: "Tickets por Prioridade",
+      label: "Chamados por Prioridade",
       description: "Visualização por severidade (Baixa, Média, Alta, Crítica).",
       icon: AlertOctagon
     },
     {
       id: "channel" as ReportType,
-      label: "Tickets por Canal",
-      description: "Origem dos tickets atendidos na plataforma.",
+      label: "Chamados por Canal",
+      description: "Origem dos chamados atendidos na plataforma.",
       icon: MessageSquareCode
     },
     {
@@ -760,7 +778,7 @@ export function Reports({ onBack }: { onBack: () => void }) {
               <XAxis dataKey="label" stroke="var(--text-secondary)" fontSize={11} tickLine={false} />
               <YAxis stroke="var(--text-secondary)" fontSize={11} tickLine={false} />
               <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="value" name="Tickets" radius={[6, 6, 0, 0]}>
+              <Bar dataKey="value" name="Chamados" radius={[6, 6, 0, 0]}>
                 {chartData.map((entry: any, index: number) => {
                   const labelUpper = (entry.label || "").toUpperCase();
                   const color = STATUS_COLORS[labelUpper] || "#3b82f6";
@@ -779,7 +797,7 @@ export function Reports({ onBack }: { onBack: () => void }) {
               <XAxis dataKey="label" stroke="var(--text-secondary)" fontSize={11} tickLine={false} />
               <YAxis stroke="var(--text-secondary)" fontSize={11} tickLine={false} />
               <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="value" name="Tickets" radius={[6, 6, 0, 0]}>
+              <Bar dataKey="value" name="Chamados" radius={[6, 6, 0, 0]}>
                 {chartData.map((entry: any, index: number) => {
                   const labelUpper = (entry.label || "").toUpperCase();
                   const color = PRIORITY_COLORS[labelUpper] || "#3b82f6";
