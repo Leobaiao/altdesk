@@ -14,7 +14,7 @@ export async function authMw(req: any, res: Response, next: NextFunction) {
       .input("userId", decoded.userId)
       .query(`
         SELECT u.Role, u.PermissionsJson, u.IsActive, u.DeletedAt,
-               s.ExpiresAt, s.PlanCode, s.IsActive as SubActive
+               s.ExpiresAt, s.PlanCode, s.IsActive as SubActive, s.TrialExtended
         FROM altdesk.[User] u
         LEFT JOIN altdesk.Subscription s ON s.TenantId = u.TenantId
         WHERE u.UserId = @userId
@@ -32,10 +32,14 @@ export async function authMw(req: any, res: Response, next: NextFunction) {
     }
 
     if (u.ExpiresAt && new Date(u.ExpiresAt) < new Date()) {
-      const allowedPaths = ['/api/billing', '/api/settings/extend-trial', '/api/auth/me'];
+      const allowedPaths = ['/api/billing', '/api/settings/extend-trial', '/api/auth/me', '/api/profile'];
       const isAllowed = allowedPaths.some(p => req.originalUrl.startsWith(p));
       if (!isAllowed) {
-          return res.status(402).json({ error: "Assinatura Expirada", planCode: u.PlanCode });
+          return res.status(402).json({ 
+              error: "Assinatura Expirada", 
+              planCode: u.PlanCode,
+              trialExtended: u.TrialExtended || 0
+          });
       }
     }
 

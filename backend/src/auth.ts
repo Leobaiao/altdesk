@@ -27,7 +27,7 @@ export async function verifyPassword(plain: string, hashBytes: Buffer) {
   return bcrypt.compare(plain, hashBytes.toString("utf8"));
 }
 
-export async function assertTenantActive(tenantId: string) {
+export async function assertTenantActive(tenantId: string, allowExpired = false) {
   const pool = await getPool();
   const r = await pool.request()
     .input("tenantId", tenantId)
@@ -41,7 +41,7 @@ export async function assertTenantActive(tenantId: string) {
   if (r.recordset.length === 0) throw new Error("Tenant sem assinatura ativa.");
   const sub = r.recordset[0];
   const expiresAt = new Date(sub.ExpiresAt);
-  if (expiresAt.getTime() < Date.now()) throw new Error("Assinatura vencida.");
+  if (expiresAt.getTime() < Date.now() && !allowExpired) throw new Error("Assinatura vencida.");
   return { agentsSeatLimit: sub.AgentsSeatLimit as number, expiresAt };
 }
 

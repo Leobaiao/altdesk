@@ -74,10 +74,10 @@ router.post("/login", authLimiter, validateBody(LoginSchema), async (req, res, n
             return res.status(403).json({ error: "Usuário inativo" });
         }
 
-        // Tenant inativo
+        // Tenant inativo (permitir login se estiver vencido)
         if (u.Role !== 'SUPERADMIN') {
             try {
-                await assertTenantActive(u.TenantId);
+                await assertTenantActive(u.TenantId, true);
             } catch (e: any) {
                 logger.warn({ requestId, userId: u.UserId, tenantId: u.TenantId, ip }, "Login failed: tenant inactive");
                 return res.status(403).json({ error: e.message });

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { api } from "./lib/api";
 import { ArrowLeft, CreditCard, FileText, CheckCircle, AlertTriangle, XCircle, Clock, X, Loader2, Trash2 } from "lucide-react";
 import { PageHeader } from "./components/PageHeader";
+import { useChat } from "./contexts/ChatContext";
 
 interface Plan {
   PlanId: string;
@@ -71,6 +72,7 @@ export function Billing({ onBack }: { onBack: () => void }) {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
+  const { showConfirm } = useChat();
 
   // Checkout modal state
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
@@ -84,6 +86,7 @@ export function Billing({ onBack }: { onBack: () => void }) {
     billingType: "PIX" as "PIX" | "BOLETO" | "CREDIT_CARD",
   });
   const [cleaning, setCleaning] = useState(false);
+  const [cleanupFeedback, setCleanupFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const loadAll = () => {
     setLoading(true);
@@ -137,22 +140,36 @@ export function Billing({ onBack }: { onBack: () => void }) {
   };
 
   const handleCleanup = async () => {
-    if (!window.confirm("Atenção! Isso apagará permanentemente todos os tickets, conversas e contatos de teste. Deseja continuar?")) return;
-    setCleaning(true);
-    try {
-        await api.post("/api/settings/tenant/cleanup");
-        alert("Dados de teste removidos com sucesso.");
-        // Optional: reload the page or navigate home
-    } catch (err: any) {
-        alert(err.response?.data?.error || "Falha ao limpar dados de teste.");
-    } finally {
-        setCleaning(false);
-    }
+    showConfirm({
+      title: "Limpar Dados de Teste",
+      description: "Atenção! Isso apagará permanentemente todos os tickets, conversas e contatos de teste. Deseja continuar?",
+      confirmLabel: "Limpar Dados",
+      cancelLabel: "Cancelar",
+      isDanger: true,
+      onConfirm: async () => {
+        setCleaning(true);
+        setCleanupFeedback(null);
+        try {
+            await api.post("/api/settings/tenant/cleanup");
+            setCleanupFeedback({ type: 'success', text: "Dados de teste removidos com sucesso!" });
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+        } catch (err: any) {
+            setCleanupFeedback({
+                type: 'error',
+                text: err.response?.data?.error || "Falha ao limpar dados de teste."
+            });
+        } finally {
+            setCleaning(false);
+        }
+      }
+    });
   };
 
   if (loading) {
     return (
-      <div className="settings-page">
+      <div className="settings-page" style={{ height: "100%", overflowY: "auto" }}>
         <PageHeader 
             title="Faturamento" 
             icon={CreditCard} 
@@ -176,7 +193,7 @@ export function Billing({ onBack }: { onBack: () => void }) {
   }
 
   return (
-    <div className="settings-page">
+    <div className="settings-page" style={{ height: "100%", overflowY: "auto" }}>
       {/* Header */}
       <PageHeader 
         title="Faturamento" 
@@ -218,6 +235,21 @@ export function Billing({ onBack }: { onBack: () => void }) {
                 {cleaning ? <Loader2 size={14} className="spin" /> : <Trash2 size={14} />} 
                 {cleaning ? "A limpar dados..." : "Limpar Dados de Teste Agora"}
             </button>
+            {cleanupFeedback && (
+                <div style={{
+                    marginTop: 12,
+                    padding: "10px 14px",
+                    borderRadius: 10,
+                    fontSize: "0.85rem",
+                    fontWeight: 600,
+                    textAlign: "center",
+                    background: cleanupFeedback.type === 'success' ? "rgba(0, 168, 132, 0.1)" : "rgba(244, 67, 54, 0.1)",
+                    color: cleanupFeedback.type === 'success' ? "var(--accent)" : "#f44336",
+                    border: cleanupFeedback.type === 'success' ? "1px solid rgba(0, 168, 132, 0.2)" : "1px solid rgba(244, 67, 54, 0.2)"
+                }}>
+                    {cleanupFeedback.text}
+                </div>
+            )}
           </div>
         </div>
       )}

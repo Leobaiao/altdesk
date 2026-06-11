@@ -29,6 +29,7 @@ import { Onboarding } from "./Onboarding";
 import LogoHorizontal from "./assets/logo/logo-horizontal.png";
 import logo from "./assets/logo/logo.png";
 import { WelcomeScreen } from "./WelcomeScreen";
+import { SpecialOffer } from "./SpecialOffer";
 import { ThemeToggle } from "./components/ThemeToggle";
 
 import {
@@ -433,6 +434,7 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
                 <Route path="/reports" element={<Reports onBack={() => navigate("/chat")} />} />
                 <Route path="/billing" element={<Billing onBack={() => navigate("/settings")} />} />
                 <Route path="/audit" element={<AuditLogs onBack={() => navigate("/settings")} />} />
+                <Route path="/special-offer" element={<SpecialOffer />} />
 
                 <Route path="*" element={<Navigate to={localStorage.getItem("defaultPage") || "/tickets"} replace />} />
               </Routes>
@@ -468,21 +470,38 @@ function AppContent() {
 
   useEffect(() => {
       const handler = (e: any) => {
-          setTrialExpiredData(e.detail);
+          const data = e.detail;
+          if (window.location.pathname === "/billing") {
+              return;
+          }
+          if (data && data.trialExtended >= 1) {
+              setTrialExpiredData(null);
+              navigate("/special-offer");
+          } else {
+              setTrialExpiredData(data);
+          }
       };
       window.addEventListener('trial-expired', handler);
       return () => window.removeEventListener('trial-expired', handler);
-  }, []);
+  }, [navigate]);
+
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const handleExtendTrial = async () => {
       setExtending(true);
+      setFeedback(null);
       try {
           await api.post("/api/settings/extend-trial");
-          alert("Período de avaliação estendido com sucesso!");
-          setTrialExpiredData(null);
-          window.location.reload();
+          setFeedback({ type: 'success', text: "Período de avaliação estendido com sucesso!" });
+          setTimeout(() => {
+              setTrialExpiredData(null);
+              window.location.reload();
+          }, 2000);
       } catch (err: any) {
-          alert("Erro ao estender avaliação: " + (err.response?.data?.error || err.message));
+          setFeedback({ 
+              type: 'error', 
+              text: "Erro ao estender avaliação: " + (err.response?.data?.error || err.message) 
+          });
       } finally {
           setExtending(false);
       }
@@ -530,6 +549,7 @@ function AppContent() {
         <Route path="/onboarding" element={<Onboarding onLogin={handleLogin} />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/special-offer" element={<SpecialOffer />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     );
@@ -542,11 +562,17 @@ function AppContent() {
     return null;
   }
 
+  const location = useLocation();
+
+  if (location.pathname === "/special-offer") {
+    return <SpecialOffer />;
+  }
+
   return (
     <ChatProvider token={token} onLogout={handleLogout}>
       <HelpProvider>
         <MainLayout token={token} role={role || 'AGENT'} onLogout={handleLogout} />
-        {trialExpiredData && (
+        {trialExpiredData && location.pathname !== "/billing" && (
             <div style={{
                 position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999,
                 background: "rgba(0,0,0,0.8)", backdropFilter: "blur(6px)",
@@ -560,6 +586,21 @@ function AppContent() {
                     <p style={{ color: "var(--text-secondary)", marginBottom: 24, lineHeight: 1.5 }}>
                         O seu período de testes do AltDesk chegou ao fim. Para continuar usando a plataforma, por favor regularize a sua assinatura ou, se precisar de mais tempo, estenda a avaliação por mais 7 dias.
                     </p>
+                    {feedback && (
+                        <div style={{
+                            padding: "12px 16px",
+                            borderRadius: "10px",
+                            marginBottom: "20px",
+                            fontSize: "0.9rem",
+                            fontWeight: 600,
+                            textAlign: "center",
+                            background: feedback.type === 'success' ? "rgba(0, 168, 132, 0.1)" : "rgba(244, 67, 54, 0.1)",
+                            color: feedback.type === 'success' ? "var(--accent)" : "#f44336",
+                            border: feedback.type === 'success' ? "1px solid rgba(0, 168, 132, 0.2)" : "1px solid rgba(244, 67, 54, 0.2)"
+                        }}>
+                            {feedback.text}
+                        </div>
+                    )}
                     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                         <button 
                             onClick={() => {

@@ -100,14 +100,17 @@ export async function createBillingSubscription(tenantId: string, planCode: stri
         description: `AltDesk - Plano ${plan.Name}`,
     });
 
-    // 5. Save locally
+    // 5. Save locally (if mock, activate immediately)
+    const isMock = sub.id.startsWith("sub_mock_");
+    const status = isMock ? "active" : "pending_activation";
+
     await pool.request()
         .input("tenantId", tenantId)
         .input("planId", plan.PlanId)
         .input("provider", "asaas")
         .input("providerSubId", sub.id)
         .input("providerCustId", providerCustomerId)
-        .input("status", "pending_activation")
+        .input("status", status)
         .input("paymentMethod", billingType)
         .input("valueCents", plan.PriceCents)
         .input("nextDueDate", nextDueDate)
@@ -119,6 +122,16 @@ export async function createBillingSubscription(tenantId: string, planCode: stri
                 (@tenantId, @planId, @provider, @providerSubId, @providerCustId,
                  @status, @paymentMethod, @valueCents, @nextDueDate, SYSUTCDATETIME())
         `);
+
+    if (isMock) {
+        try {
+            const { activateOfficialSubscription } = await import("../../services/subscriptionService.js");
+            await activateOfficialSubscription(tenantId);
+            logger.info({ tenantId }, "[Billing] Mock subscription auto-activated and demo data purged");
+        } catch (err: any) {
+            logger.error({ tenantId, err: err.message }, "[Billing] Failed to auto-activate mock subscription");
+        }
+    }
 
     logger.info({ tenantId, subscriptionId: sub.id, plan: planCode }, "[Billing] Subscription created");
     return sub;

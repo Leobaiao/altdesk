@@ -16,15 +16,25 @@ export async function activateOfficialSubscription(tenantId: string) {
             .query(`
                 UPDATE altdesk.Tenant
                 SET AccountStatus = 'ACTIVE',
-                    IsDemo = 0,
-                    UpdatedAt = SYSUTCDATETIME()
+                    IsDemo = 0
+                WHERE TenantId = @tenantId
+            `);
+
+        // 1.1 Atualizar ExpiresAt e PlanCode na assinatura para liberar o middleware
+        await pool.request()
+            .input("tenantId", tenantId)
+            .query(`
+                UPDATE altdesk.Subscription
+                SET ExpiresAt = DATEADD(month, 1, SYSUTCDATETIME()),
+                    PlanCode = 'ACTIVE',
+                    IsActive = 1
                 WHERE TenantId = @tenantId
             `);
 
         // 2. Executar a Stored Procedure de Limpeza (Purge)
         // Mantemos estrutura (Logo, Horarios, Usuarios) mas deletamos transacoes demo
         await pool.request()
-            .input("tenantId", tenantId)
+            .input("tenant_id", tenantId)
             .execute("altdesk.sp_altdesk_purge_demo_data");
 
         logger.info({ tenantId }, "[Subscription] Account activated and demo data purged successfully");

@@ -294,12 +294,31 @@ router.post("/extend-trial", async (req, res, next) => {
         const user = (req as any).user;
         const pool = await getPool();
         
-        // Adds 7 days to the trial
+        // Check current extension count
+        const currentSub = await pool.request()
+            .input("tenantId", user.tenantId)
+            .query(`
+                SELECT TOP 1 TrialExtended, PlanCode
+                FROM altdesk.Subscription
+                WHERE TenantId = @tenantId AND PlanCode = 'TRIAL'
+            `);
+
+        if (currentSub.recordset.length === 0) {
+            return res.status(400).json({ error: "Nenhuma assinatura de avaliação encontrada." });
+        }
+
+        const sub = currentSub.recordset[0];
+        if (sub.TrialExtended >= 1) {
+            return res.status(400).json({ error: "O período de avaliação já foi estendido anteriormente." });
+        }
+        
+        // Adds 7 days to the trial and increments TrialExtended
         await pool.request()
             .input("tenantId", user.tenantId)
             .query(`
                 UPDATE altdesk.Subscription 
-                SET ExpiresAt = DATEADD(day, 7, SYSUTCDATETIME())
+                SET ExpiresAt = DATEADD(day, 7, SYSUTCDATETIME()),
+                    TrialExtended = TrialExtended + 1
                 WHERE TenantId = @tenantId AND PlanCode = 'TRIAL'
             `);
             

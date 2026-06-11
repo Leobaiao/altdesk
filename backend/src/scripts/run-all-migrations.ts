@@ -37,7 +37,8 @@ const scripts = [
   "migrate-help-articles",
   "migrate-default-page",
   "migrate-audit-log",
-  "migrate-exceptions"
+  "migrate-exceptions",
+  "migrate-trial-extended"
 ];
 
 /**
