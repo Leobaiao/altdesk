@@ -9,6 +9,8 @@ interface DocumentCardProps {
 
 export function DocumentCard({ url, name, direction }: DocumentCardProps) {
     const isOut = direction === "OUT";
+    const API_URL = import.meta.env.VITE_API_URL || "";
+    const fileUrl = url.startsWith("http") ? url : `${API_URL}${url}`;
 
     return (
         <div
@@ -63,7 +65,7 @@ export function DocumentCard({ url, name, direction }: DocumentCardProps) {
 
             <div style={{ display: "flex", gap: "8px" }}>
                 <a
-                    href={url}
+                    href={fileUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{

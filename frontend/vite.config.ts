@@ -25,6 +25,9 @@ export default defineConfig({
             type: "image/svg+xml"
           }
         ]
+      },
+      workbox: {
+        navigateFallbackDenylist: [/^\/api/, /^\/uploads/]
       }
     })
   ],
@@ -35,11 +38,14 @@ export default defineConfig({
         target: "http://localhost:3002",
         changeOrigin: true
       },
+      "/uploads": {
+        target: "http://localhost:3002",
+        changeOrigin: true
+      },
       "/socket.io": {
         target: "http://localhost:3002",
         ws: true
       }
-
     }
   }
 });

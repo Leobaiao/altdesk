@@ -446,6 +446,12 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
         );
     }
 
+    const getMediaUrl = (mediaUrl: string) => {
+        if (!mediaUrl) return "";
+        const API_URL = import.meta.env.VITE_API_URL || "";
+        return mediaUrl.startsWith("http") ? mediaUrl : `${API_URL}${mediaUrl}`;
+    };
+
     const filteredCanned = cannedResponses.filter(c =>
         c.Shortcut.toLowerCase().includes(cannedFilter) ||
         c.Title.toLowerCase().includes(cannedFilter)
@@ -664,22 +670,22 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
                             )}
 
                             {m.MediaType === "image" && m.MediaUrl && (
-                                <div className="media-attachment" style={{ cursor: "zoom-in" }} onClick={() => setViewingImage(m.MediaUrl!)}>
-                                    <img src={m.MediaUrl} alt="Imagem" style={{ maxWidth: "100%", borderRadius: 8, marginTop: 4 }} />
+                                <div className="media-attachment" style={{ cursor: "zoom-in" }} onClick={() => setViewingImage(getMediaUrl(m.MediaUrl!))}>
+                                    <img src={getMediaUrl(m.MediaUrl)} alt="Imagem" style={{ maxWidth: "100%", borderRadius: 8, marginTop: 4 }} />
                                 </div>
                             )}
                             {m.MediaType === "audio" && m.MediaUrl && (
                                 <div className="media-attachment">
-                                    <AudioPlayer src={m.MediaUrl} />
+                                    <AudioPlayer src={getMediaUrl(m.MediaUrl)} />
                                 </div>
                             )}
                             {m.MediaType === "video" && m.MediaUrl && (
                                 <div className="media-attachment">
-                                    <video controls src={m.MediaUrl} style={{ maxWidth: "100%", borderRadius: 8, marginTop: 4 }} />
+                                    <video controls src={getMediaUrl(m.MediaUrl)} style={{ maxWidth: "100%", borderRadius: 8, marginTop: 4 }} />
                                 </div>
                             )}
                             {m.MediaType === "document" && m.MediaUrl && (
-                                <DocumentCard url={m.MediaUrl} name={m.Body || 'Documento'} direction={m.Direction as any} />
+                                <DocumentCard url={getMediaUrl(m.MediaUrl)} name={m.Body || 'Documento'} direction={m.Direction as any} />
                             )}
 
                             <div className="text" style={m.Direction === "INTERNAL" ? { color: "#78350f" } : undefined}>
