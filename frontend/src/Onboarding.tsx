@@ -21,7 +21,7 @@ import { PasswordInput } from "./components/PasswordInput";
 import { PhoneMaskInput } from "./components/PhoneMaskInput";
 
 
-type PreloadModel = "empty" | "basic" | "demo";
+type PreloadModel = "empty" | "basic" | "demo" | "large";
 
 interface OnboardingData {
   companyName: string;
@@ -161,6 +161,13 @@ function Step2({ data, onChange }: { data: OnboardingData; onChange: (d: Partial
       desc: "Cenário realista com base de dados populada.",
       details: "4 agentes, 4 filas, 12 contatos, 10 tickets, 8 artigos, mensagens e 4 respostas rápidas.",
     },
+    {
+      model: "large",
+      icon: <Sparkles size={28} />,
+      title: "Demonstração Pesada",
+      desc: "Base de dados volumosa para testes de performance.",
+      details: "5 agentes, 4 filas, 1.000 contatos, 5.000 tickets, mensagens e 4 respostas rápidas.",
+    },
   ];
 
   return (
@@ -218,6 +225,7 @@ function Step3({ data }: { data: OnboardingData }) {
     empty: "Ambiente Limpo",
     basic: "Dados Básicos",
     demo: "Demonstração Completa",
+    large: "Demonstração Pesada",
   };
 
   return (
@@ -281,7 +289,7 @@ function Step4({ preloadModel, onEnter }: { preloadModel: PreloadModel; onEnter:
           O Altdesk concluiu a criação da sua conta e do ambiente inicial.
           Agora você já pode entrar no painel e começar sua avaliação.
         </p>
-        {preloadModel === "demo" && (
+        {(preloadModel === "demo" || preloadModel === "large") && (
           <p style={{ marginTop: 12, fontSize: 13, color: "var(--accent)" }}>
             📋 Seu ambiente foi criado com dados simulados para demonstração.
             Você pode editá-los ou removê-los a qualquer momento.

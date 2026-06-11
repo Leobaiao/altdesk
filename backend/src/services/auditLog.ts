@@ -28,12 +28,11 @@ export async function writeAuditLog(entry: AuditLogEntry): Promise<void> {
       .input("targetId", entry.targetId ?? null)
       .input("beforeValues", entry.beforeValues ? JSON.stringify(entry.beforeValues) : null)
       .input("afterValues", entry.afterValues ? JSON.stringify(entry.afterValues) : null)
-      .input("messageId", entry.messageId ?? null)
       .input("ipAddress", entry.ipAddress ?? null)
       .input("userAgent", entry.userAgent ?? null)
       .query(`
-        INSERT INTO altdesk.AuditLog (TenantId, UserId, Action, TargetTable, TargetId, BeforeValues, AfterValues, MessageId, IpAddress, UserAgent)
-        VALUES (@tenantId, @userId, @action, @targetTable, @targetId, @beforeValues, @afterValues, @messageId, @ipAddress, @userAgent)
+        INSERT INTO altdesk.AuditLog (TenantId, UserId, Action, TargetTable, TargetId, BeforeValues, AfterValues, IpAddress, UserAgent)
+        VALUES (@tenantId, @userId, @action, @targetTable, @targetId, @beforeValues, @afterValues, @ipAddress, @userAgent)
       `);
   } catch (err) {
     // Não deve interromper a operação principal se o log falhar

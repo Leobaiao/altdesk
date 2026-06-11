@@ -15,6 +15,7 @@ const config: SqlConfig = {
   server,
   port,
   database: process.env.DB_NAME!,
+  requestTimeout: 60000, // 60 seconds request timeout
   options: {
     encrypt: false,
     trustServerCertificate: true

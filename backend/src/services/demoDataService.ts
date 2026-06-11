@@ -8,10 +8,19 @@ import { createCannedResponse } from "./canned-response.js";
 import { createGlobalUser } from "./userService.js";
 import { logger } from "../lib/logger.js";
 
-export async function preloadDemoData(tenantId: string, model: "basic" | "demo", adminId?: string) {
+export async function preloadDemoData(tenantId: string, model: "basic" | "demo" | "large", adminId?: string) {
     logger.info({ tenantId, model, adminId }, "Starting demo data preload");
 
     try {
+        const dbPool = await getPool();
+        if (model === "large") {
+            logger.info({ tenantId, adminId }, "Seeding base demo queues and agents for large dataset");
+            await dbPool.request()
+                .input("tenant_id", tenantId)
+                .input("admin_id", adminId || null)
+                .execute("sp_altdesk_seed_demo");
+        }
+
         // 1. Knowledge Base Articles
         const articles = [
             {
@@ -34,7 +43,7 @@ export async function preloadDemoData(tenantId: string, model: "basic" | "demo",
             }
         ];
 
-        if (model === "demo") {
+        if (model === "demo" || model === "large") {
             articles.push(
                 {
                     Title: "Guia Rápido de Integração via API",
@@ -62,7 +71,7 @@ export async function preloadDemoData(tenantId: string, model: "basic" | "demo",
             { shortcut: "finalizar", title: "Encerramento Padrão", content: "Foi um prazer te atender! Se precisar de mais alguma coisa, é só chamar. Tenha um excelente dia! 👋" }
         ];
 
-        if (model === "demo") {
+        if (model === "demo" || model === "large") {
             cannedResponses.push(
                 { shortcut: "pix", title: "Dados para Pagamento PIX", content: "Para pagamentos via PIX, utilize nossa chave CNPJ: **00.000.000/0001-00**. Após realizar a transferência, por favor envie o comprovante por aqui para agilizarmos a baixa." },
                 { shortcut: "documento", title: "Solicitação de Documento", content: "Para prosseguirmos com sua solicitação por motivos de segurança, por favor envie uma foto do seu RG ou CNH frente e verso." },
@@ -188,7 +197,7 @@ export async function preloadDemoData(tenantId: string, model: "basic" | "demo",
         }
 
         // 1.8 Create Demo Team (Agents)
-        if (model === "demo") {
+        if (model === "demo" || model === "large") {
             const team = [
                 { name: "Suporte N1", email: `suporte.n1.${tenantId.substring(0, 5)}@altdesk.demo`, role: "AGENT" as const },
                 { name: "Consultor Comercial", email: `vendas.${tenantId.substring(0, 5)}@altdesk.demo`, role: "AGENT" as const },
@@ -762,6 +771,388 @@ export async function preloadDemoData(tenantId: string, model: "basic" | "demo",
                 .input("webchat_chId", webchatChannelId)
                 .input("sms_chId", smsChannelId)
                 .query(fullQuery);
+        } else if (model === "large") {
+            logger.info({ tenantId }, "Seeding massive dataset (1000 contacts, 5000 tickets/conversations, ~10000 messages)");
+
+            // Clean up default contacts
+            await pool.request()
+                .input("tenantId", tenantId)
+                .query("DELETE FROM altdesk.Contact WHERE TenantId = @tenantId;");
+
+            const idsRes = await pool.request()
+                .input("tenantId", tenantId)
+                .input("adminId", adminId || null)
+                .query(`
+                    SELECT 
+                        (SELECT TOP 1 AgentId FROM altdesk.Agent WHERE UserId = @adminId) AS AdminAgentId,
+                        (SELECT TOP 1 UserId FROM altdesk.[User] WHERE TenantId = @tenantId AND Email LIKE 'suporte.n1.%') AS N1UserId,
+                        (SELECT TOP 1 UserId FROM altdesk.[User] WHERE TenantId = @tenantId AND Email LIKE 'vendas.%') AS VendasUserId,
+                        (SELECT TOP 1 UserId FROM altdesk.[User] WHERE TenantId = @tenantId AND Email LIKE 'financeiro.%') AS FinUserId,
+                        (SELECT TOP 1 UserId FROM altdesk.[User] WHERE TenantId = @tenantId AND Email LIKE 'carlos.lima.%') AS CarlosUserId,
+                        (SELECT TOP 1 UserId FROM altdesk.[User] WHERE TenantId = @tenantId AND Email LIKE 'juliana.rocha.%') AS JulianaUserId,
+                        (SELECT TOP 1 UserId FROM altdesk.[User] WHERE TenantId = @tenantId AND Email LIKE 'rafael.torres.%') AS RafaelUserId;
+                    
+                    SELECT QueueId, Name FROM altdesk.Queue WHERE TenantId = @tenantId;
+                    SELECT AgentId, UserId FROM altdesk.Agent WHERE TenantId = @tenantId;
+                `);
+
+            const recordsets = idsRes.recordsets as any;
+            const baseIds = recordsets[0][0];
+            const queues = recordsets[1];
+            const agents = recordsets[2];
+
+            const adminUserId = adminId || "";
+            const adminAgentId = baseIds.AdminAgentId;
+            
+            const n1UserId = baseIds.N1UserId || adminUserId;
+            const vendasUserId = baseIds.VendasUserId || adminUserId;
+            const finUserId = baseIds.FinUserId || adminUserId;
+            const carlosUserId = baseIds.CarlosUserId || adminUserId;
+            const julianaUserId = baseIds.JulianaUserId || adminUserId;
+            const rafaelUserId = baseIds.RafaelUserId || adminUserId;
+
+            const agentMap = new Map(agents.map((a: any) => [a.UserId, a.AgentId]));
+            const getAgentId = (uId: string) => agentMap.get(uId) || adminAgentId;
+
+            const qSuporte = queues.find((q: any) => q.Name === "Suporte")?.QueueId;
+            const qFinanceiro = queues.find((q: any) => q.Name === "Financeiro")?.QueueId;
+            const qImplantacao = queues.find((q: any) => q.Name === "Implantação" || q.Name === "Implantacao")?.QueueId;
+            const qComercial = queues.find((q: any) => q.Name === "Comercial")?.QueueId;
+
+            const names = [
+                "Marcos Pereira", "Fernanda Alves", "João Batista", "Paula Mendes", "Ricardo Nunes",
+                "Luciana Costa", "Beatriz Lima", "Gustavo Azevedo", "Simone Prado", "Diego Martins",
+                "Patricia Freitas", "Eduardo Ramos", "Roberto Carlos", "Julio Cesar", "Camila Pitanga",
+                "Renato Aragão", "Aline Santos", "Bruno Souza", "Carolina Oliveira", "Daniel Silva",
+                "Eliana Costa", "Fabio Rocha", "Gabriela Martins", "Hugo Torres", "Isabela Lima",
+                "Jefferson Alves", "Karina Prado", "Leonardo Ramos", "Marina Mendes", "Nelson Pereira",
+                "Olivia Nunes", "Pedro Silveira", "Renata Costa", "Samuel Souza", "Tatiane Oliveira",
+                "Valter Silva", "Yasmin Santos", "Alexandre Rocha", "Bianca Torres", "Claudio Lima",
+                "Debora Alves", "Emilio Prado", "Flavia Ramos", "Gerson Mendes", "Helena Pereira",
+                "Igor Nunes", "Juliana Costa", "Katia Silveira", "Lucas Souza", "Milena Oliveira",
+                "Amanda Duarte", "Arthur Aguiar", "Caio Castro", "Danielle Winits", "Enzo Celulari",
+                "Felipe Neto", "Giovanna Ewbank", "Heloisa Perisse", "Iris Abravanel", "Jonathan Costa",
+                "Klebber Toledo", "Larissa Manoela", "Murilo Benicio", "Nivea Stelmann", "Otavio Muller"
+            ];
+            
+            const subjects = [
+                "Instabilidade no sistema", "Erro 500 ao gerar relatório", "Configuração do chat widget",
+                "Integração API travada", "Como resetar senha de outro agente?", "Dúvida sobre cobrança adicional",
+                "Boleto não recebido este mês", "Alteração de dados de faturamento (CNPJ)", "Segunda via da nota fiscal",
+                "Solicitação de proposta para 50 agentes", "Demonstração do plano Enterprise", "Dúvidas sobre canais inclusos",
+                "Preços para envio de SMS", "Dificuldade na homologação do WhatsApp", "Migração de dados do Zendesk",
+                "Configuração do domínio personalizado", "Ajuste de horário de atendimento", "Dúvida sobre armazenamento de arquivos",
+                "Problema de áudio no Webchat", "Relatório de conversas vazio", "Importar contatos em lote",
+                "Desativar notificações por e-mail", "Mensagem de boas vindas não envia", "Erro ao conectar conta de e-mail",
+                "Aumentar limite de agentes"
+            ];
+
+            const messagePool = [
+                { dir: "IN", body: "Olá, o sistema está apresentando lentidão hoje?" },
+                { dir: "OUT", body: "Olá! Tivemos uma breve instabilidade nos servidores, mas já foi resolvido. Pode atualizar a página?" },
+                { dir: "IN", body: "Ah, agora carregou! Obrigado pelo retorno rápido." },
+                { dir: "IN", body: "Erro 500 constante ao tentar gerar relatório de auditoria do último mês." },
+                { dir: "OUT", body: "Olá, identificamos que o filtro de datas estava estourando a query. Já aplicamos a correção." },
+                { dir: "IN", body: "Perfeito, acabei de testar aqui e funcionou." },
+                { dir: "IN", body: "Como altero a cor do chat widget no meu site?" },
+                { dir: "OUT", body: "Olá! Basta ir em Configurações > Widget e alterar a cor primária no painel de personalização." },
+                { dir: "IN", body: "Ok, vou dar uma olhada. Obrigado!" },
+                { dir: "IN", body: "Preciso alterar o CNPJ da minha conta de faturamento." },
+                { dir: "OUT", body: "Olá! Por favor envie o contrato social atualizado para realizarmos a alteração no sistema." },
+                { dir: "IN", body: "Recebido, obrigado!" }
+            ];
+
+            function uuidv4() {
+                return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                    const r = Math.random() * 16 | 0;
+                    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+                    return v.toString(16);
+                });
+            }
+
+            const escapeSql = (str: string): string => {
+                return str.replace(/'/g, "''");
+            };
+
+            // 1. Generate 1,000 contacts
+            const prefix = tenantId.substring(0, 5);
+            const contactsList: any[] = [];
+            for (let i = 0; i < 1000; i++) {
+                const baseName = names[i % names.length];
+                const name = `${baseName} ${1000 + i}`;
+                const phone = `551198888${(2000 + i).toString().substring(0, 4)}`;
+                const email = `${name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ".")}.${prefix}@cliente.demo`;
+                const createdMinsAgo = 200 + i * 10;
+                contactsList.push({
+                    id: uuidv4(),
+                    name,
+                    phone,
+                    email,
+                    createdMinsAgo
+                });
+            }
+
+            // Insert contacts in batches of 250
+            for (let i = 0; i < contactsList.length; i += 250) {
+                const chunk = contactsList.slice(i, i + 250);
+                let sqlQuery = "INSERT INTO altdesk.Contact (ContactId, TenantId, Name, Phone, Email, Tags, CreatedAt) VALUES\n";
+                sqlQuery += chunk.map(c => 
+                    `('${c.id}', '${tenantId}', '${escapeSql(c.name)}', '${c.phone}', '${c.email}', '["Demonstração"]', DATEADD(minute, -${c.createdMinsAgo}, GETUTCDATE()))`
+                ).join(",\n");
+                sqlQuery += ";";
+                await pool.request().query(sqlQuery);
+            }
+
+            const totalTickets = 5000;
+
+            const buildChunkedInserts = (tableName: string, columns: string, valuesArray: string[]): string => {
+                let sql = "";
+                for (let i = 0; i < valuesArray.length; i += 1000) {
+                    const chunk = valuesArray.slice(i, i + 1000);
+                    sql += `INSERT INTO ${tableName} (${columns}) VALUES\n` + chunk.join(",\n") + ";\n";
+                }
+                return sql;
+            };
+
+            const conversationsValues: string[] = [];
+            const externalMapsValues: string[] = [];
+            const ticketsValues: string[] = [];
+            const ticketEventsValues: string[] = [];
+            const satisfactionRatingsValues: string[] = [];
+            const messagesValues: string[] = [];
+
+            for (let index = 0; index < totalTickets; index++) {
+                const contact = contactsList[index % contactsList.length];
+                const subject = subjects[(index + Math.floor(index / 10)) % subjects.length];
+
+                // Determine Queue
+                let queueId = qSuporte;
+                let queueName = "Suporte";
+                if (index % 5 === 2) {
+                    queueId = qFinanceiro;
+                    queueName = "Financeiro";
+                } else if (index % 5 === 3) {
+                    queueId = qComercial;
+                    queueName = "Comercial";
+                } else if (index % 5 === 4) {
+                    queueId = qImplantacao;
+                    queueName = "Implantação";
+                }
+                queueId = queueId || qSuporte;
+
+                // Determine Status
+                let ticketStatus = "RESOLVED";
+                let convStatus = "RESOLVED";
+                let kanbanOrder = 0;
+                if (index % 15 === 0) {
+                    ticketStatus = "OPEN";
+                    convStatus = "OPEN";
+                    kanbanOrder = 0;
+                } else if (index % 15 === 1) {
+                    ticketStatus = "IN_PROGRESS";
+                    convStatus = "OPEN";
+                    kanbanOrder = 1;
+                } else if (index % 15 === 2) {
+                    ticketStatus = "WAITING_CUSTOMER";
+                    convStatus = "OPEN";
+                    kanbanOrder = 2;
+                } else if (index % 15 === 3) {
+                    ticketStatus = "ESCALATED";
+                    convStatus = "OPEN";
+                    kanbanOrder = 3;
+                }
+
+                // Determine Priority
+                let priority = "MEDIUM";
+                let priorityHours = 12;
+                let responseHours = 2;
+                if (index % 6 === 0) {
+                    priority = "CRITICAL";
+                    priorityHours = 1;
+                    responseHours = 0.25;
+                } else if (index % 6 === 1 || index % 6 === 2) {
+                    priority = "HIGH";
+                    priorityHours = 4;
+                    responseHours = 1;
+                } else if (index % 6 === 5) {
+                    priority = "LOW";
+                    priorityHours = 24;
+                    responseHours = 4;
+                }
+
+                // Determine Channel
+                let channelId = whatsappChannelId;
+                let sourceChannel = "WHATSAPP";
+                let externalChatId = `${contact.phone}_${index}`;
+                let externalUserId = `${contact.phone}_${index}@s.whatsapp.net`;
+                let connectorIdSuffix = "whatsapp";
+
+                if (index % 4 === 1) {
+                    channelId = emailChannelId;
+                    sourceChannel = "EMAIL";
+                    externalChatId = contact.email.replace("@", `_${index}@`);
+                    externalUserId = contact.email.replace("@", `_${index}@`);
+                    connectorIdSuffix = "email";
+                } else if (index % 4 === 2) {
+                    channelId = webchatChannelId;
+                    sourceChannel = "PLATFORM";
+                    externalChatId = `${contact.phone}_${index}`;
+                    externalUserId = `${contact.phone}_${index}`;
+                    connectorIdSuffix = "webchat";
+                } else if (index % 4 === 3) {
+                    channelId = smsChannelId;
+                    sourceChannel = "SMS";
+                    externalChatId = `${contact.phone}_${index}`;
+                    externalUserId = `${contact.phone}_${index}`;
+                    connectorIdSuffix = "sms";
+                }
+                channelId = channelId || whatsappChannelId;
+                const connectorId = `demo_${connectorIdSuffix}_conn_` + tenantId.substring(0, 8);
+
+                // Determine Assigned Agent
+                let agentUserId = adminUserId;
+                if (queueName === "Financeiro") {
+                    agentUserId = index % 2 === 0 ? finUserId : rafaelUserId;
+                } else if (queueName === "Comercial") {
+                    agentUserId = index % 2 === 0 ? vendasUserId : carlosUserId;
+                } else if (queueName === "Implantação") {
+                    agentUserId = index % 2 === 0 ? carlosUserId : adminUserId;
+                } else {
+                    agentUserId = index % 3 === 0 ? n1UserId : (index % 3 === 1 ? julianaUserId : adminUserId);
+                }
+                const agentId = getAgentId(agentUserId);
+
+                // Determine SLA status
+                let slaStatus = "MET";
+                let ticketSlaStatus = "ON_TIME";
+                if (index % 7 === 0) {
+                    slaStatus = "VIOLATED";
+                    ticketSlaStatus = "VIOLATED";
+                } else if (index % 7 === 3 && ticketStatus !== "RESOLVED") {
+                    slaStatus = "WARNING";
+                    ticketSlaStatus = "WARNING";
+                } else if (ticketStatus !== "RESOLVED") {
+                    slaStatus = "PENDING";
+                    ticketSlaStatus = "ON_TIME";
+                }
+
+                const createdMinsAgo = 100 + index * 10;
+                const createdAtOffset = -createdMinsAgo;
+                const slaFirstResponseDueOffset = -createdMinsAgo + Math.round(responseHours * 60);
+                const slaResolutionDueOffset = -createdMinsAgo + Math.round(priorityHours * 60);
+
+                const createdAtSql = `DATEADD(minute, ${createdAtOffset}, GETUTCDATE())`;
+                const slaFirstResponseDueSql = `DATEADD(minute, ${slaFirstResponseDueOffset}, GETUTCDATE())`;
+                const slaResolutionDueSql = `DATEADD(minute, ${slaResolutionDueOffset}, GETUTCDATE())`;
+
+                let firstResponseAtSql = "NULL";
+                if (ticketStatus === "RESOLVED" || index % 5 !== 0) {
+                    const responseDelay = slaStatus === "VIOLATED" ? Math.round(responseHours * 60 + 20) : 10;
+                    const firstResponseAtOffset = -createdMinsAgo + responseDelay;
+                    firstResponseAtSql = `DATEADD(minute, ${firstResponseAtOffset}, GETUTCDATE())`;
+                }
+
+                let resolvedAtSql = "NULL";
+                let csatScoreSql = "NULL";
+                let csatCreatedAtSql = "NULL";
+                if (ticketStatus === "RESOLVED") {
+                    const resolutionDelay = slaStatus === "VIOLATED" ? Math.round(priorityHours * 60 + 120) : 40;
+                    const resolvedAtOffset = -createdMinsAgo + resolutionDelay;
+                    resolvedAtSql = `DATEADD(minute, ${resolvedAtOffset}, GETUTCDATE())`;
+                    
+                    if (index % 3 === 0) {
+                        csatScoreSql = "5";
+                    } else if (index % 3 === 1) {
+                        csatScoreSql = "4";
+                    } else if (index % 3 === 2 && index % 9 === 2) {
+                        csatScoreSql = "2";
+                    } else if (index % 3 === 2) {
+                        csatScoreSql = "3";
+                    }
+
+                    const csatCreatedAtOffset = resolvedAtOffset + 5;
+                    csatCreatedAtSql = `DATEADD(minute, ${csatCreatedAtOffset}, GETUTCDATE())`;
+                }
+
+                const lastMessageAtOffset = ticketStatus === "RESOLVED" 
+                    ? (-createdMinsAgo + 40)
+                    : (-createdMinsAgo + 20);
+                const lastMessageAtSql = `DATEADD(minute, ${lastMessageAtOffset}, GETUTCDATE())`;
+
+                const cId = uuidv4();
+                const tId = uuidv4();
+
+                // Conversations
+                conversationsValues.push(`('${cId}', '${tenantId}', '${channelId}', '${queueId}', '${agentUserId}', '${contact.id}', '${escapeSql(subject)}', 'DIRECT', '${convStatus}', '${sourceChannel}', ${lastMessageAtSql}, ${createdAtSql}, ${resolvedAtSql}, ${csatScoreSql}, ${slaResolutionDueSql}, '${slaStatus}', ${firstResponseAtSql})`);
+
+                // ExternalThreadMaps
+                externalMapsValues.push(`('${tenantId}', '${connectorId}', '${externalChatId}', '${externalUserId}', '${cId}')`);
+
+                // Tickets
+                ticketsValues.push(`('${tId}', '${tenantId}', '${cId}', '${priority}', '${ticketStatus}', '${agentId}', ${slaFirstResponseDueSql}, ${slaResolutionDueSql}, ${firstResponseAtSql}, ${resolvedAtSql}, '${ticketSlaStatus}', ${kanbanOrder}, ${createdAtSql}, ${lastMessageAtSql})`);
+
+                // TicketEvents
+                ticketEventsValues.push(`('${tenantId}', '${tId}', 'CREATED', 'NEW', '${adminUserId}', ${createdAtSql})`);
+
+                if (ticketStatus === "RESOLVED") {
+                    ticketEventsValues.push(`('${tenantId}', '${tId}', 'STATUS_CHANGE', 'RESOLVED', '${agentUserId}', ${resolvedAtSql})`);
+                    
+                    if (csatScoreSql !== "NULL") {
+                        let csatComment = "Atendimento excelente!";
+                        if (csatScoreSql === "4") csatComment = "Muito bom, resolveu meu problema.";
+                        if (csatScoreSql === "3") csatComment = "Atendimento normal.";
+                        if (csatScoreSql === "2") csatComment = "Demorou bastante para responder.";
+                        
+                        satisfactionRatingsValues.push(`('${cId}', ${csatScoreSql}, '${escapeSql(csatComment)}', ${csatCreatedAtSql})`);
+                    }
+                } else {
+                    const actorTime = firstResponseAtSql !== "NULL" ? firstResponseAtSql : createdAtSql;
+                    ticketEventsValues.push(`('${tenantId}', '${tId}', 'STATUS_CHANGE', '${ticketStatus}', '${agentUserId}', ${actorTime})`);
+                }
+
+                // Messages (1 to 3 messages)
+                const numMsgs = 1 + (index % 3);
+                for (let m = 0; m < numMsgs; m++) {
+                    const msg = messagePool[(index + m) % messagePool.length];
+                    let msgOffset = m * 15;
+                    if (m === 1 && slaStatus === "VIOLATED") {
+                        msgOffset = Math.round(responseHours * 60 + 20);
+                    } else if (m === 3 && slaStatus === "VIOLATED") {
+                        msgOffset = Math.round(priorityHours * 60 + 120);
+                    }
+                    const msgCreatedAtOffset = -createdMinsAgo + msgOffset;
+                    const msgCreatedAtSql = `DATEADD(minute, ${msgCreatedAtOffset}, GETUTCDATE())`;
+
+                    if (msg.dir === "IN") {
+                        messagesValues.push(`(NEWID(), '${tenantId}', '${cId}', 'IN', '${escapeSql(msg.body)}', '${externalChatId}', NULL, 'READ', ${msgCreatedAtSql})`);
+                    } else {
+                        messagesValues.push(`(NEWID(), '${tenantId}', '${cId}', 'OUT', '${escapeSql(msg.body)}', NULL, '${agentUserId}', 'READ', ${msgCreatedAtSql})`);
+                    }
+                }
+            }
+
+            let batchSql = `
+            SET NOCOUNT ON;
+            SET XACT_ABORT ON;
+            BEGIN TRANSACTION;
+            `;
+
+            batchSql += buildChunkedInserts("altdesk.Conversation", "ConversationId, TenantId, ChannelId, QueueId, AssignedUserId, OpenedByContactId, Title, Kind, Status, SourceChannel, LastMessageAt, CreatedAt, ClosedAt, CsatScore, SlaDeadline, SlaStatus, FirstResponseAt", conversationsValues);
+            batchSql += buildChunkedInserts("altdesk.ExternalThreadMap", "TenantId, ConnectorId, ExternalChatId, ExternalUserId, ConversationId", externalMapsValues);
+            batchSql += buildChunkedInserts("altdesk.Ticket", "TicketId, TenantId, ConversationId, Priority, Status, AssignedAgentId, SLAFirstResponseDue, SLAResolutionDue, FirstResponseAt, ResolvedAt, SlaStatus, KanbanOrder, CreatedAt, UpdatedAt", ticketsValues);
+            batchSql += buildChunkedInserts("altdesk.TicketEvent", "TenantId, TicketId, EventType, NewValue, ActorUserId, CreatedAt", ticketEventsValues);
+            if (satisfactionRatingsValues.length > 0) {
+                batchSql += buildChunkedInserts("altdesk.SatisfactionRating", "ConversationId, Score, Comment, CreatedAt", satisfactionRatingsValues);
+            }
+            batchSql += buildChunkedInserts("altdesk.Message", "MessageId, TenantId, ConversationId, Direction, Body, SenderExternalId, SenderUserId, Status, CreatedAt", messagesValues);
+
+            batchSql += `
+            COMMIT TRANSACTION;
+            `;
+
+            const request = pool.request();
+            (request as any).timeout = 120000; // 120 seconds maximum query timeout
+            await request.query(batchSql);
         }
 
         logger.info({ tenantId }, "Demo data preload finished");

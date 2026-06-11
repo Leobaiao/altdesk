@@ -22,7 +22,7 @@ const OnboardingSchema = z.object({
     password: z.string().min(6, "Senha deve ter no mínimo 6 caracteres"),
     timezone: z.string().optional().default("America/Sao_Paulo"),
     locale: z.string().optional().default("pt-BR"),
-    preloadModel: z.enum(["empty", "basic", "demo"]).default("empty"),
+    preloadModel: z.enum(["empty", "basic", "demo", "large"]).default("empty"),
 });
 
 // POST /api/onboarding — Rota pública (sem autenticação)
