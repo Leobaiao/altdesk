@@ -331,7 +331,7 @@ export function TicketList({ onSelect, selectedId, onBack, refreshKey, onStatsUp
                                         color: t.SlaStatus === 'BREACHED' ? '#dc2626' : t.SlaStatus === 'WARNING' ? '#d97706' : '#059669',
                                         textTransform: 'uppercase', letterSpacing: '0.3px', flexShrink: 0
                                     }}>
-                                        {t.SlaStatus === 'BREACHED' ? '⚠ SLA' : t.SlaStatus === 'WARNING' ? '⏳ SLA' : '✓ SLA'}
+                                        {t.SlaStatus === 'BREACHED' ? '⚠ Violado' : t.SlaStatus === 'WARNING' ? '⏳ Em Risco' : '✓ No Prazo'}
                                     </span>
                                 )}
                             </div>

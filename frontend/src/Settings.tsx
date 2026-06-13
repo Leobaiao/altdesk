@@ -140,6 +140,7 @@ export function Settings({ token, onBack, role, livePermissions }: Props) {
         { label: "Sistema de Ajuda", path: "/help-admin", desc: "Gerenciar ajuda contextual", perm: "settings" },
         { label: "Filas de Atendimento", path: "/queues", desc: "Roteamento de chats", perm: "settings" },
         { label: "Tags", path: "/tags", desc: "Categorização", perm: "settings" },
+        { label: "Políticas de SLA", path: "__sla__", desc: "Regras de atendimento", perm: "settings" },
         { label: "Faturamento", path: "/billing", desc: "Gestão de assinaturas", perm: "billing" },
         { label: "Logs de Auditoria", path: "/audit", desc: "Histórico de ações", perm: "users" } // Audit usually for user managers
     ].filter(item => {
@@ -169,7 +170,14 @@ export function Settings({ token, onBack, role, livePermissions }: Props) {
                     {navItems.map(item => (
                         <div 
                             key={item.path} 
-                            onClick={() => navigate(item.path)}
+                            onClick={() => {
+                                if (item.path === '__sla__') {
+                                    setActiveTab('sla');
+                                    setMsg('');
+                                } else {
+                                    navigate(item.path);
+                                }
+                            }}
                             style={{ background: "var(--bg-secondary)", padding: 16, borderRadius: 12, border: "1px solid var(--border)", cursor: "pointer", transition: "all 0.2s" }}
                             onMouseEnter={e => e.currentTarget.style.borderColor = "var(--accent)"}
                             onMouseLeave={e => e.currentTarget.style.borderColor = "var(--border)"}
@@ -204,17 +212,6 @@ export function Settings({ token, onBack, role, livePermissions }: Props) {
                         }}
                     >
                         <Mail size={18} /> Canais de E-mail
-                    </button>
-                    <button 
-                        onClick={() => { setActiveTab("sla"); setMsg(""); }}
-                        style={{ 
-                            padding: "10px 20px", borderRadius: 10, cursor: "pointer", border: "none", 
-                            background: activeTab === "sla" ? "var(--accent)" : "transparent",
-                            color: activeTab === "sla" ? "#fff" : "var(--text-secondary)",
-                            fontWeight: 600, display: "flex", alignItems: "center", gap: 8, transition: "all 0.2s"
-                        }}
-                    >
-                        <ShieldCheck size={18} /> Políticas de SLA
                     </button>
                 </div>
             )}

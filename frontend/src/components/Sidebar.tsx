@@ -146,20 +146,6 @@ export function Sidebar({ setView }: { setView: (view: any) => void }) {
             <div className="sidebar-header" style={{ height: "85px", padding: "0 20px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--bg-primary)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                     <h2 style={{ margin: 0, fontSize: "1.5rem", fontWeight: 700, color: "var(--text-primary)" }}>Conversas</h2>
-                    {accountStatus === "TRIAL" && (
-                        <span style={{ 
-                            fontSize: "0.65rem", 
-                            background: "linear-gradient(135deg, #ff9800 0%, #f57c00 100%)", 
-                            color: "white", 
-                            padding: "3px 8px", 
-                            borderRadius: 6, 
-                            fontWeight: 800,
-                            letterSpacing: "0.5px",
-                            boxShadow: "0 2px 4px rgba(245,124,0,0.3)"
-                        }}>
-                            TRIAL
-                        </span>
-                    )}
                 </div>
                 <div style={{ display: "flex", gap: 10 }}>
                     {role !== 'END_USER' && (

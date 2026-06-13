@@ -537,10 +537,25 @@ export function TicketDetail({ ticket, onBack, profile, role, onTicketUpdate, on
                                     border: `1px solid ${ticket.SlaStatus === 'BREACHED' ? "rgba(239,68,68,0.2)" : ticket.SlaStatus === 'WARNING' ? "rgba(245,158,11,0.2)" : "rgba(16,185,129,0.2)"}`
                                 }}>
                                     <Timer size={12} style={{ marginRight: 4, verticalAlign: "middle" }} />
-                                    SLA {ticket.SlaStatus}
+                                    SLA {{ 'BREACHED': 'Violado', 'WARNING': 'Em Risco', 'ON_TIME': 'No Prazo' }[ticket.SlaStatus] || ticket.SlaStatus}
                                 </span>
                             )}
                         </div>
+                        {/* Tags inline com Status/SLA */}
+                        {ticket.Tags && ticket.Tags.length > 0 && (
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+                                {ticket.Tags.map((tag: any) => (
+                                    <span key={tag.TagId} style={{
+                                        padding: "4px 10px", borderRadius: 8, fontSize: "0.7rem", fontWeight: 700,
+                                        background: tag.Color ? `${tag.Color}20` : "rgba(134,150,160,0.12)",
+                                        color: tag.Color || "#8696a0",
+                                        border: `1px solid ${tag.Color ? `${tag.Color}30` : "rgba(134,150,160,0.2)"}`
+                                    }}>
+                                        {tag.Name}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     {/* Requester Section */}
@@ -578,7 +593,7 @@ export function TicketDetail({ ticket, onBack, profile, role, onTicketUpdate, on
                             </div>
                             <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem" }}>
                                 <span style={{ color: "var(--text-secondary)" }}>Prioridade:</span>
-                                <span style={{ fontWeight: 700, color: ticket.Priority === "CRITICAL" ? "#ef4444" : "inherit" }}>{ticket.Priority}</span>
+                                <span style={{ fontWeight: 700, color: ticket.Priority === "CRITICAL" ? "#ef4444" : ticket.Priority === "HIGH" ? "#f59e0b" : "inherit" }}>{{ "LOW": "Baixa", "MEDIUM": "Média", "HIGH": "Alta", "CRITICAL": "Crítica" }[ticket.Priority || ""] || ticket.Priority}</span>
                             </div>
                         </div>
                     </div>

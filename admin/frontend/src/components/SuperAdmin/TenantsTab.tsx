@@ -34,6 +34,9 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
     const [editUser, setEditUser] = useState<any>(null);
     const [confirmAction, setConfirmAction] = useState<{ type: 'delete_tenant' | 'delete_user' | 'status_tenant', id: string, extra?: any } | null>(null);
     const [showPurgeModal, setShowPurgeModal] = useState<any>(null);
+    const [editingExpiration, setEditingExpiration] = useState(false);
+    const [editExpirationValue, setEditExpirationValue] = useState("");
+    const [savingExpiration, setSavingExpiration] = useState(false);
     const { notify } = useNotification();
 
     useEffect(() => {
@@ -166,6 +169,50 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
             notify(err.response?.data?.error || "Erro ao limpar dados demo", "error");
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleDelete = async (tenantId: string) => {
+        try {
+            await api.delete(`/api/admin/tenants/${tenantId}`);
+            notify("Empresa movida para a lixeira com sucesso!", "success");
+            setSelectedTenant(null);
+            loadTenants();
+        } catch (err: any) {
+            notify(err.response?.data?.error || "Erro ao mover empresa para a lixeira", "error");
+        }
+    };
+
+    const handleSetStatus = async (tenantId: string, isActive: boolean) => {
+        try {
+            await api.put(`/api/admin/tenants/${tenantId}/status`, { isActive });
+            notify(`Empresa ${isActive ? 'reativada' : 'inativada'} com sucesso!`, "success");
+            loadTenants();
+            // Atualiza o tenant selecionado com o novo status
+            if (selectedTenant?.TenantId === tenantId) {
+                setSelectedTenant({ ...selectedTenant, IsActive: isActive });
+            }
+        } catch (err: any) {
+            notify(err.response?.data?.error || "Erro ao alterar status da empresa", "error");
+        }
+    };
+
+    const handleSaveExpiration = async () => {
+        if (!selectedTenant || !editExpirationValue) return;
+        setSavingExpiration(true);
+        try {
+            await api.put(`/api/admin/tenants/${selectedTenant.TenantId}/subscription`, {
+                expiresAt: new Date(editExpirationValue).toISOString()
+            });
+            notify("Data de expiração atualizada com sucesso!", "success");
+            setEditingExpiration(false);
+            loadTenants();
+            // Atualiza o tenant selecionado com a nova data
+            setSelectedTenant({ ...selectedTenant, ExpiresAt: new Date(editExpirationValue).toISOString() });
+        } catch (err: any) {
+            notify(err.response?.data?.error || "Erro ao atualizar data de expiração", "error");
+        } finally {
+            setSavingExpiration(false);
         }
     };
 
@@ -408,7 +455,6 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
                                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
                                             {[
                                                 { label: "Data de Onboarding", value: new Date(selectedTenant.CreatedAt).toLocaleString(), icon: <Calendar size={14} /> },
-                                                { label: "Expiração (Sistema)", value: new Date(selectedTenant.ExpiresAt).toLocaleDateString(), icon: <Calendar size={14} />, color: isExpired(selectedTenant.ExpiresAt) ? "var(--danger)" : "var(--text-primary)" },
                                                 { 
                                                     label: "Plano Asaas", 
                                                     value: selectedTenant.PlanName || "Nenhum Plano Ativo", 
@@ -435,6 +481,92 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
                                                     </div>
                                                 </div>
                                             ))}
+
+                                            {/* Card Editável: Expiração (Sistema) */}
+                                            <div style={{ 
+                                                display: "flex", 
+                                                flexDirection: "column",
+                                                gap: 8,
+                                                padding: "12px 16px", 
+                                                background: "var(--bg-primary)", 
+                                                borderRadius: 12, 
+                                                border: editingExpiration ? "1px solid var(--accent)" : "1px solid var(--border)",
+                                                transition: "border-color 0.2s"
+                                            }}>
+                                                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                                    <div style={{ color: "var(--text-secondary)", display: "flex", alignItems: "center" }}><Calendar size={14} /></div>
+                                                    <div style={{ fontSize: "0.65rem", textTransform: "uppercase", color: "var(--text-secondary)", fontWeight: 700, flex: 1 }}>Expiração (Sistema)</div>
+                                                    {!editingExpiration && (
+                                                        <button
+                                                            onClick={() => {
+                                                                const d = new Date(selectedTenant.ExpiresAt);
+                                                                setEditExpirationValue(d.toISOString().split('T')[0]);
+                                                                setEditingExpiration(true);
+                                                            }}
+                                                            style={{ 
+                                                                background: "none", border: "none", 
+                                                                color: "var(--accent)", cursor: "pointer", 
+                                                                padding: 2, display: "flex", alignItems: "center"
+                                                            }}
+                                                            title="Editar data de expiração"
+                                                        >
+                                                            <Edit2 size={12} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                <div>
+                                                    {editingExpiration ? (
+                                                        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
+                                                            <input 
+                                                                type="date" 
+                                                                value={editExpirationValue}
+                                                                onChange={e => setEditExpirationValue(e.target.value)}
+                                                                style={{
+                                                                    width: "100%",
+                                                                    padding: "6px 10px", 
+                                                                    borderRadius: 8, 
+                                                                    border: "1px solid var(--border)", 
+                                                                    background: "var(--bg-secondary)",
+                                                                    color: "var(--text-primary)", 
+                                                                    fontSize: "0.82rem",
+                                                                    outline: "none"
+                                                                }}
+                                                            />
+                                                            <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
+                                                                <button
+                                                                    onClick={() => setEditingExpiration(false)}
+                                                                    style={{ 
+                                                                        padding: "5px 10px", borderRadius: 8, border: "1px solid var(--border)", 
+                                                                        background: "transparent", color: "var(--text-secondary)", 
+                                                                        fontSize: "0.72rem", cursor: "pointer", fontWeight: 600
+                                                                    }}
+                                                                >
+                                                                    Cancelar
+                                                                </button>
+                                                                <button 
+                                                                    onClick={handleSaveExpiration} 
+                                                                    disabled={savingExpiration || !editExpirationValue}
+                                                                    style={{ 
+                                                                        padding: "5px 12px", borderRadius: 8, border: "none", 
+                                                                        background: "var(--accent)", color: "#fff", 
+                                                                        fontSize: "0.72rem", fontWeight: 700, cursor: "pointer",
+                                                                        opacity: (savingExpiration || !editExpirationValue) ? 0.5 : 1
+                                                                    }}
+                                                                >
+                                                                    {savingExpiration ? "..." : "Salvar"}
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <span style={{ 
+                                                            fontSize: "0.9rem", fontWeight: 600, 
+                                                            color: isExpired(selectedTenant.ExpiresAt) ? "var(--danger)" : "var(--text-primary)" 
+                                                        }}>
+                                                            {new Date(selectedTenant.ExpiresAt).toLocaleDateString()}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

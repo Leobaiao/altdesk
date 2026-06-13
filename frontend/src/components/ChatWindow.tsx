@@ -384,25 +384,37 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
 
     async function handleAssign(queueId: string | null, assignUserId: string | null) {
         if (!selectedConversationId) return;
-        await api.post(`/api/conversations/${selectedConversationId}/assign`, { queueId, userId: assignUserId, reason: transferReason || undefined });
-        refreshConversations();
-        if (showAssignModal) {
-            setShowAssignModal(false);
-            setTransferReason("");
+        try {
+            await api.post(`/api/conversations/${selectedConversationId}/assign`, { queueId, userId: assignUserId, reason: transferReason || undefined });
+            refreshConversations();
+            if (showAssignModal) {
+                setShowAssignModal(false);
+                setTransferReason("");
+            }
+        } catch (e: any) {
+            showToast("Erro ao transferir: " + (e.response?.data?.error || e.message), "error");
         }
     }
 
     async function handleAddTag(tagId: string) {
         if (!selectedConversationId) return;
-        await api.post(`/api/tags/conversations/${selectedConversationId}`, { tagId });
-        refreshConversations();
-        setShowTagMenu(false);
+        try {
+            await api.post(`/api/tags/conversations/${selectedConversationId}`, { tagId });
+            refreshConversations();
+            setShowTagMenu(false);
+        } catch (e: any) {
+            showToast("Erro ao adicionar tag: " + (e.response?.data?.error || e.message), "error");
+        }
     }
 
     async function handleRemoveTag(tagId: string) {
         if (!selectedConversationId) return;
-        await api.delete(`/api/tags/conversations/${selectedConversationId}/${tagId}`);
-        refreshConversations();
+        try {
+            await api.delete(`/api/tags/conversations/${selectedConversationId}/${tagId}`);
+            refreshConversations();
+        } catch (e: any) {
+            showToast("Erro ao remover tag: " + (e.response?.data?.error || e.message), "error");
+        }
     }
 
     async function handleDeleteMessage(messageId: string) {
@@ -1169,91 +1181,104 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
                     left: 0,
                     right: 0,
                     bottom: 0,
-                    background: "rgba(11, 20, 26, 0.95)",
-                    backdropFilter: "blur(10px)",
+                    background: "rgba(0, 0, 0, 0.6)",
+                    backdropFilter: "blur(4px)",
                     display: "flex",
-                    flexDirection: "column",
-                    zIndex: 10000,
-                    color: "#e9edef"
+                    alignItems: "center",
+                    justifyContent: "center",
+                    zIndex: 10000
                 }}>
-                    {/* Modal Header */}
                     <div style={{
-                        height: "60px",
+                        background: "var(--bg-secondary)",
+                        border: "1px solid var(--border)",
+                        borderRadius: 20,
+                        width: "100%",
+                        maxWidth: 520,
+                        maxHeight: "80vh",
                         display: "flex",
-                        alignItems: "center",
-                        padding: "0 24px",
-                        borderBottom: "1px solid rgba(255,255,255,0.08)",
-                        justifyContent: "space-between"
+                        flexDirection: "column",
+                        boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
+                        overflow: "hidden",
+                        animation: "modalIn 0.2s ease-out"
                     }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                        {/* Modal Header */}
+                        <div style={{
+                            padding: "16px 24px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            borderBottom: "1px solid var(--border)"
+                        }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                                <div style={{
+                                    width: 36, height: 36, borderRadius: 10,
+                                    background: "rgba(0, 168, 132, 0.1)",
+                                    display: "flex", alignItems: "center", justifyContent: "center",
+                                    color: "#00a884"
+                                }}>
+                                    <Paperclip size={18} />
+                                </div>
+                                <span style={{ fontWeight: 700, fontSize: "1.05rem", color: "var(--text-primary)" }}>Enviar arquivo</span>
+                            </div>
                             <button
                                 type="button"
                                 onClick={handleCancelSendFile}
-                                style={{
-                                    background: "none",
-                                    border: "none",
-                                    color: "#8696a0",
-                                    cursor: "pointer",
-                                    display: "flex",
-                                    alignItems: "center"
-                                }}
                                 disabled={sendingFile}
+                                style={{
+                                    background: "var(--bg-hover)",
+                                    border: "none",
+                                    color: "var(--text-secondary)",
+                                    cursor: "pointer",
+                                    width: 32, height: 32,
+                                    borderRadius: "50%",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center"
+                                }}
                             >
-                                <X size={24} />
+                                <X size={18} />
                             </button>
-                            <span style={{ fontWeight: 600, fontSize: "1.1rem" }}>Enviar arquivo</span>
                         </div>
-                    </div>
 
-                    {/* Modal Content / Preview Area */}
-                    <div style={{
-                        flex: 1,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        padding: "24px",
-                        overflow: "hidden",
-                        position: "relative"
-                    }}>
-                        {sendingFile && (
-                            <div style={{
-                                position: "absolute",
-                                top: 0,
-                                left: 0,
-                                right: 0,
-                                bottom: 0,
-                                background: "rgba(11, 20, 26, 0.7)",
-                                display: "flex",
-                                flexDirection: "column",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                zIndex: 10,
-                                gap: 16
-                            }}>
-                                <div className="spinner" style={{ borderTopColor: "var(--accent)" }}></div>
-                                <span style={{ fontWeight: 500 }}>Enviando arquivo...</span>
-                            </div>
-                        )}
-
+                        {/* Preview Area */}
                         <div style={{
-                            maxWidth: "100%",
-                            maxHeight: "100%",
+                            flex: 1,
                             display: "flex",
-                            flexDirection: "column",
                             alignItems: "center",
                             justifyContent: "center",
-                            gap: 16
+                            padding: 24,
+                            overflow: "hidden",
+                            position: "relative",
+                            minHeight: 200
                         }}>
+                            {sendingFile && (
+                                <div style={{
+                                    position: "absolute",
+                                    top: 0, left: 0, right: 0, bottom: 0,
+                                    background: "rgba(0, 0, 0, 0.4)",
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    zIndex: 10,
+                                    gap: 12,
+                                    borderRadius: 12
+                                }}>
+                                    <div className="spinner" style={{ borderTopColor: "var(--accent)" }}></div>
+                                    <span style={{ fontWeight: 500, color: "#e9edef" }}>Enviando arquivo...</span>
+                                </div>
+                            )}
+
                             {pendingFile.type.startsWith("image/") && filePreviewUrl ? (
                                 <img
                                     src={filePreviewUrl}
                                     alt="Preview"
                                     style={{
                                         maxWidth: "100%",
-                                        maxHeight: "60vh",
+                                        maxHeight: "40vh",
                                         objectFit: "contain",
-                                        borderRadius: "8px",
-                                        boxShadow: "0 8px 24px rgba(0,0,0,0.3)"
+                                        borderRadius: 12,
+                                        boxShadow: "0 4px 12px rgba(0,0,0,0.15)"
                                     }}
                                 />
                             ) : pendingFile.type.startsWith("video/") && filePreviewUrl ? (
@@ -1262,90 +1287,55 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
                                     controls
                                     style={{
                                         maxWidth: "100%",
-                                        maxHeight: "60vh",
-                                        borderRadius: "8px",
-                                        boxShadow: "0 8px 24px rgba(0,0,0,0.3)"
+                                        maxHeight: "40vh",
+                                        borderRadius: 12,
+                                        boxShadow: "0 4px 12px rgba(0,0,0,0.15)"
                                     }}
                                 />
-                            ) : pendingFile.type.startsWith("audio/") ? (
-                                <div style={{
-                                    background: "rgba(255, 255, 255, 0.05)",
-                                    border: "1px solid rgba(255, 255, 255, 0.1)",
-                                    borderRadius: "16px",
-                                    padding: "40px",
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    alignItems: "center",
-                                    gap: 16,
-                                    width: "300px",
-                                    boxShadow: "0 8px 24px rgba(0,0,0,0.2)"
-                                }}>
-                                    <Music size={64} style={{ color: "var(--accent)" }} />
-                                    <div style={{
-                                        fontWeight: 600,
-                                        fontSize: "1.1rem",
-                                        textAlign: "center",
-                                        wordBreak: "break-all",
-                                        color: "#e9edef"
-                                    }}>
-                                        {pendingFile.name}
-                                    </div>
-                                    <div style={{
-                                        fontSize: "0.85rem",
-                                        color: "#8696a0"
-                                    }}>
-                                        {(pendingFile.size / (1024 * 1024)).toFixed(2)} MB
-                                    </div>
-                                </div>
                             ) : (
                                 <div style={{
-                                    background: "rgba(255, 255, 255, 0.05)",
-                                    border: "1px solid rgba(255, 255, 255, 0.1)",
-                                    borderRadius: "16px",
-                                    padding: "40px",
+                                    background: "var(--bg-primary)",
+                                    border: "1px solid var(--border)",
+                                    borderRadius: 16,
+                                    padding: "32px 40px",
                                     display: "flex",
                                     flexDirection: "column",
                                     alignItems: "center",
-                                    gap: 16,
-                                    width: "300px",
-                                    boxShadow: "0 8px 24px rgba(0,0,0,0.2)"
+                                    gap: 12,
+                                    width: "100%",
+                                    maxWidth: 280
                                 }}>
-                                    <FileText size={64} style={{ color: "var(--accent)" }} />
+                                    {pendingFile.type.startsWith("audio/") ? (
+                                        <Music size={48} style={{ color: "var(--accent)" }} />
+                                    ) : (
+                                        <FileText size={48} style={{ color: "var(--accent)" }} />
+                                    )}
                                     <div style={{
                                         fontWeight: 600,
-                                        fontSize: "1.1rem",
+                                        fontSize: "0.95rem",
                                         textAlign: "center",
                                         wordBreak: "break-all",
-                                        color: "#e9edef"
+                                        color: "var(--text-primary)"
                                     }}>
                                         {pendingFile.name}
                                     </div>
                                     <div style={{
-                                        fontSize: "0.85rem",
-                                        color: "#8696a0"
+                                        fontSize: "0.8rem",
+                                        color: "var(--text-secondary)"
                                     }}>
                                         {(pendingFile.size / (1024 * 1024)).toFixed(2)} MB
                                     </div>
                                 </div>
                             )}
                         </div>
-                    </div>
 
-                    {/* Modal Footer / Caption and Send bar */}
-                    <div style={{
-                        background: "rgba(11, 20, 26, 0.5)",
-                        padding: "20px 24px",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        borderTop: "1px solid rgba(255,255,255,0.05)"
-                    }}>
+                        {/* Footer: Caption + Send */}
                         <div style={{
-                            width: "100%",
-                            maxWidth: "800px",
+                            padding: "16px 24px",
                             display: "flex",
                             alignItems: "center",
-                            gap: 12
+                            gap: 12,
+                            borderTop: "1px solid var(--border)"
                         }}>
                             <input
                                 type="text"
@@ -1356,12 +1346,12 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
                                 disabled={sendingFile}
                                 style={{
                                     flex: 1,
-                                    padding: "14px 20px",
-                                    borderRadius: "12px",
-                                    border: "none",
-                                    background: "#2a3942",
-                                    color: "#e9edef",
-                                    fontSize: "0.95rem",
+                                    padding: "12px 16px",
+                                    borderRadius: 12,
+                                    border: "1px solid var(--border)",
+                                    background: "var(--bg-primary)",
+                                    color: "var(--text-primary)",
+                                    fontSize: "0.9rem",
                                     outline: "none"
                                 }}
                                 autoFocus
@@ -1371,8 +1361,8 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
                                 onClick={handleConfirmSendFile}
                                 disabled={sendingFile}
                                 style={{
-                                    width: "48px",
-                                    height: "48px",
+                                    width: 44,
+                                    height: 44,
                                     borderRadius: "50%",
                                     background: "var(--accent)",
                                     color: "white",
@@ -1380,13 +1370,15 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
                                     display: "flex",
                                     alignItems: "center",
                                     justifyContent: "center",
-                                    cursor: "pointer",
-                                    transition: "transform 0.1s"
+                                    cursor: sendingFile ? "not-allowed" : "pointer",
+                                    opacity: sendingFile ? 0.6 : 1,
+                                    transition: "transform 0.1s, opacity 0.2s",
+                                    flexShrink: 0
                                 }}
-                                onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.05)"}
-                                onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
+                                onMouseEnter={(e) => !sendingFile && (e.currentTarget.style.transform = "scale(1.05)")}
+                                onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
                             >
-                                <Send size={20} />
+                                <Send size={18} />
                             </button>
                         </div>
                     </div>
