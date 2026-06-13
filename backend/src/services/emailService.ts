@@ -78,19 +78,40 @@ export async function sendEmail({ to, subject, html, text, inReplyTo, references
 
 export async function sendPasswordResetEmail(to: string, resetLink: string) {
     const html = `
-        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-            <h2 style="color: #333;">Recuperação de Senha - AltDesk</h2>
-            <p>Olá,</p>
-            <p>Recebemos uma solicitação para redefinir a senha da sua conta no AltDesk.</p>
-            <p>Clique no botão abaixo para escolher uma nova senha:</p>
-            <div style="text-align: center; margin: 30px 0;">
-                <a href="${resetLink}" style="background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">Redefinir Minha Senha</a>
+        <div style="background-color: #f8fafc; padding: 40px 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+            <div style="max-width: 500px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05); border: 1px solid #e2e8f0;">
+                <!-- Header -->
+                <div style="background-color: #0f172a; padding: 32px 24px; text-align: center;">
+                    <img src="https://altdesk.com.br/logo-horizontal.png" alt="AltDesk" style="height: 38px; width: auto; display: block; margin: 0 auto;" />
+                </div>
+                <!-- Content -->
+                <div style="padding: 40px 32px; text-align: center;">
+                    <h2 style="margin: 0 0 16px 0; font-size: 20px; font-weight: 700; color: #0f172a;">Recuperação de Senha</h2>
+                    <p style="margin: 0 0 24px 0; font-size: 15px; line-height: 1.6; color: #475569;">
+                        Olá,<br><br>Recebemos uma solicitação para redefinir a senha da sua conta no <strong>AltDesk</strong>.
+                    </p>
+                    
+                    <div style="margin: 32px 0;">
+                        <a href="${resetLink}" style="display: inline-block; background-color: #00a884; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 15px;">
+                            Redefinir Minha Senha
+                        </a>
+                    </div>
+                    
+                    <p style="margin: 0 0 8px 0; font-size: 13px; line-height: 1.5; color: #64748b;">
+                        Este link expira em <strong>1 hora</strong>.
+                    </p>
+                    <p style="margin: 0; font-size: 13px; line-height: 1.5; color: #94a3b8;">
+                        Se você não fez esta solicitação, pode ignorar este e-mail com segurança.
+                    </p>
+                </div>
+                <!-- Footer -->
+                <div style="background-color: #f1f5f9; padding: 24px; text-align: center; border-top: 1px solid #e2e8f0;">
+                    <p style="margin: 0; font-size: 12px; color: #64748b; font-weight: 600;">Equipe AltDesk</p>
+                    <p style="margin: 4px 0 0 0; font-size: 11px; color: #94a3b8;">Mensagem automática de segurança. Não responda.</p>
+                </div>
             </div>
-            <p>Se você não solicitou isso, pode ignorar este email com segurança.</p>
-            <p>Este link expira em 1 hora.</p>
-            <hr style="border: 0; border-top: 1px solid #eee; margin-top: 30px;">
-            <p style="font-size: 12px; color: #999;">Equipe AltDesk</p>
         </div>
     `;
     return sendEmail({ to, subject: "Recuperação de Senha - AltDesk", html });
 }
+
