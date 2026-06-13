@@ -36,7 +36,7 @@ interface EmailOptions {
 export async function sendEmail({ to, subject, html, text, inReplyTo, references, config }: EmailOptions) {
     try {
         let transporter = defaultTransporter;
-        let from = process.env.SMTP_FROM || '"AltDesk" <noreply@altdesk.com>';
+        let from = process.env.SMTP_FROM || (process.env.SMTP_USER ? `"AltDesk" <${process.env.SMTP_USER}>` : '"AltDesk" <noreply@altdesk.com>');
 
         if (config) {
             const configOptions: any = {

@@ -103,6 +103,7 @@ jobs:
           SMTP_USER=${{ secrets.SMTP_USER }}
           SMTP_PASS=${{ secrets.SMTP_PASS }}
           SMTP_SECURE=false
+          SMTP_FROM=${{ secrets.SMTP_FROM }}
           EOF
           # Remove espaços no início das linhas
           sed -i 's/^[[:space:]]*//' .env.prod
