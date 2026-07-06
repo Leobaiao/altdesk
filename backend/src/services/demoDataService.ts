@@ -8,11 +8,12 @@ import { createCannedResponse } from "./canned-response.js";
 import { createGlobalUser } from "./userService.js";
 import { logger } from "../lib/logger.js";
 
-export async function preloadDemoData(tenantId: string, model: "basic" | "demo" | "large", adminId?: string) {
+export async function preloadDemoData(tenantId: string, model: "basic" | "demo" | "large", adminId?: string, onProgress?: (msg: string, pct: number) => void) {
     logger.info({ tenantId, model, adminId }, "Starting demo data preload");
 
     try {
         const dbPool = await getPool();
+        if (onProgress) onProgress("Inicializando banco de dados...", 5);
         if (model === "large") {
             logger.info({ tenantId, adminId }, "Seeding base demo queues and agents for large dataset");
             await dbPool.request()
@@ -22,6 +23,7 @@ export async function preloadDemoData(tenantId: string, model: "basic" | "demo" 
         }
 
         // 1. Knowledge Base Articles
+        if (onProgress) onProgress("Criando Base de Conhecimento...", 15);
         const articles = [
             {
                 Title: "Como configurar meu perfil?",
@@ -65,6 +67,7 @@ export async function preloadDemoData(tenantId: string, model: "basic" | "demo" 
         }
 
         // 1.5 Quick Responses (Canned Responses)
+        if (onProgress) onProgress("Configurando Respostas Rápidas...", 30);
         const cannedResponses = [
             { shortcut: "ola", title: "Saudação Inicial", content: "Olá! Tudo bem? Seja bem-vindo ao nosso suporte. Como posso te ajudar com o seu projeto hoje?" },
             { shortcut: "aguarde", title: "Aguardar Análise", content: "Entendido. Por favor, aguarde um instante enquanto consulto as informações no sistema. Já retorno com uma resposta." },
@@ -84,6 +87,7 @@ export async function preloadDemoData(tenantId: string, model: "basic" | "demo" 
         }
 
         // 1.6 Setup Channels
+        if (onProgress) onProgress("Configurando Canais de Atendimento...", 45);
         const pool = await getPool();
         let whatsappChannelId = "";
         let emailChannelId = "";
@@ -164,6 +168,7 @@ export async function preloadDemoData(tenantId: string, model: "basic" | "demo" 
         }
 
         // 1.7 Assign Admin to the new instance
+        if (onProgress) onProgress("Associando Administrador...", 60);
         if (adminId) {
             logger.info({ tenantId, demoConnectorId, adminId }, "Assigning admin to demo instances");
             if (model === "basic") {
@@ -197,6 +202,7 @@ export async function preloadDemoData(tenantId: string, model: "basic" | "demo" 
         }
 
         // 1.8 Create Demo Team (Agents)
+        if (onProgress) onProgress("Criando Equipe de Atendimento...", 75);
         if (model === "demo" || model === "large") {
             const team = [
                 { name: "Suporte N1", email: `suporte.n1.${tenantId.substring(0, 5)}@altdesk.demo`, role: "AGENT" as const },
@@ -230,6 +236,7 @@ export async function preloadDemoData(tenantId: string, model: "basic" | "demo" 
         }
 
         // 2. Sample Contacts, Conversations and Tickets
+        if (onProgress) onProgress("Gerando Contatos e Chamados...", 90);
         if (model === "basic") {
             const demoContacts = [
                 { name: "João Silva", phone: "5511999998888", email: "joao.silva@demo.com", notes: "Cliente recorrente, interessado em planos corporativos.", tags: ["Demonstração", "Lead"] },
@@ -893,6 +900,7 @@ export async function preloadDemoData(tenantId: string, model: "basic" | "demo" 
             }
 
             // Insert contacts in batches of 250
+            if (onProgress) onProgress("Gravando Contatos (0/4)...", 80);
             for (let i = 0; i < contactsList.length; i += 250) {
                 const chunk = contactsList.slice(i, i + 250);
                 let sqlQuery = "INSERT INTO altdesk.Contact (ContactId, TenantId, Name, Phone, Email, Tags, CreatedAt) VALUES\n";
@@ -901,19 +909,11 @@ export async function preloadDemoData(tenantId: string, model: "basic" | "demo" 
                 ).join(",\n");
                 sqlQuery += ";";
                 await pool.request().query(sqlQuery);
+                if (onProgress) onProgress(`Gravando Contatos (${(i/250) + 1}/4)...`, 80 + Math.round((i/250)*2));
             }
 
+            if (onProgress) onProgress("Preparando dados gigantescos na memória (aguarde)...", 85);
             const totalTickets = 5000;
-
-            const buildChunkedInserts = (tableName: string, columns: string, valuesArray: string[]): string => {
-                let sql = "";
-                for (let i = 0; i < valuesArray.length; i += 1000) {
-                    const chunk = valuesArray.slice(i, i + 1000);
-                    sql += `INSERT INTO ${tableName} (${columns}) VALUES\n` + chunk.join(",\n") + ";\n";
-                }
-                return sql;
-            };
-
             const conversationsValues: string[] = [];
             const externalMapsValues: string[] = [];
             const ticketsValues: string[] = [];
@@ -1131,31 +1131,35 @@ export async function preloadDemoData(tenantId: string, model: "basic" | "demo" 
                 }
             }
 
-            let batchSql = `
-            SET NOCOUNT ON;
-            SET XACT_ABORT ON;
-            BEGIN TRANSACTION;
-            `;
+            if (onProgress) onProgress("Iniciando gravação de chamados e mensagens...", 90);
 
-            batchSql += buildChunkedInserts("altdesk.Conversation", "ConversationId, TenantId, ChannelId, QueueId, AssignedUserId, OpenedByContactId, Title, Kind, Status, SourceChannel, LastMessageAt, CreatedAt, ClosedAt, CsatScore, SlaDeadline, SlaStatus, FirstResponseAt", conversationsValues);
-            batchSql += buildChunkedInserts("altdesk.ExternalThreadMap", "TenantId, ConnectorId, ExternalChatId, ExternalUserId, ConversationId", externalMapsValues);
-            batchSql += buildChunkedInserts("altdesk.Ticket", "TicketId, TenantId, ConversationId, Priority, Status, AssignedAgentId, SLAFirstResponseDue, SLAResolutionDue, FirstResponseAt, ResolvedAt, SlaStatus, KanbanOrder, CreatedAt, UpdatedAt", ticketsValues);
-            batchSql += buildChunkedInserts("altdesk.TicketEvent", "TenantId, TicketId, EventType, NewValue, ActorUserId, CreatedAt", ticketEventsValues);
-            if (satisfactionRatingsValues.length > 0) {
-                batchSql += buildChunkedInserts("altdesk.SatisfactionRating", "ConversationId, Score, Comment, CreatedAt", satisfactionRatingsValues);
-            }
-            batchSql += buildChunkedInserts("altdesk.Message", "MessageId, TenantId, ConversationId, Direction, Body, SenderExternalId, SenderUserId, Status, CreatedAt", messagesValues);
+            const executeInBatches = async (tableName: string, columns: string, valuesArray: string[], progressLabel: string, progressStart: number, progressEnd: number) => {
+                if (valuesArray.length === 0) return;
+                const chunkSize = 1000;
+                const totalChunks = Math.ceil(valuesArray.length / chunkSize);
+                for (let i = 0; i < totalChunks; i++) {
+                    const chunk = valuesArray.slice(i * chunkSize, (i + 1) * chunkSize);
+                    const sql = `INSERT INTO ${tableName} (${columns}) VALUES\n` + chunk.join(",\n") + ";";
+                    
+                    const request = pool.request();
+                    (request as any).timeout = 60000;
+                    await request.query(sql);
+                    
+                    const currentProgress = Math.round(progressStart + ((i + 1) / totalChunks) * (progressEnd - progressStart));
+                    if (onProgress) onProgress(`Gravando ${progressLabel} (${i + 1}/${totalChunks})...`, currentProgress);
+                }
+            };
 
-            batchSql += `
-            COMMIT TRANSACTION;
-            `;
-
-            const request = pool.request();
-            (request as any).timeout = 120000; // 120 seconds maximum query timeout
-            await request.query(batchSql);
+            await executeInBatches("altdesk.Conversation", "ConversationId, TenantId, ChannelId, QueueId, AssignedUserId, OpenedByContactId, Title, Kind, Status, SourceChannel, LastMessageAt, CreatedAt, ClosedAt, CsatScore, SlaDeadline, SlaStatus, FirstResponseAt", conversationsValues, "Conversas", 90, 92);
+            await executeInBatches("altdesk.ExternalThreadMap", "TenantId, ConnectorId, ExternalChatId, ExternalUserId, ConversationId", externalMapsValues, "Mapas de Threads", 92, 93);
+            await executeInBatches("altdesk.Ticket", "TicketId, TenantId, ConversationId, Priority, Status, AssignedAgentId, SLAFirstResponseDue, SLAResolutionDue, FirstResponseAt, ResolvedAt, SlaStatus, KanbanOrder, CreatedAt, UpdatedAt", ticketsValues, "Chamados", 93, 95);
+            await executeInBatches("altdesk.TicketEvent", "TenantId, TicketId, EventType, NewValue, ActorUserId, CreatedAt", ticketEventsValues, "Eventos Históricos", 95, 96);
+            await executeInBatches("altdesk.SatisfactionRating", "ConversationId, Score, Comment, CreatedAt", satisfactionRatingsValues, "Avaliações", 96, 97);
+            await executeInBatches("altdesk.Message", "MessageId, TenantId, ConversationId, Direction, Body, SenderExternalId, SenderUserId, Status, CreatedAt", messagesValues, "Mensagens", 97, 99);
         }
 
-        logger.info({ tenantId }, "Demo data preload finished");
+        if (onProgress) onProgress("Finalizando...", 100);
+        logger.info({ tenantId, model }, "Demo data preload completed successfully");
     } catch (err: any) {
         logger.error({ tenantId, error: err.message }, "Failed to preload demo data");
     }

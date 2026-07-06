@@ -277,17 +277,18 @@ function Step3({ data }: { data: OnboardingData }) {
 }
 
 // ─── Step 4: Sucesso ───────────────────────────────
-function Step4({ preloadModel, onEnter }: { preloadModel: PreloadModel; onEnter: () => void }) {
+function Step4({ preloadModel, onEnter, isReady, sseMessage, sseProgress }: { preloadModel: PreloadModel; onEnter: () => void; isReady: boolean; sseMessage: string; sseProgress: number; }) {
   return (
     <div className="onboarding-split">
       <div className="onboarding-left">
         <div className="onboarding-icon-circle success">
           <Sparkles size={32} />
         </div>
-        <h2>Seu ambiente está pronto!</h2>
+        <h2>{isReady ? "Seu ambiente está pronto!" : "Criando seu ambiente..."}</h2>
         <p>
-          O Altdesk concluiu a criação da sua conta e do ambiente inicial.
-          Agora você já pode entrar no painel e começar sua avaliação.
+          {isReady 
+            ? "O Altdesk concluiu a criação da sua conta e do ambiente inicial. Agora você já pode entrar no painel e começar sua avaliação."
+            : "Por favor aguarde enquanto preparamos os dados do seu sistema. Isso pode levar alguns instantes."}
         </p>
         {(preloadModel === "demo" || preloadModel === "large") && (
           <p style={{ marginTop: 12, fontSize: 13, color: "var(--accent)" }}>
@@ -297,14 +298,26 @@ function Step4({ preloadModel, onEnter }: { preloadModel: PreloadModel; onEnter:
         )}
       </div>
       <div className="onboarding-right" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20 }}>
-        <div className="success-checkmarks">
-          <div className="success-item"><Check size={20} /> Empresa criada com sucesso</div>
-          <div className="success-item"><Check size={20} /> Administrador criado com sucesso</div>
-          <div className="success-item"><Check size={20} /> Ambiente aplicado com sucesso</div>
-        </div>
-        <button className="btn btn-primary" style={{ padding: "16px 40px", fontSize: 16, gap: 8 }} onClick={onEnter}>
-          <LogIn size={20} /> Entrar no Altdesk
-        </button>
+        {!isReady ? (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 15, width: "100%", maxWidth: 300 }}>
+             <Loader2 size={40} className="spin" color="var(--primary)" />
+             <div style={{ width: "100%", height: 6, background: "var(--border)", borderRadius: 3, overflow: "hidden" }}>
+                 <div style={{ width: `${sseProgress}%`, height: "100%", background: "var(--primary)", transition: "width 0.3s" }} />
+             </div>
+             <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 600, textAlign: "center" }}>{sseMessage || "Aguardando servidor..."}</span>
+          </div>
+        ) : (
+          <>
+            <div className="success-checkmarks">
+              <div className="success-item"><Check size={20} /> Empresa criada com sucesso</div>
+              <div className="success-item"><Check size={20} /> Administrador criado com sucesso</div>
+              <div className="success-item"><Check size={20} /> Ambiente aplicado com sucesso</div>
+            </div>
+            <button className="btn btn-primary" style={{ padding: "16px 40px", fontSize: 16, gap: 8 }} onClick={onEnter}>
+              <LogIn size={20} /> Entrar no Altdesk
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
@@ -317,6 +330,10 @@ export function Onboarding({ onLogin }: { onLogin: (token: string, role: string)
   const [data, setData] = useState<OnboardingData>(initial);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [trackingId] = useState(() => crypto.randomUUID());
+  const [sseProgress, setSseProgress] = useState(0);
+  const [sseMessage, setSseMessage] = useState("");
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
     localStorage.setItem("theme", theme);
@@ -373,9 +390,50 @@ export function Onboarding({ onLogin }: { onLogin: (token: string, role: string)
     setLoading(true);
     try {
       const { confirmPassword, ...payload } = data;
-      const res = await api.post("/api/onboarding", payload);
-      localStorage.setItem("token", res.data.token);
-      setStep(4);
+
+      // Se houver preload, conectar ao SSE ANTES de enviar o POST para evitar race condition
+      if (data.preloadModel !== "empty") {
+        const baseUrl = api.defaults.baseURL || "";
+        const es = new EventSource(`${baseUrl}/api/onboarding/events/${trackingId}`);
+        
+        es.onmessage = (event) => {
+            try {
+                const evData = JSON.parse(event.data);
+                if (evData.type === 'PROGRESS') {
+                    setSseMessage(evData.message);
+                    setSseProgress(evData.progress);
+                } else if (evData.type === 'COMPLETE') {
+                    localStorage.setItem("token", evData.token);
+                    setIsReady(true);
+                    es.close();
+                } else if (evData.type === 'ERROR') {
+                    setGlobalError(evData.message);
+                    setStep(3);
+                    es.close();
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        };
+
+        es.onerror = () => {
+            console.error("SSE connection error");
+            es.close();
+        };
+
+        // Aguardar brevemente para garantir que o SSE está conectado
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+
+      const res = await api.post("/api/onboarding", { ...payload, trackingId });
+      
+      if (res.data.status === "processing") {
+        setStep(4);
+      } else {
+        localStorage.setItem("token", res.data.token);
+        setIsReady(true);
+        setStep(4);
+      }
     } catch (err: any) {
       const msg = err.response?.data?.error || err.message || "Erro ao criar ambiente.";
       setGlobalError(msg);
@@ -430,7 +488,7 @@ export function Onboarding({ onLogin }: { onLogin: (token: string, role: string)
           {step === 1 && <Step1 data={data} onChange={updateData} />}
           {step === 2 && <Step2 data={data} onChange={updateData} />}
           {step === 3 && <Step3 data={data} />}
-          {step === 4 && <Step4 preloadModel={data.preloadModel} onEnter={handleEnter} />}
+          {step === 4 && <Step4 preloadModel={data.preloadModel} onEnter={handleEnter} isReady={isReady} sseMessage={sseMessage} sseProgress={sseProgress} />}
         </div>
 
         {/* Actions */}

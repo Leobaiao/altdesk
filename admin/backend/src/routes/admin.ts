@@ -112,8 +112,18 @@ router.put("/tenants/:id", validateBody(z.object({
 })), (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const tenantId = req.params.id;
-        const { agentsLimit } = req.body;
-        await updateTenantSubscription(tenantId, agentsLimit);
+        const { agentsLimit, planDays } = req.body;
+        
+        let expiresAt: Date | undefined = undefined;
+        if (planDays !== undefined) {
+            expiresAt = new Date();
+            expiresAt.setDate(expiresAt.getDate() + planDays);
+        }
+
+        await updateTenantSubscriptionFull(tenantId, { 
+            agentsLimit, 
+            expiresAt 
+        });
 
         // Audit Log
         const reqInfo = extractRequestInfo(req);
@@ -122,7 +132,7 @@ router.put("/tenants/:id", validateBody(z.object({
             action: 'UPDATE_SUBSCRIPTION',
             targetTable: 'Tenant',
             targetId: tenantId,
-            afterValues: { agentsLimit }
+            afterValues: { agentsLimit, planDays }
         });
 
         res.json({ ok: true });
@@ -147,7 +157,7 @@ router.delete("/tenants/:id", (async (req: AuthenticatedRequest, res: Response, 
             
             await transaction.request()
                 .input("id", tenantId)
-                .query("UPDATE altdesk.Subscription SET IsActive = 0 WHERE TenantId = @id");
+                .query("UPDATE altdesk.Subscription SET DeletedAt = GETDATE(), IsActive = 0 WHERE TenantId = @id AND DeletedAt IS NULL");
 
             // Cascade to Users
             await transaction.request()
@@ -157,7 +167,7 @@ router.delete("/tenants/:id", (async (req: AuthenticatedRequest, res: Response, 
             // Cascade to Agents
             await transaction.request()
                 .input("id", tenantId)
-                .query("UPDATE altdesk.Agent SET IsActive = 0 WHERE TenantId = @id");
+                .query("UPDATE altdesk.Agent SET DeletedAt = GETDATE(), IsActive = 0 WHERE TenantId = @id AND DeletedAt IS NULL");
 
             // Cascade to Connectors (Channels)
             await transaction.request()

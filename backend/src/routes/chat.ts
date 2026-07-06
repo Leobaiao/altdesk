@@ -268,13 +268,16 @@ router.post("/:id/reply", validateBody(z.object({
                   userMessage = `Endpoint não encontrado no provedor. A URL ou a instância configurada pode estar incorreta.`;
                 } else if (errMsg.includes("429")) {
                   userMessage = `Limite de envios atingido no provedor. Aguarde alguns segundos e tente novamente.`;
+                } else if (errMsg.includes("session is not reconnectable") || errMsg.includes("disconnected")) {
+                  userMessage = `A sessão do WhatsApp está desconectada. Por favor, reconecte escaneando o QR Code novamente.`;
                 } else if (errMsg.includes("500") || errMsg.includes("502") || errMsg.includes("503")) {
                   userMessage = `O provedor (${metadata.provider.toUpperCase()}) retornou erro interno. Detalhes: ${errMsg.substring(0, 200)}`;
                 } else {
                   userMessage = `Falha ao enviar: ${errMsg.substring(0, 150)}`;
                 }
 
-                return res.status(500).json({ 
+                // Usamos 400 em vez de 500 para erros de provider para não causar crash/unhandled errors no frontend
+                return res.status(400).json({ 
                     error: userMessage,
                     provider: metadata.provider
                 });

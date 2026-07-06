@@ -81,7 +81,12 @@ router.post("/forgot-password", validateBody(z.object({
 
         // 4. Send email
         const resetLink = `${process.env.FRONTEND_URL || "https://altdesk.com.br"}/reset-password?token=${token}`;
-        await sendPasswordResetEmail(email, resetLink);
+        try {
+            await sendPasswordResetEmail(email, resetLink);
+        } catch (emailError) {
+            console.error("[Email] Falha ao enviar email de recuperação (pode estar sem SMTP configurado):", emailError);
+            // Continua silenciosamente para não estourar 500
+        }
 
         res.json({ ok: true, message: "Se o email estiver cadastrado, você receberá um link de recuperação." });
     } catch (error) {

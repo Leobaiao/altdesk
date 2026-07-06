@@ -481,11 +481,11 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
                         {(getConversationTitle(selectedConversation, currentUserId, role) || "?").charAt(0).toUpperCase()}
                     </div>
                     <div style={{ minWidth: 0 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
                             {getChannelIcon(selectedConversation.SourceChannel, selectedConversation.Kind)}
-                            <div className="title" style={{ fontWeight: 700, fontSize: "1.1rem" }}>{getConversationTitle(selectedConversation, currentUserId, role)}</div>
+                            <div className="title" style={{ fontWeight: 700, fontSize: "1.1rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{getConversationTitle(selectedConversation, currentUserId, role)}</div>
                         </div>
-                        <div className="subtitle" style={{ fontSize: "0.82rem", opacity: 0.7, display: "flex", alignItems: "center", gap: 6, marginTop: 2, color: "var(--text-secondary)" }}>
+                        <div className="subtitle" style={{ fontSize: "0.82rem", opacity: 0.7, display: "flex", alignItems: "center", gap: 6, marginTop: 2, color: "var(--text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {selectedConversation.Title && selectedConversation.Title !== selectedConversation.ContactName && (
                                 <span style={{ fontWeight: 700, color: "var(--accent)" }}>{selectedConversation.Title}</span>
                             )}
