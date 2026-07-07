@@ -124,8 +124,10 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
             notify("Usuário movido para a lixeira", "success");
             loadTenantUsers(selectedTenant.TenantId);
             loadTenants(); // Recarrega count na lista lateral
+            return true;
         } catch (err: any) {
             notify(err.response?.data?.error || "Erro ao mover para a lixeira", "error");
+            return false;
         }
     };
 
@@ -178,8 +180,10 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
             notify("Empresa movida para a lixeira com sucesso!", "success");
             setSelectedTenant(null);
             loadTenants();
+            return true;
         } catch (err: any) {
             notify(err.response?.data?.error || "Erro ao mover empresa para a lixeira", "error");
+            return false;
         }
     };
 
@@ -192,8 +196,10 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
             if (selectedTenant?.TenantId === tenantId) {
                 setSelectedTenant({ ...selectedTenant, IsActive: isActive });
             }
+            return true;
         } catch (err: any) {
             notify(err.response?.data?.error || "Erro ao alterar status da empresa", "error");
+            return false;
         }
     };
 
@@ -270,7 +276,7 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
                                         color: statusFilter === s ? "#fff" : "var(--text-secondary)"
                                     }}
                                 >
-                                    {s === "ALL" ? "TODAS" : s === "TRIAL" ? "TESTE" : "REAL"}
+                                    {s === "ALL" ? "TODAS" : s === "TRIAL" ? "AVALIAÇÃO" : "REAL"}
                                 </button>
                             ))}
                         </div>
@@ -314,7 +320,7 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
                                                     {t.Name}
                                                 </div>
                                                 {t.AccountStatus === 'TRIAL' && (
-                                                    <span style={{ fontSize: "0.55rem", background: "rgba(255,165,0,0.15)", color: "orange", padding: "1px 4px", borderRadius: 4, fontWeight: 800 }}>TRIAL</span>
+                                                    <span style={{ fontSize: "0.55rem", background: "rgba(255,165,0,0.15)", color: "orange", padding: "1px 4px", borderRadius: 4, fontWeight: 800 }}>AVALIAÇÃO</span>
                                                 )}
                                             </div>
                                             <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", marginTop: 2 }}>
@@ -352,7 +358,7 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
                                         </span>
                                         {selectedTenant.AccountStatus === 'TRIAL' && (
                                             <span style={{ fontSize: "0.65rem", padding: "3px 8px", borderRadius: 12, background: "rgba(255,165,0,0.15)", color: "orange", textTransform: "uppercase", fontWeight: 700 }}>
-                                                Trial (Onboarding)
+                                                Avaliação (Onboarding)
                                             </span>
                                         )}
                                     </h2>
@@ -740,11 +746,20 @@ export function TenantsTab({ onShowModalChange }: TenantsTabProps) {
                         confirmAction.type === 'delete_user' ? "O usuário perderá o acesso imediatamente, mas poderá ser restaurado depois." :
                         `Deseja realmente ${selectedTenant.IsActive ? 'inativar' : 'reativar'} esta empresa?`
                     }
-                    onConfirm={() => {
-                        if (confirmAction.type === 'delete_tenant') handleDelete(confirmAction.id);
-                        if (confirmAction.type === 'delete_user') handleDeleteUser(confirmAction.id);
-                        if (confirmAction.type === 'status_tenant') handleSetStatus(confirmAction.id, confirmAction.extra);
-                        setConfirmAction(null);
+                    onConfirm={async () => {
+                        let success = true;
+                        if (confirmAction.type === 'delete_tenant') {
+                            success = await handleDelete(confirmAction.id) !== false;
+                        }
+                        if (confirmAction.type === 'delete_user') {
+                            success = await handleDeleteUser(confirmAction.id) !== false;
+                        }
+                        if (confirmAction.type === 'status_tenant') {
+                            success = await handleSetStatus(confirmAction.id, confirmAction.extra) !== false;
+                        }
+                        if (success) {
+                            setConfirmAction(null);
+                        }
                     }}
                     onCancel={() => setConfirmAction(null)}
                     confirmLabel={

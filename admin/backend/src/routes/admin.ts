@@ -983,9 +983,13 @@ router.post("/billing/plans", validateBody(z.object({
     priceCents: z.number().min(0),
     cycle: z.enum(["monthly", "quarterly", "yearly"]).optional(),
     agentsSeatLimit: z.number().min(1).optional(),
+    monthlyPrice: z.number().optional(),
+    annualPrice: z.number().optional(),
+    stripeProductId: z.string().optional(),
+    stripePriceId: z.string().optional(),
 })), (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-        const { code, name, priceCents, cycle, agentsSeatLimit } = req.body;
+        const { code, name, priceCents, cycle, agentsSeatLimit, monthlyPrice, annualPrice, stripeProductId, stripePriceId } = req.body;
         const pool = await getPool();
         await pool.request()
             .input("code", code)
@@ -993,9 +997,13 @@ router.post("/billing/plans", validateBody(z.object({
             .input("priceCents", priceCents)
             .input("cycle", cycle || "monthly")
             .input("agentsSeatLimit", agentsSeatLimit || 3)
+            .input("monthlyPrice", monthlyPrice || null)
+            .input("annualPrice", annualPrice || null)
+            .input("stripeProductId", stripeProductId || null)
+            .input("stripePriceId", stripePriceId || null)
             .query(`
-                INSERT INTO altdesk.BillingPlan (Code, Name, PriceCents, Cycle, AgentsSeatLimit)
-                VALUES (@code, @name, @priceCents, @cycle, @agentsSeatLimit)
+                INSERT INTO altdesk.BillingPlan (Code, Name, PriceCents, Cycle, AgentsSeatLimit, MonthlyPrice, AnnualPrice, StripeProductId, StripePriceId)
+                VALUES (@code, @name, @priceCents, @cycle, @agentsSeatLimit, @monthlyPrice, @annualPrice, @stripeProductId, @stripePriceId)
             `);
 
         const reqInfo = extractRequestInfo(req);
@@ -1019,10 +1027,14 @@ router.put("/billing/plans/:id", validateBody(z.object({
     priceCents: z.number().min(0).optional(),
     agentsSeatLimit: z.number().min(1).optional(),
     isActive: z.boolean().optional(),
+    monthlyPrice: z.number().optional(),
+    annualPrice: z.number().optional(),
+    stripeProductId: z.string().optional(),
+    stripePriceId: z.string().optional(),
 })), (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const { id } = req.params;
-        const { name, priceCents, agentsSeatLimit, isActive } = req.body;
+        const { name, priceCents, agentsSeatLimit, isActive, monthlyPrice, annualPrice, stripeProductId, stripePriceId } = req.body;
         const pool = await getPool();
 
         const sets: string[] = [];
@@ -1032,6 +1044,10 @@ router.put("/billing/plans/:id", validateBody(z.object({
         if (priceCents !== undefined) { sets.push("PriceCents = @priceCents"); request.input("priceCents", priceCents); }
         if (agentsSeatLimit !== undefined) { sets.push("AgentsSeatLimit = @agentsSeatLimit"); request.input("agentsSeatLimit", agentsSeatLimit); }
         if (isActive !== undefined) { sets.push("IsActive = @isActive"); request.input("isActive", isActive ? 1 : 0); }
+        if (monthlyPrice !== undefined) { sets.push("MonthlyPrice = @monthlyPrice"); request.input("monthlyPrice", monthlyPrice); }
+        if (annualPrice !== undefined) { sets.push("AnnualPrice = @annualPrice"); request.input("annualPrice", annualPrice); }
+        if (stripeProductId !== undefined) { sets.push("StripeProductId = @stripeProductId"); request.input("stripeProductId", stripeProductId); }
+        if (stripePriceId !== undefined) { sets.push("StripePriceId = @stripePriceId"); request.input("stripePriceId", stripePriceId); }
 
         if (sets.length === 0) return res.json({ ok: true });
 

@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from "react";
-import { Plus, Trash2, Tag as TagIcon } from "lucide-react";
+import { Plus, Trash2, Tag as TagIcon, Layers } from "lucide-react";
 import { PageHeader } from "./components/PageHeader";
 import { api } from "./lib/api";
 import type { Tag } from "../../shared/types";
+import { SlaSettingsTab } from "./components/SlaSettingsTab";
 
 interface Props {
     onBack: () => void;
 }
 
-export function TagsSettings({ onBack }: Props) {
+export function ClassificationSettings({ onBack }: Props) {
+    const [subTab, setSubTab] = useState<"tags" | "sla">("tags");
     const [tags, setTags] = useState<Tag[]>([]);
     const [loading, setLoading] = useState(false);
     const [newTagName, setNewTagName] = useState("");
@@ -85,11 +87,39 @@ export function TagsSettings({ onBack }: Props) {
     return (
         <div className="settings-page" style={{ height: "100%", overflowY: "auto" }}>
             <PageHeader
-                title="Gerenciar Tags"
-                icon={TagIcon}
+                title="Classificação e SLAs"
+                subtitle="Gerencie as tags das conversas e as políticas de atendimento (SLA)."
+                icon={Layers}
                 onBack={onBack}
-                contextKey="tags.index"
+                contextKey="classification.index"
             />
+
+            <div style={{ padding: "0 24px" }}>
+                <div style={{ display: "flex", gap: 4, marginBottom: 20, background: "var(--bg-secondary)", padding: 4, borderRadius: 10, border: "1px solid var(--border)", width: "fit-content" }}>
+                    <button
+                        onClick={() => setSubTab("tags")}
+                        style={{
+                            padding: "8px 18px", background: subTab === "tags" ? "var(--accent)" : "transparent",
+                            border: "none", color: subTab === "tags" ? "#fff" : "var(--text-secondary)",
+                            borderRadius: 8, cursor: "pointer", fontSize: "0.82rem", fontWeight: 600, transition: "all 0.15s"
+                        }}
+                    >
+                        Tags de Conversa
+                    </button>
+                    <button
+                        onClick={() => setSubTab("sla")}
+                        style={{
+                            padding: "8px 18px", background: subTab === "sla" ? "var(--accent)" : "transparent",
+                            border: "none", color: subTab === "sla" ? "#fff" : "var(--text-secondary)",
+                            borderRadius: 8, cursor: "pointer", fontSize: "0.82rem", fontWeight: 600, transition: "all 0.15s"
+                        }}
+                    >
+                        Políticas de SLA
+                    </button>
+                </div>
+
+                {subTab === "tags" && (
+                    <>
 
             <div style={{ background: "var(--bg-secondary)", padding: 25, borderRadius: 12, border: "1px solid var(--border)", marginBottom: 30 }}>
                 <h3 style={{ marginTop: 0, marginBottom: 20, fontSize: "1.1rem", borderBottom: "1px solid var(--border)", paddingBottom: 10 }}>

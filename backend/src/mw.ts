@@ -14,7 +14,7 @@ export async function authMw(req: any, res: Response, next: NextFunction) {
       .input("userId", decoded.userId)
       .query(`
         SELECT u.Role, u.PermissionsJson, u.IsActive, u.DeletedAt,
-               s.ExpiresAt, s.PlanCode, s.IsActive as SubActive, s.TrialExtended
+               s.ExpiresAt, s.PlanCode, s.IsActive as SubActive, s.TrialExtended, s.GraceCount, s.GraceExpiresAt
         FROM altdesk.[User] u
         LEFT JOIN altdesk.Subscription s ON s.TenantId = u.TenantId
         WHERE u.UserId = @userId
@@ -38,7 +38,8 @@ export async function authMw(req: any, res: Response, next: NextFunction) {
           return res.status(402).json({ 
               error: "Assinatura Expirada", 
               planCode: u.PlanCode,
-              trialExtended: u.TrialExtended || 0
+              trialExtended: u.TrialExtended || 0,
+              redirectToOffer: u.GraceCount >= 1
           });
       }
     }

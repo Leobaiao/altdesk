@@ -7,7 +7,9 @@ import { onboardingLimiter } from "../middleware/rateLimiter.js";
 import { writeAuditLog } from "../services/auditLog.js";
 import { logger } from "../lib/logger.js";
 import { preloadDemoData } from "../services/demoDataService.js";
+import { EventEmitter } from "events";
 
+export const onboardingEvents = new EventEmitter();
 const router = Router();
 
 const OnboardingSchema = z.object({
@@ -79,14 +81,29 @@ router.post("/", onboardingLimiter, validateBody(OnboardingSchema), async (req, 
         const tenantId = row.TenantId;
         const userId = row.UserId;
 
+        // 3b. Criar políticas de SLA padrão
+        await pool.request()
+            .input("tenantId", tenantId)
+            .query(`
+                INSERT INTO altdesk.SLAPolicy (TenantId, Priority, FirstResponseMinutes, ResolutionMinutes, WarningBeforeMinutes, BusinessHoursOnly)
+                VALUES 
+                    (@tenantId, 'LOW', 240, 1440, 10, 0),
+                    (@tenantId, 'MEDIUM', 120, 480, 10, 0),
+                    (@tenantId, 'HIGH', 60, 240, 10, 0),
+                    (@tenantId, 'CRITICAL', 30, 120, 10, 0)
+            `);
+
         // 4. Gerar JWT
         const token = signToken({ userId, tenantId, role: "ADMIN" });
 
         // 4b. Preload Data (if not empty)
         if (body.preloadModel !== "empty") {
-            // We run it async but no await if we want speed, but for onboarding consistency 
-            // maybe await is safer to ensure they see data on first login.
-            await preloadDemoData(tenantId, body.preloadModel, userId);
+            // We run it async so the frontend can connect to SSE
+            preloadDemoData(tenantId, body.preloadModel, userId, (step, status) => {
+                onboardingEvents.emit(`progress_${tenantId}`, { step, status });
+            }).catch(err => {
+                onboardingEvents.emit(`progress_${tenantId}`, { step: "Erro ao criar ambiente: " + err.message, status: "ERROR" });
+            });
         }
 
         logger.info(
@@ -117,6 +134,32 @@ router.post("/", onboardingLimiter, validateBody(OnboardingSchema), async (req, 
         logger.error({ error: error.message, ip }, "Onboarding failed");
         next(error);
     }
+});
+
+// GET /api/onboarding/:tenantId/progress — SSE endpoint
+router.get("/:tenantId/progress", (req, res) => {
+    const tenantId = req.params.tenantId;
+
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+
+    // Enviar algo imediatamente para iniciar o stream
+    res.write(`data: ${JSON.stringify({ step: "Conectado", status: "IN_PROGRESS" })}\n\n`);
+
+    const onProgress = (data: any) => {
+        res.write(`data: ${JSON.stringify(data)}\n\n`);
+        if (data.status === "DONE" || data.status === "ERROR") {
+            res.end();
+            onboardingEvents.off(`progress_${tenantId}`, onProgress);
+        }
+    };
+
+    onboardingEvents.on(`progress_${tenantId}`, onProgress);
+
+    req.on("close", () => {
+        onboardingEvents.off(`progress_${tenantId}`, onProgress);
+    });
 });
 
 export default router;

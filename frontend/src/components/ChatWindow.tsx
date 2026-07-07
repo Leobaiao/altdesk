@@ -152,6 +152,15 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
         } else {
             setActiveTicket(null);
         }
+        // Clear pending file when conversation changes to avoid stale overlay
+        if (pendingFile) {
+            setPendingFile(null);
+            setCaptionText("");
+            if (filePreviewUrl) {
+                URL.revokeObjectURL(filePreviewUrl);
+                setFilePreviewUrl(null);
+            }
+        }
     }, [selectedConversationId]);
 
     const loadActiveTicket = async () => {
@@ -1175,7 +1184,9 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
             )}
 
             {pendingFile && (
-                <div style={{
+                <div 
+                    onClick={handleCancelSendFile}
+                    style={{
                     position: "fixed",
                     top: 0,
                     left: 0,
@@ -1188,7 +1199,9 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
                     justifyContent: "center",
                     zIndex: 10000
                 }}>
-                    <div style={{
+                    <div 
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
                         background: "var(--bg-secondary)",
                         border: "1px solid var(--border)",
                         borderRadius: 20,

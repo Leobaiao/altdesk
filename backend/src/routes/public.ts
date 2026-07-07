@@ -1,12 +1,29 @@
-import { Router } from "express";
+import { Router, Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import crypto from "crypto";
 import { getPool } from "../db.js";
 import { validateBody } from "../middleware/validateMw.js";
 import { sendPasswordResetEmail } from "../services/emailService.js";
 import { hashPassword } from "../auth.js";
+import { logger } from "../lib/logger.js";
 
 const router = Router();
+
+// Endpoint para buscar planos públicos ativos
+router.get("/plans", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const pool = await getPool();
+        const r = await pool.request().query(`
+            SELECT PlanId, Code, Name, PriceCents, Cycle, AgentsSeatLimit, MonthlyPrice, AnnualPrice, IsActive
+            FROM altdesk.BillingPlan 
+            WHERE IsActive = 1
+            ORDER BY PriceCents ASC
+        `);
+        res.json(r.recordset);
+    } catch (error) {
+        next(error);
+    }
+});
 
 // Submit CSAT rating
 router.post("/csat/:conversationId", validateBody(z.object({
@@ -79,9 +96,16 @@ router.post("/forgot-password", validateBody(z.object({
                 VALUES (@userId, @token, @expiresAt)
             `);
 
-        // 4. Send email
+        // 4. Send email (shadow success: even if email fails, user sees generic response)
         const resetLink = `${process.env.FRONTEND_URL || "https://altdesk.com.br"}/reset-password?token=${token}`;
-        await sendPasswordResetEmail(email, resetLink);
+        try {
+            await sendPasswordResetEmail(email, resetLink);
+        } catch (emailErr: any) {
+            logger.error(
+                { error: emailErr.message, email, stack: emailErr.stack },
+                "[ForgotPassword] Failed to send password reset email — SMTP may be misconfigured"
+            );
+        }
 
         res.json({ ok: true, message: "Se o email estiver cadastrado, você receberá um link de recuperação." });
     } catch (error) {

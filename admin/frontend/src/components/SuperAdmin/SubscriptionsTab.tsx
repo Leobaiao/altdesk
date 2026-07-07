@@ -211,7 +211,7 @@ export function SubscriptionsTab() {
                 <div style={{ display: "flex", background: "var(--bg-primary)", padding: 4, borderRadius: 10, border: "1px solid var(--border)", gap: 2 }}>
                     {[
                         { id: "ALL", label: "Todas" },
-                        { id: "TRIAL", label: "Teste (Trial)" },
+                        { id: "TRIAL", label: "Avaliação" },
                         { id: "ACTIVE", label: "Ativas (Real)" },
                         { id: "EXPIRED", label: "Expiradas" },
                         { id: "INACTIVE", label: "Inativas" },
@@ -308,7 +308,7 @@ export function SubscriptionsTab() {
                                                 background: sub.AccountStatus === "ACTIVE" ? "rgba(0,168,132,0.15)" : "rgba(255,165,0,0.15)",
                                                 color: sub.AccountStatus === "ACTIVE" ? "var(--accent)" : "orange"
                                             }}>
-                                                {sub.AccountStatus === "ACTIVE" ? "Ativa (Real)" : "Teste (Trial)"}
+                                                {sub.AccountStatus === "ACTIVE" ? "Ativa (Real)" : "Avaliação"}
                                             </span>
                                         </td>
                                         <td style={{ padding: "16px 20px", fontWeight: 700 }}>
@@ -464,7 +464,7 @@ export function SubscriptionsTab() {
                                             onChange={e => setAccountStatus(e.target.value as any)}
                                             style={modalInputStyle}
                                         >
-                                            <option value="TRIAL">Teste (Trial)</option>
+                                            <option value="TRIAL">Avaliação</option>
                                             <option value="ACTIVE">Ativo (Real)</option>
                                         </select>
                                     </div>

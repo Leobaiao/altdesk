@@ -312,13 +312,15 @@ router.post("/extend-trial", async (req, res, next) => {
             return res.status(400).json({ error: "O período de avaliação já foi estendido anteriormente." });
         }
         
-        // Adds 7 days to the trial and increments TrialExtended
+        // Adds 7 days to the trial and increments TrialExtended and GraceCount
         await pool.request()
             .input("tenantId", user.tenantId)
             .query(`
                 UPDATE altdesk.Subscription 
                 SET ExpiresAt = DATEADD(day, 7, SYSUTCDATETIME()),
-                    TrialExtended = TrialExtended + 1
+                    TrialExtended = TrialExtended + 1,
+                    GraceExpiresAt = DATEADD(day, 7, SYSUTCDATETIME()),
+                    GraceCount = ISNULL(GraceCount, 0) + 1
                 WHERE TenantId = @tenantId AND PlanCode = 'TRIAL'
             `);
             

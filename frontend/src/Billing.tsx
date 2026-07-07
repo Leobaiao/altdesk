@@ -38,7 +38,7 @@ interface Invoice {
 function statusBadge(status: string) {
   const map: Record<string, { color: string; icon: any; label: string }> = {
     active: { color: "#00c853", icon: CheckCircle, label: "Ativo" },
-    trialing: { color: "#2196f3", icon: Clock, label: "Trial" },
+    trialing: { color: "#2196f3", icon: Clock, label: "Avaliação" },
     pending_activation: { color: "#ff9800", icon: Clock, label: "Pendente" },
     past_due: { color: "#ff5722", icon: AlertTriangle, label: "Vencido" },
     suspended: { color: "#f44336", icon: XCircle, label: "Suspenso" },
@@ -223,7 +223,7 @@ export function Billing({ onBack }: { onBack: () => void }) {
             <Clock size={20} />
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700, color: "#ff9800", fontSize: "0.95rem" }}>Período de Teste Ativo (Trial)</div>
+            <div style={{ fontWeight: 700, color: "#ff9800", fontSize: "0.95rem" }}>Período de Avaliação Ativo</div>
             <div style={{ color: "var(--text-secondary)", fontSize: "0.85rem", marginBottom: 12 }}>
               Você está explorando o AltDesk com dados de demonstração. Assine um plano para liberar todas as funcionalidades e começar a usar com seus dados reais.
             </div>

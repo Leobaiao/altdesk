@@ -37,7 +37,7 @@ interface BillingInv {
 
 const STATUS_MAP: Record<string, { color: string; label: string }> = {
     active: { color: "#00c853", label: "Ativo" },
-    trialing: { color: "#2196f3", label: "Trial" },
+    trialing: { color: "#2196f3", label: "Avaliação" },
     pending_activation: { color: "#ff9800", label: "Pendente" },
     past_due: { color: "#ff5722", label: "Vencido" },
     suspended: { color: "#f44336", label: "Suspenso" },
@@ -122,6 +122,10 @@ export function BillingTab() {
                     priceCents: editPlan.PriceCents,
                     agentsSeatLimit: editPlan.AgentsSeatLimit,
                     isActive: editPlan.IsActive,
+                    monthlyPrice: editPlan.MonthlyPrice,
+                    annualPrice: editPlan.AnnualPrice,
+                    stripeProductId: editPlan.StripeProductId,
+                    stripePriceId: editPlan.StripePriceId,
                 });
             } else {
                 // Create
@@ -131,6 +135,10 @@ export function BillingTab() {
                     priceCents: editPlan.PriceCents,
                     cycle: editPlan.Cycle,
                     agentsSeatLimit: editPlan.AgentsSeatLimit,
+                    monthlyPrice: editPlan.MonthlyPrice,
+                    annualPrice: editPlan.AnnualPrice,
+                    stripeProductId: editPlan.StripeProductId,
+                    stripePriceId: editPlan.StripePriceId,
                 });
             }
             setEditPlan(null);
@@ -200,7 +208,7 @@ export function BillingTab() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {plans.map(plan => (
+                                {plans.map((plan: any) => (
                                     <tr key={plan.PlanId} style={{ borderBottom: "1px solid var(--border)" }}>
                                         <td style={{ padding: "10px 12px", fontFamily: "monospace", fontWeight: 600 }}>{plan.Code}</td>
                                         <td style={{ padding: "10px 12px", fontWeight: 600 }}>{plan.Name}</td>
@@ -251,7 +259,7 @@ export function BillingTab() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {subscriptions.map(sub => (
+                                    {subscriptions.map((sub: any) => (
                                         <tr key={sub.BillingSubscriptionId} style={{ borderBottom: "1px solid var(--border)" }}>
                                             <td style={{ padding: "10px 12px", fontWeight: 600 }}>{sub.TenantName}</td>
                                             <td style={{ padding: "10px 12px" }}>{sub.PlanName}</td>
@@ -294,7 +302,7 @@ export function BillingTab() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {invoices.map(inv => (
+                                    {invoices.map((inv: any) => (
                                         <tr key={inv.BillingInvoiceId} style={{ borderBottom: "1px solid var(--border)" }}>
                                             <td style={{ padding: "10px 12px", fontWeight: 600 }}>{inv.TenantName}</td>
                                             <td style={{ padding: "10px 12px", fontWeight: 600 }}>{formatCents(inv.ValueCents)}</td>
@@ -379,6 +387,26 @@ export function BillingTab() {
                                     </select>
                                 </div>
                             )}
+                            <div style={{ display: "flex", gap: 10 }}>
+                                <div style={{ flex: 1 }}>
+                                    <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>Preço Mensal (BRL)</label>
+                                    <input type="number" step="0.01" value={editPlan.MonthlyPrice || ""} onChange={e => setEditPlan({ ...editPlan, MonthlyPrice: parseFloat(e.target.value) || null })} style={inputStyle} />
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>Preço Anual (BRL)</label>
+                                    <input type="number" step="0.01" value={editPlan.AnnualPrice || ""} onChange={e => setEditPlan({ ...editPlan, AnnualPrice: parseFloat(e.target.value) || null })} style={inputStyle} />
+                                </div>
+                            </div>
+                            <div style={{ display: "flex", gap: 10 }}>
+                                <div style={{ flex: 1 }}>
+                                    <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>Stripe Product ID</label>
+                                    <input value={editPlan.StripeProductId || ""} onChange={e => setEditPlan({ ...editPlan, StripeProductId: e.target.value })} style={inputStyle} />
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>Stripe Price ID</label>
+                                    <input value={editPlan.StripePriceId || ""} onChange={e => setEditPlan({ ...editPlan, StripePriceId: e.target.value })} style={inputStyle} />
+                                </div>
+                            </div>
                             {editPlan.PlanId && (
                                 <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
                                     <input type="checkbox" checked={editPlan.IsActive !== false}

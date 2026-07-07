@@ -10,7 +10,7 @@ import { Settings } from "./Settings";
 import { Dashboard as DashboardView } from "./Dashboard";
 import { Users } from "./Users";
 import { Tickets } from "./Tickets";
-import { TagsSettings } from "./TagsSettings";
+import { ClassificationSettings } from "./ClassificationSettings.js";
 import { KnowledgeBase } from "./KnowledgeBase";
 import { BusinessHours } from "./BusinessHours";
 import { Billing } from "./Billing";
@@ -30,6 +30,7 @@ import LogoHorizontal from "./assets/logo/logo-horizontal.png";
 import logo from "./assets/logo/logo.png";
 import { WelcomeScreen } from "./WelcomeScreen";
 import { SpecialOffer } from "./SpecialOffer";
+import { PlansComparison } from "./PlansComparison";
 import { ThemeToggle } from "./components/ThemeToggle";
 
 import {
@@ -426,7 +427,7 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
                     : <Navigate to="/chat" replace />
                 } />
                 <Route path="/queues" element={<QueueSettings onBack={() => navigate("/settings")} />} />
-                <Route path="/tags" element={<TagsSettings onBack={() => navigate("/settings")} />} />
+                <Route path="/classification" element={<ClassificationSettings onBack={() => navigate("/settings")} />} />
                 <Route path="/knowledge" element={<KnowledgeBase onBack={() => navigate("/settings")} />} />
                 <Route path="/business-hours" element={<BusinessHours onBack={() => navigate("/settings")} />} />
                 <Route path="/help-admin" element={<HelpAdmin onBack={() => navigate("/settings")} />} />
@@ -474,7 +475,7 @@ function AppContent() {
           if (window.location.pathname === "/billing") {
               return;
           }
-          if (data && data.trialExtended >= 1) {
+          if (data && (data.redirectToOffer || data.trialExtended >= 1)) {
               setTrialExpiredData(null);
               navigate("/special-offer");
           } else {
@@ -550,6 +551,7 @@ function AppContent() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/special-offer" element={<SpecialOffer />} />
+        <Route path="/plans" element={<PlansComparison />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     );
@@ -566,6 +568,10 @@ function AppContent() {
 
   if (location.pathname === "/special-offer") {
     return <SpecialOffer />;
+  }
+
+  if (location.pathname === "/plans") {
+    return <PlansComparison />;
   }
 
   return (

@@ -268,7 +268,7 @@ function Step3({ data }: { data: OnboardingData }) {
             <div><span>Modelo</span><strong>{modelLabels[data.preloadModel]}</strong></div>
             <div><span>Timezone</span><strong>America/Sao_Paulo</strong></div>
             <div><span>Idioma</span><strong>Português (BR)</strong></div>
-            <div><span>Trial</span><strong>14 dias</strong></div>
+            <div><span>Avaliação</span><strong>14 dias</strong></div>
           </div>
         </div>
       </div>
@@ -368,18 +368,48 @@ export function Onboarding({ onLogin }: { onLogin: (token: string, role: string)
     setStep(s => Math.max(s - 1, 1));
   }
 
+  const [progressMsg, setProgressMsg] = useState("");
+
   async function handleCreate() {
     setGlobalError("");
     setLoading(true);
+    setProgressMsg("Criando ambiente inicial...");
     try {
       const { confirmPassword, ...payload } = data;
       const res = await api.post("/api/onboarding", payload);
       localStorage.setItem("token", res.data.token);
-      setStep(4);
+      
+      if (data.preloadModel !== "empty" && res.data.tenantId) {
+        // SSE tracking
+        const eventSource = new EventSource(`${api.defaults.baseURL || ''}/api/onboarding/${res.data.tenantId}/progress`);
+        
+        eventSource.onmessage = (event) => {
+            const evData = JSON.parse(event.data);
+            if (evData.status === "ERROR") {
+                setGlobalError(evData.step);
+                setLoading(false);
+                eventSource.close();
+            } else if (evData.status === "DONE") {
+                eventSource.close();
+                setStep(4);
+                setLoading(false);
+            } else {
+                setProgressMsg(evData.step);
+            }
+        };
+
+        eventSource.onerror = () => {
+            eventSource.close();
+            setStep(4); // Fallback
+            setLoading(false);
+        };
+      } else {
+        setStep(4);
+        setLoading(false);
+      }
     } catch (err: any) {
       const msg = err.response?.data?.error || err.message || "Erro ao criar ambiente.";
       setGlobalError(msg);
-    } finally {
       setLoading(false);
     }
   }
@@ -466,6 +496,12 @@ export function Onboarding({ onLogin }: { onLogin: (token: string, role: string)
                 </button>
               );
             })()}
+          </div>
+        )}
+        
+        {step === 3 && loading && progressMsg && (
+          <div style={{ textAlign: "center", marginTop: 12, fontSize: "0.9rem", color: "var(--text-secondary)", animation: "pulse 2s infinite" }}>
+            {progressMsg}
           </div>
         )}
 

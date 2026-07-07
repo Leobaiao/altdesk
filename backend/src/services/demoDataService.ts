@@ -8,12 +8,19 @@ import { createCannedResponse } from "./canned-response.js";
 import { createGlobalUser } from "./userService.js";
 import { logger } from "../lib/logger.js";
 
-export async function preloadDemoData(tenantId: string, model: "basic" | "demo" | "large", adminId?: string) {
+export async function preloadDemoData(
+    tenantId: string, 
+    model: "basic" | "demo" | "large", 
+    adminId?: string,
+    onProgress?: (step: string, status: string) => void
+) {
     logger.info({ tenantId, model, adminId }, "Starting demo data preload");
+    if (onProgress) onProgress("Iniciando carregamento...", "IN_PROGRESS");
 
     try {
         const dbPool = await getPool();
         if (model === "large") {
+            if (onProgress) onProgress("Configurando base (Demonstração Pesada)", "IN_PROGRESS");
             logger.info({ tenantId, adminId }, "Seeding base demo queues and agents for large dataset");
             await dbPool.request()
                 .input("tenant_id", tenantId)
@@ -22,6 +29,7 @@ export async function preloadDemoData(tenantId: string, model: "basic" | "demo" 
         }
 
         // 1. Knowledge Base Articles
+        if (onProgress) onProgress("Criando Base de Conhecimento...", "IN_PROGRESS");
         const articles = [
             {
                 Title: "Como configurar meu perfil?",
@@ -65,6 +73,7 @@ export async function preloadDemoData(tenantId: string, model: "basic" | "demo" 
         }
 
         // 1.5 Quick Responses (Canned Responses)
+        if (onProgress) onProgress("Configurando Respostas Rápidas...", "IN_PROGRESS");
         const cannedResponses = [
             { shortcut: "ola", title: "Saudação Inicial", content: "Olá! Tudo bem? Seja bem-vindo ao nosso suporte. Como posso te ajudar com o seu projeto hoje?" },
             { shortcut: "aguarde", title: "Aguardar Análise", content: "Entendido. Por favor, aguarde um instante enquanto consulto as informações no sistema. Já retorno com uma resposta." },
@@ -84,6 +93,7 @@ export async function preloadDemoData(tenantId: string, model: "basic" | "demo" 
         }
 
         // 1.6 Setup Channels
+        if (onProgress) onProgress("Criando Canais de Atendimento...", "IN_PROGRESS");
         const pool = await getPool();
         let whatsappChannelId = "";
         let emailChannelId = "";
@@ -1156,8 +1166,10 @@ export async function preloadDemoData(tenantId: string, model: "basic" | "demo" 
         }
 
         logger.info({ tenantId }, "Demo data preload finished");
+        if (onProgress) onProgress("Ambiente Pronto!", "DONE");
     } catch (err: any) {
         logger.error({ tenantId, error: err.message }, "Failed to preload demo data");
+        if (onProgress) onProgress("Erro ao criar ambiente: " + err.message, "ERROR");
     }
 }
 
