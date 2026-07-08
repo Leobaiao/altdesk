@@ -33,7 +33,25 @@ export async function ensureBillingCustomer(tenantId: string, data: {
         .query("SELECT * FROM altdesk.BillingCustomer WHERE TenantId = @tenantId AND Provider = @provider");
 
     if (existing.recordset.length > 0) {
-        return existing.recordset[0];
+        const dbCust = existing.recordset[0];
+        
+        // Update customer in Asaas to ensure it has the latest CPF/CNPJ
+        await asaas.updateCustomer(dbCust.ProviderCustomerId, data);
+
+        // Update local DB
+        await pool.request()
+            .input("id", dbCust.BillingCustomerId)
+            .input("name", data.name)
+            .input("email", data.email || null)
+            .input("mobilePhone", data.mobilePhone || null)
+            .input("cpfCnpj", data.cpfCnpj || null)
+            .query(`
+                UPDATE altdesk.BillingCustomer
+                SET Name = @name, Email = @email, MobilePhone = @mobilePhone, CpfCnpj = @cpfCnpj
+                WHERE BillingCustomerId = @id
+            `);
+
+        return { ...dbCust, ProviderCustomerId: dbCust.ProviderCustomerId };
     }
 
     // Create in Asaas
