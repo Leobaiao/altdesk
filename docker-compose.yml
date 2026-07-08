@@ -95,6 +95,8 @@ services:
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/39-help-articles.sql;
         echo 'Executando migration 40 (ticket resolution description)...';
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/40-ticket-resolution.sql;
+        echo 'Executando migration 41 (grace period)...';
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/41-grace-period.sql;
         echo 'Todas as migrations concluidas!';
       "
 

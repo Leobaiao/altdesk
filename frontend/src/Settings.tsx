@@ -169,7 +169,7 @@ export function Settings({ token, onBack, role, livePermissions }: Props) {
                     {navItems.map(item => (
                         <div 
                             key={item.path} 
-                                    navigate(item.path);
+                            onClick={() => navigate(item.path)}
                             style={{ background: "var(--bg-secondary)", padding: 16, borderRadius: 12, border: "1px solid var(--border)", cursor: "pointer", transition: "all 0.2s" }}
                             onMouseEnter={e => e.currentTarget.style.borderColor = "var(--accent)"}
                             onMouseLeave={e => e.currentTarget.style.borderColor = "var(--border)"}

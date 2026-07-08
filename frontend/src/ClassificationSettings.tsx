@@ -238,6 +238,13 @@ export function ClassificationSettings({ onBack }: Props) {
                     </tbody>
                 </table>
             </div>
+                    </>
+                )}
+
+                {subTab === "sla" && (
+                    <SlaSettingsTab />
+                )}
+            </div>
         </div>
     );
 }

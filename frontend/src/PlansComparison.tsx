@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { api } from "./api.js";
+import { api } from "./lib/api";
 import { Check, X, Building2, User, HelpCircle, ChevronRight, Zap } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 

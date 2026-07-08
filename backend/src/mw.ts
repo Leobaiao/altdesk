@@ -54,6 +54,7 @@ export async function authMw(req: any, res: Response, next: NextFunction) {
     req.user = decoded;
     next();
   } catch (err: any) {
+    console.error("[authMw] Authentication middleware error:", err);
     return res.status(401).json({ error: "Invalid or expired token" });
   }
 }

@@ -186,6 +186,7 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
   const { conversations, setConversations, selectedConversationId, setSelectedConversationId, refreshConversations, socket } = useChat();
   const [profile, setProfile] = useState<{ Name?: string; Avatar?: string; Position?: string; TenantName?: string; PermissionsJson?: string } | null>(null);
   const [livePermissions, setLivePermissions] = useState<any>(decoded?.permissions || {});
+  const [billingStatus, setBillingStatus] = useState<string | null>(null);
 
   // Push Notifications
   usePushNotifications(socket, selectedConversationId, conversations);
@@ -199,6 +200,11 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
             } catch (e) {}
         }
     }).catch(console.error);
+
+    // Fetch billing status for global overdue banner
+    api.get("/api/billing/subscription").then(res => {
+        setBillingStatus(res.data?.Status || null);
+    }).catch(() => {});
   }, []);
 
   const handleStartChat = async (contact: any) => {
@@ -402,6 +408,29 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
 
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
         {GlobalHeader()}
+
+        {/* Global Overdue Payment Banner */}
+        {billingStatus === "past_due" && !currentPath.startsWith("/billing") && (
+          <div style={{
+            background: "rgba(255, 87, 34, 0.1)", borderBottom: "1px solid rgba(255, 87, 34, 0.3)",
+            padding: "10px 24px", display: "flex", alignItems: "center", gap: 12,
+            fontSize: 13, color: "#ff5722", fontWeight: 600
+          }}>
+            <AlertTriangle size={16} />
+            <span style={{ flex: 1 }}>Pagamento pendente — regularize para manter sua assinatura ativa.</span>
+            <button
+              onClick={() => navigate("/billing")}
+              style={{
+                background: "rgba(255, 87, 34, 0.15)", border: "1px solid rgba(255, 87, 34, 0.3)",
+                borderRadius: 8, padding: "6px 14px", cursor: "pointer",
+                color: "#ff5722", fontSize: 12, fontWeight: 700, whiteSpace: "nowrap"
+              }}
+            >
+              Regularizar
+            </button>
+          </div>
+        )}
+
         <div style={{ flex: 1, display: "flex", minWidth: 0, overflow: "hidden" }}>
           {/* Painel Secundário de Lista de Conversas (Disponível apenas no CHAT) */}
           {isChat && <Sidebar setView={(v) => navigate(`/${v.toLowerCase()}`)} />}

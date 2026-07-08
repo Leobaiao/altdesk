@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { api } from "./lib/api";
-import { ArrowLeft, CreditCard, FileText, CheckCircle, AlertTriangle, XCircle, Clock, X, Loader2, Trash2 } from "lucide-react";
+import { ArrowLeft, CreditCard, FileText, CheckCircle, AlertTriangle, XCircle, Clock, X, Loader2, Trash2, Copy, ExternalLink } from "lucide-react";
 import { PageHeader } from "./components/PageHeader";
 import { useChat } from "./contexts/ChatContext";
 
@@ -33,6 +33,25 @@ interface Invoice {
   PaymentDate: string | null;
   InvoiceUrl: string | null;
   BankSlipUrl: string | null;
+}
+
+interface PixQrCodeData {
+  encodedImage: string;
+  payload: string;
+  expirationDate: string;
+}
+
+interface CheckoutResult {
+  subscription: any;
+  firstPayment?: {
+    id: string;
+    status: string;
+    invoiceUrl?: string;
+    bankSlipUrl?: string;
+    billingType: string;
+    value: number;
+  } | null;
+  pixQrCode?: PixQrCodeData | null;
 }
 
 function statusBadge(status: string) {
@@ -72,7 +91,7 @@ export function Billing({ onBack }: { onBack: () => void }) {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
-  const { showConfirm } = useChat();
+  const { showConfirm, showToast } = useChat();
 
   // Checkout modal state
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
@@ -85,6 +104,17 @@ export function Billing({ onBack }: { onBack: () => void }) {
     email: "",
     billingType: "PIX" as "PIX" | "BOLETO" | "CREDIT_CARD",
   });
+
+  // Pix QR Code modal state
+  const [pixModal, setPixModal] = useState<{
+    paymentId: string;
+    qrCode: PixQrCodeData;
+    status: string;
+  } | null>(null);
+  const [pixCopied, setPixCopied] = useState(false);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Trial cleanup state
   const [cleaning, setCleaning] = useState(false);
   const [cleanupFeedback, setCleanupFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -98,6 +128,39 @@ export function Billing({ onBack }: { onBack: () => void }) {
   };
 
   useEffect(() => { loadAll(); }, []);
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    };
+  }, []);
+
+  const startPixPolling = useCallback((paymentId: string) => {
+    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+
+    pollIntervalRef.current = setInterval(async () => {
+      try {
+        const res = await api.get(`/api/billing/payment/${paymentId}/status`);
+        const status = res.data.status;
+
+        if (status === "RECEIVED" || status === "CONFIRMED" || status === "RECEIVED_IN_CASH") {
+          // Payment confirmed!
+          if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+          setPixModal(prev => prev ? { ...prev, status: "CONFIRMED" } : null);
+          showToast("Pagamento Pix confirmado! ✅", "success");
+          
+          // Reload data after a short delay
+          setTimeout(() => {
+            loadAll();
+            setPixModal(null);
+          }, 3000);
+        }
+      } catch (err) {
+        // Ignore polling errors silently
+      }
+    }, 5000);
+  }, [showToast]);
 
   const openCheckout = (plan: Plan) => {
     setSelectedPlan(plan);
@@ -121,22 +184,58 @@ export function Billing({ onBack }: { onBack: () => void }) {
         email: checkoutForm.email || undefined,
       });
 
-      // 2. Create subscription
-      await api.post("/api/billing/subscribe", {
+      // 2. Create subscription (returns rich result with payment info)
+      const res = await api.post("/api/billing/subscribe", {
         planCode: selectedPlan.Code,
         billingType: checkoutForm.billingType,
       });
 
-      // 3. Reload data and close modal
+      const result: CheckoutResult = res.data;
+
+      // 3. Close checkout modal
       setShowCheckout(false);
       setSelectedPlan(null);
-      loadAll();
+
+      // 4. Handle based on billing type
+      if (checkoutForm.billingType === "PIX" && result.pixQrCode && result.firstPayment) {
+        // Show Pix QR Code modal and start polling
+        setPixModal({
+          paymentId: result.firstPayment.id,
+          qrCode: result.pixQrCode,
+          status: "PENDING",
+        });
+        startPixPolling(result.firstPayment.id);
+
+      } else if (result.firstPayment?.invoiceUrl) {
+        // Boleto or Credit Card: redirect to Asaas invoice page
+        window.open(result.firstPayment.invoiceUrl, "_blank");
+        showToast("Redirecionando para a página de pagamento...", "success");
+        loadAll();
+
+      } else {
+        // Fallback: just reload data
+        showToast("Assinatura criada! Verifique as faturas.", "success");
+        loadAll();
+      }
+
     } catch (err: any) {
       const msg = err.response?.data?.error || err.response?.data?.message || err.message;
       setCheckoutError(msg || "Erro ao processar assinatura.");
     } finally {
       setCheckoutLoading(false);
     }
+  };
+
+  const handleCopyPixCode = (payload: string) => {
+    navigator.clipboard.writeText(payload);
+    setPixCopied(true);
+    setTimeout(() => setPixCopied(false), 2000);
+  };
+
+  const handleClosePixModal = () => {
+    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    setPixModal(null);
+    loadAll();
   };
 
   const handleCleanup = async () => {
@@ -254,6 +353,24 @@ export function Billing({ onBack }: { onBack: () => void }) {
         </div>
       )}
 
+      {/* Overdue Warning Banner (in-page) */}
+      {subscription?.Status === "past_due" && (
+        <div style={{
+          background: "rgba(255, 87, 34, 0.1)", border: "1px solid rgba(255, 87, 34, 0.3)",
+          borderRadius: 12, padding: "16px 20px", marginBottom: 24, display: "flex", alignItems: "center", gap: 16
+        }}>
+          <div style={{ background: "rgba(255, 87, 34, 0.2)", color: "#ff5722", padding: 10, borderRadius: 10 }}>
+            <AlertTriangle size={20} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 700, color: "#ff5722", fontSize: "0.95rem" }}>Pagamento Pendente</div>
+            <div style={{ color: "var(--text-secondary)", fontSize: "0.85rem" }}>
+              Há uma fatura vencida. Regularize o pagamento para manter sua assinatura ativa.
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Current Subscription Card */}
       <div style={{
         background: "var(--bg-secondary)", borderRadius: 12, padding: 24, marginBottom: 24,
@@ -352,8 +469,8 @@ export function Billing({ onBack }: { onBack: () => void }) {
                   <td style={{ padding: "10px 12px" }}>
                     {inv.InvoiceUrl && (
                       <a href={inv.InvoiceUrl} target="_blank" rel="noreferrer"
-                        style={{ color: "var(--primary)", textDecoration: "none", fontSize: 12, marginRight: 8 }}>
-                        Ver Fatura
+                        style={{ color: "var(--primary)", textDecoration: "none", fontSize: 12, marginRight: 8, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        <ExternalLink size={12} /> Ver Fatura
                       </a>
                     )}
                     {inv.BankSlipUrl && (
@@ -477,6 +594,17 @@ export function Billing({ onBack }: { onBack: () => void }) {
                 </div>
               </div>
 
+              {/* Payment method info */}
+              <div style={{
+                padding: "10px 14px", borderRadius: 10, fontSize: 12,
+                background: "rgba(0,168,132,0.05)", border: "1px solid rgba(0,168,132,0.15)",
+                color: "var(--text-secondary)", lineHeight: 1.5
+              }}>
+                {checkoutForm.billingType === "PIX" && "Após confirmar, o QR Code Pix será exibido na tela para pagamento imediato."}
+                {checkoutForm.billingType === "BOLETO" && "Após confirmar, você será redirecionado para a página do boleto para impressão/pagamento."}
+                {checkoutForm.billingType === "CREDIT_CARD" && "Após confirmar, você será redirecionado para a página segura de pagamento para inserir os dados do cartão."}
+              </div>
+
               {/* Data Purge Warning explicitly for Trial users */}
               {subscription?.AccountStatus === "TRIAL" && (
                 <div style={{
@@ -534,6 +662,116 @@ export function Billing({ onBack }: { onBack: () => void }) {
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── PIX QR CODE MODAL ────────────────────────────────── */}
+      {pixModal && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+          background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)",
+          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000
+        }}>
+          <div style={{
+            background: "var(--bg-secondary)", borderRadius: 16, padding: 32,
+            width: "100%", maxWidth: 420, border: "1px solid var(--border)",
+            position: "relative", animation: "fadeIn 0.2s ease-out",
+            textAlign: "center"
+          }}>
+            {/* Close btn */}
+            <button
+              onClick={handleClosePixModal}
+              style={{
+                position: "absolute", top: 16, right: 16, background: "none",
+                border: "none", color: "var(--text-secondary)", cursor: "pointer", padding: 4
+              }}
+            >
+              <X size={20} />
+            </button>
+
+            {pixModal.status === "CONFIRMED" ? (
+              /* ── Payment Confirmed ── */
+              <>
+                <div style={{
+                  width: 72, height: 72, borderRadius: "50%", margin: "0 auto 20px",
+                  background: "rgba(0, 200, 83, 0.15)", display: "flex", alignItems: "center", justifyContent: "center"
+                }}>
+                  <CheckCircle size={36} color="#00c853" />
+                </div>
+                <h3 style={{ margin: "0 0 8px 0", fontSize: "1.3rem", color: "#00c853" }}>
+                  Pagamento Confirmado!
+                </h3>
+                <p style={{ color: "var(--text-secondary)", fontSize: 14, margin: "0 0 20px 0" }}>
+                  Seu pagamento Pix foi recebido com sucesso. Sua assinatura será ativada em instantes.
+                </p>
+                <Loader2 size={20} className="spin" style={{ color: "var(--text-secondary)" }} />
+              </>
+            ) : (
+              /* ── Waiting for Payment ── */
+              <>
+                <h3 style={{ margin: "0 0 4px 0", fontSize: "1.2rem" }}>Pagamento via Pix</h3>
+                <p style={{ color: "var(--text-secondary)", fontSize: 13, margin: "0 0 20px 0" }}>
+                  Escaneie o QR Code ou copie o código para pagar
+                </p>
+
+                {/* QR Code Image */}
+                <div style={{
+                  background: "#fff", borderRadius: 12, padding: 16,
+                  display: "inline-block", marginBottom: 20
+                }}>
+                  <img
+                    src={`data:image/png;base64,${pixModal.qrCode.encodedImage}`}
+                    alt="QR Code Pix"
+                    style={{ width: 200, height: 200 }}
+                  />
+                </div>
+
+                {/* Pix Copia e Cola */}
+                <div style={{ marginBottom: 20 }}>
+                  <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 6 }}>
+                    PIX COPIA E COLA
+                  </label>
+                  <div style={{
+                    display: "flex", gap: 8, alignItems: "center",
+                    background: "var(--bg-primary)", border: "1px solid var(--border)",
+                    borderRadius: 10, padding: "8px 12px"
+                  }}>
+                    <input
+                      readOnly
+                      value={pixModal.qrCode.payload}
+                      style={{
+                        flex: 1, border: "none", background: "transparent",
+                        color: "var(--text-primary)", fontSize: 12, outline: "none",
+                        fontFamily: "monospace"
+                      }}
+                    />
+                    <button
+                      onClick={() => handleCopyPixCode(pixModal.qrCode.payload)}
+                      style={{
+                        background: pixCopied ? "rgba(0,200,83,0.15)" : "rgba(0,168,132,0.1)",
+                        border: "none", borderRadius: 8, padding: "6px 12px",
+                        cursor: "pointer", display: "flex", alignItems: "center", gap: 4,
+                        color: pixCopied ? "#00c853" : "var(--primary)",
+                        fontSize: 12, fontWeight: 600, transition: "all 0.2s",
+                        whiteSpace: "nowrap"
+                      }}
+                    >
+                      {pixCopied ? <><CheckCircle size={14} /> Copiado!</> : <><Copy size={14} /> Copiar</>}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Polling indicator */}
+                <div style={{
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                  color: "var(--text-secondary)", fontSize: 13
+                }}>
+                  <Loader2 size={16} className="spin" />
+                  Aguardando confirmação do pagamento...
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
