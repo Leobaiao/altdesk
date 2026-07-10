@@ -176,3 +176,65 @@ export async function getPaymentPixQrCode(paymentId: string): Promise<{ encodedI
 export async function getPaymentBankSlip(paymentId: string): Promise<{ identificationField: string; barCode: string }> {
     return asaasRequest(`/payments/${paymentId}/identificationField`);
 }
+
+// ─── CHECKOUTS (Página de pagamento hospedada) ──────────────
+
+export interface AsaasCheckoutItem {
+    externalReference?: string;
+    name: string;
+    description?: string;
+    quantity: number;
+    value: number;
+}
+
+export interface AsaasCheckoutCustomerData {
+    name: string;
+    cpfCnpj?: string;
+    email?: string;
+    phone?: string;
+}
+
+export interface AsaasCheckoutCallback {
+    successUrl: string;
+    cancelUrl?: string;
+    expiredUrl?: string;
+}
+
+export interface AsaasCheckoutSubscription {
+    cycle: string;          // MONTHLY, QUARTERLY, YEARLY
+    value?: number;
+    description?: string;
+}
+
+export interface CreateCheckoutData {
+    billingTypes: string[];   // PIX, CREDIT_CARD
+    chargeTypes: string[];    // DETACHED, RECURRENT, INSTALLMENT
+    minutesToExpire?: number;
+    externalReference?: string;
+    callback?: AsaasCheckoutCallback;
+    items?: AsaasCheckoutItem[];
+    customerData?: AsaasCheckoutCustomerData;
+    subscription?: AsaasCheckoutSubscription;
+}
+
+export interface AsaasCheckout {
+    id: string;
+    link: string;
+    status: string;         // ACTIVE, PAID, CANCELED, EXPIRED
+    billingTypes: string[];
+    chargeTypes: string[];
+    minutesToExpire?: number;
+    externalReference?: string;
+}
+
+export async function createCheckout(data: CreateCheckoutData): Promise<AsaasCheckout> {
+    return asaasRequest<AsaasCheckout>("/checkouts", { method: "POST", body: data });
+}
+
+export async function getCheckout(checkoutId: string): Promise<AsaasCheckout> {
+    return asaasRequest<AsaasCheckout>(`/checkouts/${checkoutId}`);
+}
+
+export async function cancelCheckout(checkoutId: string): Promise<any> {
+    return asaasRequest(`/checkouts/${checkoutId}`, { method: "DELETE" });
+}

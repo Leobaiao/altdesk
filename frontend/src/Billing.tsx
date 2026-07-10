@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { api } from "./lib/api";
-import { ArrowLeft, CreditCard, FileText, CheckCircle, AlertTriangle, XCircle, Clock, X, Loader2, Trash2 } from "lucide-react";
+import { ArrowLeft, CreditCard, FileText, CheckCircle, AlertTriangle, XCircle, Clock, X, Loader2, Trash2, ExternalLink } from "lucide-react";
 import { PageHeader } from "./components/PageHeader";
 import { useChat } from "./contexts/ChatContext";
 
@@ -38,7 +38,7 @@ interface Invoice {
 function statusBadge(status: string) {
   const map: Record<string, { color: string; icon: any; label: string }> = {
     active: { color: "#00c853", icon: CheckCircle, label: "Ativo" },
-    trialing: { color: "#2196f3", icon: Clock, label: "Trial" },
+    trialing: { color: "#2196f3", icon: Clock, label: "Avaliação" },
     pending_activation: { color: "#ff9800", icon: Clock, label: "Pendente" },
     past_due: { color: "#ff5722", icon: AlertTriangle, label: "Vencido" },
     suspended: { color: "#f44336", icon: XCircle, label: "Suspenso" },
@@ -72,19 +72,12 @@ export function Billing({ onBack }: { onBack: () => void }) {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
-  const { showConfirm } = useChat();
+  const { showConfirm, showToast } = useChat();
 
-  // Checkout modal state
-  const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
-  const [showCheckout, setShowCheckout] = useState(false);
-  const [checkoutLoading, setCheckoutLoading] = useState(false);
-  const [checkoutError, setCheckoutError] = useState("");
-  const [checkoutForm, setCheckoutForm] = useState({
-    name: "",
-    cpfCnpj: "",
-    email: "",
-    billingType: "PIX" as "PIX" | "BOLETO" | "CREDIT_CARD",
-  });
+  // Checkout state (Asaas Checkout - página hospedada)
+  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null); // planCode being processed
+
+  // Trial cleanup state
   const [cleaning, setCleaning] = useState(false);
   const [cleanupFeedback, setCleanupFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -99,43 +92,46 @@ export function Billing({ onBack }: { onBack: () => void }) {
 
   useEffect(() => { loadAll(); }, []);
 
-  const openCheckout = (plan: Plan) => {
-    setSelectedPlan(plan);
-    setCheckoutError("");
-    setShowCheckout(true);
-  };
+  // Processar callback do Asaas Checkout (query params)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const checkoutResult = params.get("checkout");
+    if (checkoutResult) {
+      // Limpar query param da URL sem recarregar
+      const url = new URL(window.location.href);
+      url.searchParams.delete("checkout");
+      window.history.replaceState({}, "", url.pathname);
 
-  const handleCheckout = async () => {
-    if (!selectedPlan) return;
-    if (!checkoutForm.name.trim()) { setCheckoutError("Nome é obrigatório."); return; }
-    if (!checkoutForm.cpfCnpj.trim()) { setCheckoutError("CPF/CNPJ é obrigatório."); return; }
+      switch (checkoutResult) {
+        case "success":
+          showToast("Pagamento iniciado! Aguarde a confirmação.", "success");
+          // Recarregar dados após alguns segundos para refletir o webhook
+          setTimeout(() => loadAll(), 3000);
+          break;
+        case "cancel":
+          showToast("Checkout cancelado.", "warning");
+          break;
+        case "expired":
+          showToast("Checkout expirado. Tente novamente.", "error");
+          break;
+      }
+    }
+  }, []);
 
-    setCheckoutLoading(true);
-    setCheckoutError("");
-
+  const handleSubscribe = async (plan: Plan) => {
+    setCheckoutLoading(plan.Code);
     try {
-      // 1. Create or get billing customer
-      await api.post("/api/billing/customer", {
-        name: checkoutForm.name,
-        cpfCnpj: checkoutForm.cpfCnpj.replace(/[^\d]/g, ""),
-        email: checkoutForm.email || undefined,
-      });
+      const res = await api.post("/api/billing/checkout", { planCode: plan.Code });
+      const { link } = res.data;
 
-      // 2. Create subscription
-      await api.post("/api/billing/subscribe", {
-        planCode: selectedPlan.Code,
-        billingType: checkoutForm.billingType,
-      });
-
-      // 3. Reload data and close modal
-      setShowCheckout(false);
-      setSelectedPlan(null);
-      loadAll();
+      // Abrir checkout do Asaas em nova aba
+      window.open(link, "_blank");
+      showToast("Página de pagamento aberta em nova aba.", "success");
     } catch (err: any) {
       const msg = err.response?.data?.error || err.response?.data?.message || err.message;
-      setCheckoutError(msg || "Erro ao processar assinatura.");
+      showToast(msg || "Erro ao criar checkout.", "error");
     } finally {
-      setCheckoutLoading(false);
+      setCheckoutLoading(null);
     }
   };
 
@@ -223,7 +219,7 @@ export function Billing({ onBack }: { onBack: () => void }) {
             <Clock size={20} />
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700, color: "#ff9800", fontSize: "0.95rem" }}>Período de Teste Ativo (Trial)</div>
+            <div style={{ fontWeight: 700, color: "#ff9800", fontSize: "0.95rem" }}>Período de Avaliação Ativo</div>
             <div style={{ color: "var(--text-secondary)", fontSize: "0.85rem", marginBottom: 12 }}>
               Você está explorando o AltDesk com dados de demonstração. Assine um plano para liberar todas as funcionalidades e começar a usar com seus dados reais.
             </div>
@@ -250,6 +246,24 @@ export function Billing({ onBack }: { onBack: () => void }) {
                     {cleanupFeedback.text}
                 </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Overdue Warning Banner (in-page) */}
+      {subscription?.Status === "past_due" && (
+        <div style={{
+          background: "rgba(255, 87, 34, 0.1)", border: "1px solid rgba(255, 87, 34, 0.3)",
+          borderRadius: 12, padding: "16px 20px", marginBottom: 24, display: "flex", alignItems: "center", gap: 16
+        }}>
+          <div style={{ background: "rgba(255, 87, 34, 0.2)", color: "#ff5722", padding: 10, borderRadius: 10 }}>
+            <AlertTriangle size={20} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 700, color: "#ff5722", fontSize: "0.95rem" }}>Pagamento Pendente</div>
+            <div style={{ color: "var(--text-secondary)", fontSize: "0.85rem" }}>
+              Há uma fatura vencida. Regularize o pagamento para manter sua assinatura ativa.
+            </div>
           </div>
         </div>
       )}
@@ -311,10 +325,15 @@ export function Billing({ onBack }: { onBack: () => void }) {
             ) : (
               <button
                 className="btn btn-primary"
-                style={{ width: "100%", marginTop: 8, fontSize: 13 }}
-                onClick={() => openCheckout(plan)}
+                style={{ width: "100%", marginTop: 8, fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+                onClick={() => handleSubscribe(plan)}
+                disabled={checkoutLoading === plan.Code}
               >
-                Selecionar
+                {checkoutLoading === plan.Code ? (
+                  <><Loader2 size={14} className="spin" /> Abrindo checkout...</>
+                ) : (
+                  <>Selecionar</>
+                )}
               </button>
             )}
           </div>
@@ -352,8 +371,8 @@ export function Billing({ onBack }: { onBack: () => void }) {
                   <td style={{ padding: "10px 12px" }}>
                     {inv.InvoiceUrl && (
                       <a href={inv.InvoiceUrl} target="_blank" rel="noreferrer"
-                        style={{ color: "var(--primary)", textDecoration: "none", fontSize: 12, marginRight: 8 }}>
-                        Ver Fatura
+                        style={{ color: "var(--primary)", textDecoration: "none", fontSize: 12, marginRight: 8, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        <ExternalLink size={12} /> Ver Fatura
                       </a>
                     )}
                     {inv.BankSlipUrl && (
@@ -370,173 +389,6 @@ export function Billing({ onBack }: { onBack: () => void }) {
         </div>
       )}
 
-      {/* ─── CHECKOUT MODAL ─────────────────────────────────── */}
-      {showCheckout && selectedPlan && (
-        <div style={{
-          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-          background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)",
-          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000
-        }}>
-          <div style={{
-            background: "var(--bg-secondary)", borderRadius: 16, padding: 32,
-            width: "100%", maxWidth: 480, border: "1px solid var(--border)",
-            position: "relative", animation: "fadeIn 0.2s ease-out"
-          }}>
-            {/* Close btn */}
-            <button
-              onClick={() => { setShowCheckout(false); setSelectedPlan(null); }}
-              style={{
-                position: "absolute", top: 16, right: 16, background: "none",
-                border: "none", color: "var(--text-secondary)", cursor: "pointer", padding: 4
-              }}
-            >
-              <X size={20} />
-            </button>
-
-            {/* Header */}
-            <h3 style={{ margin: "0 0 4px 0", fontSize: "1.2rem" }}>Confirmar Assinatura</h3>
-            <p style={{ margin: "0 0 20px 0", color: "var(--text-secondary)", fontSize: 14 }}>
-              Plano <strong>{selectedPlan.Name}</strong> — {formatCents(selectedPlan.PriceCents)}/mês
-            </p>
-
-            {/* Form */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
-                  Nome / Razão Social *
-                </label>
-                <input
-                  value={checkoutForm.name}
-                  onChange={e => setCheckoutForm({ ...checkoutForm, name: e.target.value })}
-                  placeholder="Empresa Ltda"
-                  style={{
-                    width: "100%", padding: "10px 12px", borderRadius: 10,
-                    border: "1px solid var(--border)", background: "var(--bg-primary)",
-                    color: "var(--text-primary)", fontSize: 14, outline: "none"
-                  }}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
-                  CPF / CNPJ *
-                </label>
-                <input
-                  value={checkoutForm.cpfCnpj}
-                  onChange={e => setCheckoutForm({ ...checkoutForm, cpfCnpj: e.target.value })}
-                  placeholder="00.000.000/0001-00"
-                  style={{
-                    width: "100%", padding: "10px 12px", borderRadius: 10,
-                    border: "1px solid var(--border)", background: "var(--bg-primary)",
-                    color: "var(--text-primary)", fontSize: 14, outline: "none"
-                  }}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
-                  Email (opcional)
-                </label>
-                <input
-                  value={checkoutForm.email}
-                  onChange={e => setCheckoutForm({ ...checkoutForm, email: e.target.value })}
-                  placeholder="financeiro@empresa.com"
-                  type="email"
-                  style={{
-                    width: "100%", padding: "10px 12px", borderRadius: 10,
-                    border: "1px solid var(--border)", background: "var(--bg-primary)",
-                    color: "var(--text-primary)", fontSize: 14, outline: "none"
-                  }}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 8 }}>
-                  Forma de Pagamento *
-                </label>
-                <div style={{ display: "flex", gap: 8 }}>
-                  {(["PIX", "BOLETO", "CREDIT_CARD"] as const).map(type => {
-                    const labels: Record<string, string> = { PIX: "PIX", BOLETO: "Boleto", CREDIT_CARD: "Cartão" };
-                    const selected = checkoutForm.billingType === type;
-                    return (
-                      <button
-                        key={type}
-                        onClick={() => setCheckoutForm({ ...checkoutForm, billingType: type })}
-                        style={{
-                          flex: 1, padding: "10px 8px", borderRadius: 10, cursor: "pointer",
-                          border: selected ? "2px solid var(--primary)" : "1px solid var(--border)",
-                          background: selected ? "rgba(0,168,132,0.1)" : "var(--bg-primary)",
-                          color: selected ? "var(--primary)" : "var(--text-secondary)",
-                          fontSize: 13, fontWeight: 600, transition: "all 0.15s"
-                        }}
-                      >
-                        {labels[type]}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Data Purge Warning explicitly for Trial users */}
-              {subscription?.AccountStatus === "TRIAL" && (
-                <div style={{
-                  padding: "14px 16px", borderRadius: 12, background: "rgba(234, 67, 53, 0.08)",
-                  border: "1px solid rgba(234, 67, 53, 0.2)", marginTop: 8
-                }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--danger)", marginBottom: 6 }}>
-                    <AlertTriangle size={16} />
-                    <span style={{ fontWeight: 700, fontSize: "0.85rem" }}>AVISO DE LIMPEZA DE DADOS</span>
-                  </div>
-                  <p style={{ margin: 0, fontSize: "0.8rem", color: "var(--text-secondary)", lineHeight: 1.5 }}>
-                    Ao confirmar sua assinatura oficial, todos os <strong>dados de demonstração</strong> (mensagens, contatos fake e tickets de teste) serão <strong>apagados permanentemente</strong> para que você inicie sua conta limpa e pronta para uso real.
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Error */}
-            {checkoutError && (
-              <div style={{
-                marginTop: 14, padding: "10px 14px", borderRadius: 10,
-                background: "rgba(244,67,54,0.1)", color: "#f44336", fontSize: 13, fontWeight: 500
-              }}>
-                {checkoutError}
-              </div>
-            )}
-
-            {/* Actions */}
-            <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
-              <button
-                onClick={() => { setShowCheckout(false); setSelectedPlan(null); }}
-                className="btn"
-                style={{
-                  flex: 1, padding: "12px", borderRadius: 10, fontSize: 14,
-                  background: "var(--bg-primary)", border: "1px solid var(--border)",
-                  color: "var(--text-secondary)", cursor: "pointer"
-                }}
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleCheckout}
-                disabled={checkoutLoading}
-                className="btn btn-primary"
-                style={{
-                  flex: 2, padding: "12px", borderRadius: 10, fontSize: 14,
-                  display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                  opacity: checkoutLoading ? 0.7 : 1
-                }}
-              >
-                {checkoutLoading ? (
-                  <><Loader2 size={16} className="spin" /> Processando...</>
-                ) : (
-                  <>✓ Confirmar Assinatura</>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

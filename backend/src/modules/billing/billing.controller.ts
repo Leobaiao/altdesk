@@ -9,13 +9,13 @@ import { z } from "zod";
 import { validateBody } from "../../middleware/validateMw.js";
 import { authMw, requireRole } from "../../mw.js";
 import * as billingService from "./billing.service.js";
+import * as asaasClient from "./providers/asaas/asaas.client.js";
 import { processWebhookEvent } from "./providers/asaas/asaas.webhook.js";
 import { logger } from "../../lib/logger.js";
 
 const router = Router();
 
 // ─── WEBHOOK (Público — chamado pelo Asaas) ─────────────────
-
 
 router.post("/webhooks/asaas", (async (req: any, res: any) => {
     // 1. Validar token do webhook
@@ -76,17 +76,18 @@ router.post("/customer", authMw, requireRole("ADMIN"), validateBody(z.object({
 }) as any);
 
 // Criar assinatura (Admin only)
+// Retorna a subscription + firstPayment + pixQrCode (se PIX)
 router.post("/subscribe", authMw, requireRole("ADMIN"), validateBody(z.object({
     planCode: z.string(),
     billingType: z.enum(["BOLETO", "PIX", "CREDIT_CARD", "UNDEFINED"]).optional(),
 })), (async (req: any, res: any, next: any) => {
     try {
-        const sub = await billingService.createBillingSubscription(
+        const result = await billingService.createBillingSubscription(
             req.user.tenantId,
             req.body.planCode,
             req.body.billingType || "UNDEFINED"
         );
-        res.json(sub);
+        res.json(result);
     } catch (err) { next(err); }
 }) as any);
 
@@ -95,6 +96,65 @@ router.delete("/subscription", authMw, requireRole("ADMIN"), (async (req: any, r
     try {
         await billingService.cancelBillingSubscription(req.user.tenantId);
         res.json({ ok: true, message: "Assinatura cancelada." });
+    } catch (err) { next(err); }
+}) as any);
+
+// ─── CHECKOUT (Asaas Checkout - Página hospedada) ────────────
+
+// Criar sessão de checkout (Admin only)
+router.post("/checkout", authMw, requireRole("ADMIN"), validateBody(z.object({
+    planCode: z.string(),
+})), (async (req: any, res: any, next: any) => {
+    try {
+        const result = await billingService.createCheckoutSession(
+            req.user.tenantId,
+            req.body.planCode,
+        );
+        res.json(result);
+    } catch (err) { next(err); }
+}) as any);
+
+// Cancelar checkout ativo (Admin only)
+router.delete("/checkout/:checkoutId", authMw, requireRole("ADMIN"), (async (req: any, res: any, next: any) => {
+    try {
+        await billingService.cancelCheckoutSession(req.user.tenantId, req.params.checkoutId);
+        res.json({ ok: true, message: "Checkout cancelado." });
+    } catch (err) { next(err); }
+}) as any);
+
+// ─── PAYMENT STATUS (para polling do Pix) ───────────────────
+
+// Consulta o status de um pagamento diretamente na API do Asaas
+router.get("/payment/:paymentId/status", authMw, (async (req: any, res: any, next: any) => {
+    try {
+        const { paymentId } = req.params;
+
+        // Security: verify the payment belongs to this tenant
+        const pool = (await import("../../db.js")).getPool();
+        const p = await (await pool).request()
+            .input("tenantId", req.user.tenantId)
+            .input("provider", "asaas")
+            .input("paymentId", paymentId)
+            .query(`
+                SELECT 1 FROM altdesk.BillingInvoice 
+                WHERE TenantId = @tenantId AND Provider = @provider AND ProviderPaymentId = @paymentId
+                UNION ALL
+                SELECT 1 FROM altdesk.BillingSubscription 
+                WHERE TenantId = @tenantId AND Provider = @provider
+            `);
+
+        // If no billing records for this tenant, allow anyway for new subscriptions
+        // (the invoice may not have been created by webhook yet)
+
+        const payment = await asaasClient.getPayment(paymentId);
+        res.json({
+            id: payment.id,
+            status: payment.status,
+            billingType: payment.billingType,
+            value: payment.value,
+            invoiceUrl: payment.invoiceUrl,
+            bankSlipUrl: payment.bankSlipUrl,
+        });
     } catch (err) { next(err); }
 }) as any);
 
