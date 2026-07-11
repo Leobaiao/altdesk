@@ -234,12 +234,12 @@ export function Sidebar({ setView }: { setView: (view: any) => void }) {
                                 </span>
                             </div>
                         </div>
-                        {c.Tags && c.Tags.length > 0 && (
-                            <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
-                                {c.Tags.map(t => <TagPill key={t.TagId} tag={t} size="sm" />)}
+                        {c.Tags && c.Tags.filter(t => t.Name?.toUpperCase() !== 'TRIAL').length > 0 && (
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 2, marginTop: 2 }}>
+                                {c.Tags.filter(t => t.Name?.toUpperCase() !== 'TRIAL').map(t => <TagPill key={t.TagId} tag={t} size="sm" />)}
                             </div>
                         )}
-                        <div className="meta" style={{ display: "flex", justifyContent: "space-between", color: "#8696a0", fontSize: "0.85rem", marginTop: 4 }}>
+                        <div className="meta" style={{ display: "flex", justifyContent: "space-between", color: "#8696a0", fontSize: "0.85rem", marginTop: 2 }}>
                             <span className="preview" style={{ fontWeight: 400, opacity: 0.8 }}>
                                 {role === 'END_USER' 
                                     ? (c.AssignedUserName ? `Técnico: ${c.AssignedUserName}` : "Aguardando técnico...")

@@ -238,3 +238,188 @@ export async function listPlans() {
         .query("SELECT * FROM altdesk.BillingPlan WHERE IsActive = 1 ORDER BY PriceCents");
     return result.recordset;
 }
+
+// ─── CHECKOUT (Asaas Checkout - Página hospedada) ────────────
+
+/**
+ * Busca dados do tenant e admin para pré-preencher o checkout.
+ */
+async function getTenantCustomerData(tenantId: string) {
+    const pool = await getPool();
+    const result = await pool.request()
+        .input("tenantId", tenantId)
+        .query(`
+            SELECT 
+                t.CompanyName, t.TradeName, t.CpfCnpj, t.Phone,
+                u.DisplayName AS AdminName, u.Email AS AdminEmail, u.Phone AS AdminPhone
+            FROM altdesk.Tenant t
+            LEFT JOIN altdesk.[User] u ON u.TenantId = t.TenantId AND u.RoleCode = 'ADMIN'
+            WHERE t.TenantId = @tenantId
+        `);
+    return result.recordset[0] || null;
+}
+
+export interface CheckoutSessionResult {
+    checkoutId: string;
+    providerCheckoutId: string;
+    link: string;
+    expiresAt: string;
+}
+
+/**
+ * Cria uma sessão de checkout hospedada pelo Asaas.
+ * O pagador é redirecionado para a página do Asaas para completar o pagamento.
+ */
+export async function createCheckoutSession(tenantId: string, planCode: string): Promise<CheckoutSessionResult> {
+    const pool = await getPool();
+
+    // 1. Buscar plano
+    const planResult = await pool.request()
+        .input("code", planCode)
+        .query("SELECT * FROM altdesk.BillingPlan WHERE Code = @code AND IsActive = 1");
+
+    const plan = planResult.recordset[0];
+    if (!plan) throw new Error(`Plano '${planCode}' não encontrado.`);
+
+    // 2. Verificar se já existe checkout ativo para este tenant
+    const existingCheckout = await pool.request()
+        .input("tenantId", tenantId)
+        .input("provider", "asaas")
+        .query(`
+            SELECT ProviderCheckoutId, CheckoutLink, Status
+            FROM altdesk.BillingCheckout
+            WHERE TenantId = @tenantId AND Provider = @provider AND Status = 'ACTIVE'
+            ORDER BY CreatedAt DESC
+        `);
+
+    // Cancelar checkouts ativos anteriores
+    for (const existing of existingCheckout.recordset) {
+        try {
+            await asaas.cancelCheckout(existing.ProviderCheckoutId);
+        } catch (err) {
+            logger.warn({ err, checkoutId: existing.ProviderCheckoutId }, "[Billing] Failed to cancel previous checkout");
+        }
+        await pool.request()
+            .input("providerCheckoutId", existing.ProviderCheckoutId)
+            .input("provider2", "asaas")
+            .query(`
+                UPDATE altdesk.BillingCheckout
+                SET Status = 'CANCELED', UpdatedAt = SYSUTCDATETIME()
+                WHERE Provider = @provider2 AND ProviderCheckoutId = @providerCheckoutId
+            `);
+    }
+
+    // 3. Buscar dados do tenant para customerData
+    const tenantData = await getTenantCustomerData(tenantId);
+
+    // 4. Montar external reference
+    const externalReference = `tenant-${tenantId}_plan-${planCode}`;
+
+    // 5. Montar callback URLs
+    const frontendUrl = process.env.FRONTEND_URL || "https://altdesk.com.br";
+    const callbackBase = `${frontendUrl}/billing`;
+
+    // 6. Calcular expiração
+    const minutesToExpire = 60;
+    const expiresAt = new Date(Date.now() + minutesToExpire * 60 * 1000).toISOString();
+
+    // 7. Montar cycle do Asaas
+    const cycleMap: Record<string, string> = { monthly: "MONTHLY", quarterly: "QUARTERLY", yearly: "YEARLY" };
+    const asaasCycle = cycleMap[plan.Cycle] || "MONTHLY";
+
+    // 8. Criar checkout no Asaas
+    const checkout = await asaas.createCheckout({
+        billingTypes: ["PIX", "CREDIT_CARD"],
+        chargeTypes: ["RECURRENT"],
+        minutesToExpire,
+        externalReference,
+        callback: {
+            successUrl: `${callbackBase}?checkout=success`,
+            cancelUrl: `${callbackBase}?checkout=cancel`,
+            expiredUrl: `${callbackBase}?checkout=expired`,
+        },
+        subscription: {
+            cycle: asaasCycle,
+            value: fromCents(plan.PriceCents),
+            description: `AltDesk - Plano ${plan.Name}`,
+        },
+        items: [
+            {
+                externalReference: `plan-${planCode}`,
+                name: `AltDesk ${plan.Name}`,
+                description: `Assinatura mensal - até ${plan.AgentsSeatLimit} atendentes`,
+                quantity: 1,
+                value: fromCents(plan.PriceCents),
+            },
+        ],
+        customerData: tenantData ? {
+            name: tenantData.CompanyName || tenantData.AdminName || "",
+            cpfCnpj: tenantData.CpfCnpj || undefined,
+            email: tenantData.AdminEmail || undefined,
+            phone: tenantData.Phone || tenantData.AdminPhone || undefined,
+        } : undefined,
+    });
+
+    // 9. Salvar no banco
+    const insertResult = await pool.request()
+        .input("tenantId", tenantId)
+        .input("planId", plan.PlanId)
+        .input("provider", "asaas")
+        .input("providerCheckoutId", checkout.id)
+        .input("checkoutLink", checkout.link)
+        .input("status", checkout.status || "ACTIVE")
+        .input("externalReference", externalReference)
+        .input("expiresAt", expiresAt)
+        .query(`
+            INSERT INTO altdesk.BillingCheckout
+                (TenantId, PlanId, Provider, ProviderCheckoutId, CheckoutLink, Status, ExternalReference, ExpiresAt)
+            OUTPUT INSERTED.CheckoutId
+            VALUES
+                (@tenantId, @planId, @provider, @providerCheckoutId, @checkoutLink, @status, @externalReference, @expiresAt)
+        `);
+
+    const checkoutId = insertResult.recordset[0].CheckoutId;
+
+    logger.info({ tenantId, checkoutId: checkout.id, plan: planCode, link: checkout.link }, "[Billing] Checkout session created");
+
+    return {
+        checkoutId,
+        providerCheckoutId: checkout.id,
+        link: checkout.link,
+        expiresAt,
+    };
+}
+
+/**
+ * Cancela uma sessão de checkout ativa.
+ */
+export async function cancelCheckoutSession(tenantId: string, checkoutId: string) {
+    const pool = await getPool();
+
+    const result = await pool.request()
+        .input("tenantId", tenantId)
+        .input("checkoutId", checkoutId)
+        .input("provider", "asaas")
+        .query(`
+            SELECT ProviderCheckoutId
+            FROM altdesk.BillingCheckout
+            WHERE CheckoutId = @checkoutId AND TenantId = @tenantId AND Provider = @provider AND Status = 'ACTIVE'
+        `);
+
+    const checkout = result.recordset[0];
+    if (!checkout) throw new Error("Nenhum checkout ativo encontrado.");
+
+    // Cancelar no Asaas
+    await asaas.cancelCheckout(checkout.ProviderCheckoutId);
+
+    // Atualizar localmente
+    await pool.request()
+        .input("checkoutId", checkoutId)
+        .query(`
+            UPDATE altdesk.BillingCheckout
+            SET Status = 'CANCELED', UpdatedAt = SYSUTCDATETIME()
+            WHERE CheckoutId = @checkoutId
+        `);
+
+    logger.info({ tenantId, checkoutId }, "[Billing] Checkout session canceled");
+}

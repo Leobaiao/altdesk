@@ -22,7 +22,18 @@ export interface AsaasWebhookPayload {
         paymentDate?: string;
         invoiceUrl?: string;
         bankSlipUrl?: string;
+        externalReference?: string;
     };
+}
+
+/**
+ * Extrai tenantId e planCode do externalReference do Checkout.
+ * Formato esperado: "tenant-{tenantId}_plan-{planCode}"
+ */
+function parseCheckoutExternalReference(ref: string): { tenantId: string; planCode: string } | null {
+    const match = ref.match(/^tenant-([^_]+)_plan-(.+)$/);
+    if (!match) return null;
+    return { tenantId: match[1], planCode: match[2] };
 }
 
 /**
@@ -79,19 +90,31 @@ export async function processWebhookEvent(payload: AsaasWebhookPayload): Promise
             case "PAYMENT_RECEIVED":
                 await upsertInvoice(pool, payment);
                 if (payment.subscription) {
+                    // Fluxo existente: pagamento vinculado a uma subscription do Asaas
                     await updateSubscriptionStatus(pool, payment.subscription, "active");
                     const tenantId = await reactivateTenantIfSuspended(pool, payment.subscription);
                     
                     // Se o tenant for TRIAL, ativa a conta oficial e limpa dados demo
                     if (tenantId) {
-                        const tenantResult = await pool.request()
-                            .input("id", tenantId)
-                            .query("SELECT AccountStatus FROM altdesk.Tenant WHERE TenantId = @id");
+                        await activateTenantIfTrial(pool, tenantId);
+                    }
+                } else if (payment.externalReference) {
+                    // Fluxo Checkout: pagamento originado do Asaas Checkout
+                    const parsed = parseCheckoutExternalReference(payment.externalReference);
+                    if (parsed) {
+                        logger.info({ ...parsed, paymentId: payment.id }, "[Asaas Webhook] Checkout payment confirmed");
                         
-                        if (tenantResult.recordset[0]?.AccountStatus === 'TRIAL') {
-                            const { activateOfficialSubscription } = await import("../../../../services/subscriptionService.js");
-                            await activateOfficialSubscription(tenantId);
-                        }
+                        // Atualizar BillingCheckout para PAID
+                        await updateCheckoutStatus(pool, payment.externalReference, "PAID");
+                        
+                        // Criar BillingSubscription local se não existir
+                        await ensureLocalSubscription(pool, parsed.tenantId, parsed.planCode, payment);
+                        
+                        // Reativar tenant se necessário
+                        await reactivateTenantByTenantId(pool, parsed.tenantId);
+                        
+                        // Ativar conta oficial se TRIAL
+                        await activateTenantIfTrial(pool, parsed.tenantId);
                     }
                 }
                 break;
@@ -183,7 +206,7 @@ async function upsertInvoice(pool: any, payment: NonNullable<AsaasWebhookPayload
 
         const sub = subResult?.recordset[0];
 
-        // Find tenantId from BillingCustomer if not from subscription
+        // Find tenantId: from subscription, from customer, or from externalReference
         let tenantId = sub?.TenantId;
         if (!tenantId) {
             const custResult = await pool.request()
@@ -191,6 +214,10 @@ async function upsertInvoice(pool: any, payment: NonNullable<AsaasWebhookPayload
                 .input("customerId", payment.customer)
                 .query("SELECT TenantId FROM altdesk.BillingCustomer WHERE Provider = @provider AND ProviderCustomerId = @customerId");
             tenantId = custResult.recordset[0]?.TenantId;
+        }
+        if (!tenantId && payment.externalReference) {
+            const parsed = parseCheckoutExternalReference(payment.externalReference);
+            if (parsed) tenantId = parsed.tenantId;
         }
 
         if (!tenantId) {
@@ -254,4 +281,120 @@ async function reactivateTenantIfSuspended(pool: any, providerSubscriptionId: st
         `);
     
     return tenantId;
+}
+
+// ─── CHECKOUT HELPERS ────────────────────────────────────────
+
+/**
+ * Atualiza o status de um BillingCheckout via externalReference.
+ */
+async function updateCheckoutStatus(pool: any, externalReference: string, status: string) {
+    await pool.request()
+        .input("extRef", externalReference)
+        .input("status", status)
+        .query(`
+            UPDATE altdesk.BillingCheckout
+            SET Status = @status, UpdatedAt = SYSUTCDATETIME()
+            WHERE ExternalReference = @extRef AND Status = 'ACTIVE'
+        `);
+}
+
+/**
+ * Cria um registro local de BillingSubscription para pagamentos originados do Checkout.
+ * O Checkout cria uma subscription no Asaas automaticamente, mas precisamos espelhá-la localmente.
+ */
+async function ensureLocalSubscription(
+    pool: any,
+    tenantId: string,
+    planCode: string,
+    payment: NonNullable<AsaasWebhookPayload["payment"]>
+) {
+    // Verificar se já existe subscription ativa para este tenant
+    const existing = await pool.request()
+        .input("tenantId", tenantId)
+        .input("provider", "asaas")
+        .query(`
+            SELECT BillingSubscriptionId FROM altdesk.BillingSubscription
+            WHERE TenantId = @tenantId AND Provider = @provider AND Status NOT IN ('canceled')
+        `);
+
+    if (existing.recordset.length > 0) {
+        // Já existe — apenas atualizar status para active
+        await pool.request()
+            .input("id", existing.recordset[0].BillingSubscriptionId)
+            .query(`
+                UPDATE altdesk.BillingSubscription
+                SET Status = 'active', PaymentMethod = '${payment.billingType}', UpdatedAt = SYSUTCDATETIME()
+                WHERE BillingSubscriptionId = @id
+            `);
+        return;
+    }
+
+    // Buscar plano
+    const planResult = await pool.request()
+        .input("code", planCode)
+        .query("SELECT PlanId, PriceCents FROM altdesk.BillingPlan WHERE Code = @code AND IsActive = 1");
+
+    const plan = planResult.recordset[0];
+    if (!plan) {
+        logger.warn({ tenantId, planCode }, "[Asaas Webhook] Plan not found for checkout subscription");
+        return;
+    }
+
+    // Buscar ProviderCustomerId (pode não existir se o Checkout criou o customer automaticamente)
+    const custResult = await pool.request()
+        .input("tenantId", tenantId)
+        .input("provider", "asaas")
+        .query("SELECT ProviderCustomerId FROM altdesk.BillingCustomer WHERE TenantId = @tenantId AND Provider = @provider");
+
+    const providerCustomerId = custResult.recordset[0]?.ProviderCustomerId || payment.customer;
+
+    // Criar subscription local
+    const today = new Date().toISOString().split("T")[0];
+    await pool.request()
+        .input("tenantId", tenantId)
+        .input("planId", plan.PlanId)
+        .input("provider", "asaas")
+        .input("providerSubId", payment.subscription || `checkout-${payment.id}`)
+        .input("providerCustId", providerCustomerId)
+        .input("status", "active")
+        .input("paymentMethod", payment.billingType)
+        .input("valueCents", plan.PriceCents)
+        .input("nextDueDate", today)
+        .query(`
+            INSERT INTO altdesk.BillingSubscription
+                (TenantId, PlanId, Provider, ProviderSubscriptionId, ProviderCustomerId,
+                 Status, PaymentMethod, ValueCents, NextDueDate, StartedAt)
+            VALUES
+                (@tenantId, @planId, @provider, @providerSubId, @providerCustId,
+                 @status, @paymentMethod, @valueCents, @nextDueDate, SYSUTCDATETIME())
+        `);
+
+    logger.info({ tenantId, planCode, paymentId: payment.id }, "[Asaas Webhook] Local subscription created from checkout");
+}
+
+/**
+ * Reativa o tenant diretamente pelo tenantId (sem precisar de subscription ID).
+ */
+async function reactivateTenantByTenantId(pool: any, tenantId: string) {
+    await pool.request()
+        .input("tenantId", tenantId)
+        .query(`
+            UPDATE altdesk.Subscription SET IsActive = 1
+            WHERE TenantId = @tenantId AND IsActive = 0
+        `);
+}
+
+/**
+ * Ativa a conta oficial do tenant se estiver em TRIAL.
+ */
+async function activateTenantIfTrial(pool: any, tenantId: string) {
+    const tenantResult = await pool.request()
+        .input("id", tenantId)
+        .query("SELECT AccountStatus FROM altdesk.Tenant WHERE TenantId = @id");
+
+    if (tenantResult.recordset[0]?.AccountStatus === 'TRIAL') {
+        const { activateOfficialSubscription } = await import("../../../../services/subscriptionService.js");
+        await activateOfficialSubscription(tenantId);
+    }
 }

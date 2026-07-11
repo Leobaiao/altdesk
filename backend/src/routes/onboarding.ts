@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, Response } from "express";
 import { z } from "zod";
 import { getPool } from "../db.js";
 import { signToken, hashPassword } from "../auth.js";
@@ -7,12 +7,14 @@ import { onboardingLimiter } from "../middleware/rateLimiter.js";
 import { writeAuditLog } from "../services/auditLog.js";
 import { logger } from "../lib/logger.js";
 import { preloadDemoData } from "../services/demoDataService.js";
-import { EventEmitter } from "events";
 
-export const onboardingEvents = new EventEmitter();
 const router = Router();
 
+// Store SSE connections
+const sseClients = new Map<string, Response>();
+
 const OnboardingSchema = z.object({
+    trackingId: z.string().optional(),
     companyName: z.string().min(2, "Nome da empresa é obrigatório"),
     tradeName: z.string().optional().default(""),
     cpfCnpj: z.string().optional().default(""),
@@ -25,6 +27,22 @@ const OnboardingSchema = z.object({
     timezone: z.string().optional().default("America/Sao_Paulo"),
     locale: z.string().optional().default("pt-BR"),
     preloadModel: z.enum(["empty", "basic", "demo", "large"]).default("empty"),
+});
+
+// GET /api/onboarding/events/:trackingId — SSE endpoint
+router.get("/events/:trackingId", (req, res) => {
+    const trackingId = req.params.trackingId;
+    
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders();
+    
+    sseClients.set(trackingId, res);
+    
+    req.on("close", () => {
+        sseClients.delete(trackingId);
+    });
 });
 
 // POST /api/onboarding — Rota pública (sem autenticação)
@@ -81,50 +99,85 @@ router.post("/", onboardingLimiter, validateBody(OnboardingSchema), async (req, 
         const tenantId = row.TenantId;
         const userId = row.UserId;
 
-        // 3b. Criar políticas de SLA padrão
-        await pool.request()
-            .input("tenantId", tenantId)
-            .query(`
-                INSERT INTO altdesk.SLAPolicy (TenantId, Priority, FirstResponseMinutes, ResolutionMinutes, WarningBeforeMinutes, BusinessHoursOnly)
-                VALUES 
-                    (@tenantId, 'LOW', 240, 1440, 10, 0),
-                    (@tenantId, 'MEDIUM', 120, 480, 10, 0),
-                    (@tenantId, 'HIGH', 60, 240, 10, 0),
-                    (@tenantId, 'CRITICAL', 30, 120, 10, 0)
-            `);
-
         // 4. Gerar JWT
         const token = signToken({ userId, tenantId, role: "ADMIN" });
 
-        // 4b. Preload Data (if not empty)
+        // Helper para emitir SSE
+        const emitProgress = (msg: string, pct: number) => {
+            if (body.trackingId && sseClients.has(body.trackingId)) {
+                const client = sseClients.get(body.trackingId)!;
+                client.write(`data: ${JSON.stringify({ type: 'PROGRESS', message: msg, progress: pct })}\n\n`);
+            }
+        };
+
+        const emitComplete = () => {
+            if (body.trackingId && sseClients.has(body.trackingId)) {
+                const client = sseClients.get(body.trackingId)!;
+                client.write(`data: ${JSON.stringify({ type: 'COMPLETE', token, tenantId, role: "ADMIN", preloadModel: body.preloadModel })}\n\n`);
+                client.end();
+                sseClients.delete(body.trackingId);
+            }
+        };
+
+        // 4b. Preload Data (if not empty) -> Assíncrono via SSE
         if (body.preloadModel !== "empty") {
-            // We run it async so the frontend can connect to SSE
-            preloadDemoData(tenantId, body.preloadModel, userId, (step, status) => {
-                onboardingEvents.emit(`progress_${tenantId}`, { step, status });
-            }).catch(err => {
-                onboardingEvents.emit(`progress_${tenantId}`, { step: "Erro ao criar ambiente: " + err.message, status: "ERROR" });
+            // Roda em background
+            Promise.resolve().then(async () => {
+                try {
+                    await preloadDemoData(tenantId, body.preloadModel as "basic" | "demo" | "large", userId, (msg, pct) => {
+                        emitProgress(msg, pct);
+                    });
+                    
+                    logger.info(
+                        { tenantId, userId, preloadModel: body.preloadModel, ip },
+                        "Onboarding demo data completed successfully"
+                    );
+
+                    await writeAuditLog({
+                        tenantId,
+                        userId,
+                        action: "ONBOARDING_COMPLETED",
+                        ipAddress: ip,
+                        userAgent,
+                        afterValues: {
+                            companyName: body.companyName,
+                            adminEmail: body.adminEmail,
+                            preloadModel: body.preloadModel,
+                        },
+                    });
+
+                    emitComplete();
+                } catch (err: any) {
+                    logger.error({ tenantId, error: err.message }, "Failed to preload demo data async");
+                    if (body.trackingId && sseClients.has(body.trackingId)) {
+                        const client = sseClients.get(body.trackingId)!;
+                        client.write(`data: ${JSON.stringify({ type: 'ERROR', message: "Falha na criação de dados de demonstração." })}\n\n`);
+                        client.end();
+                        sseClients.delete(body.trackingId);
+                    }
+                }
+            });
+        } else {
+            // Se for empty, podemos finalizar de imediato também via SSE (caso frontend espere)
+            Promise.resolve().then(async () => {
+                await writeAuditLog({
+                    tenantId,
+                    userId,
+                    action: "ONBOARDING_COMPLETED",
+                    ipAddress: ip,
+                    userAgent,
+                    afterValues: {
+                        companyName: body.companyName,
+                        adminEmail: body.adminEmail,
+                        preloadModel: body.preloadModel,
+                    },
+                });
+                emitComplete();
             });
         }
 
-        logger.info(
-            { tenantId, userId, preloadModel: body.preloadModel, ip },
-            "Onboarding completed successfully"
-        );
-
-        await writeAuditLog({
-            tenantId,
-            userId,
-            action: "ONBOARDING_COMPLETED",
-            ipAddress: ip,
-            userAgent,
-            afterValues: {
-                companyName: body.companyName,
-                adminEmail: body.adminEmail,
-                preloadModel: body.preloadModel,
-            },
-        });
-
         return res.status(201).json({
+            status: "processing",
             token,
             tenantId,
             role: "ADMIN",
@@ -134,32 +187,6 @@ router.post("/", onboardingLimiter, validateBody(OnboardingSchema), async (req, 
         logger.error({ error: error.message, ip }, "Onboarding failed");
         next(error);
     }
-});
-
-// GET /api/onboarding/:tenantId/progress — SSE endpoint
-router.get("/:tenantId/progress", (req, res) => {
-    const tenantId = req.params.tenantId;
-
-    res.setHeader("Content-Type", "text/event-stream");
-    res.setHeader("Cache-Control", "no-cache");
-    res.setHeader("Connection", "keep-alive");
-
-    // Enviar algo imediatamente para iniciar o stream
-    res.write(`data: ${JSON.stringify({ step: "Conectado", status: "IN_PROGRESS" })}\n\n`);
-
-    const onProgress = (data: any) => {
-        res.write(`data: ${JSON.stringify(data)}\n\n`);
-        if (data.status === "DONE" || data.status === "ERROR") {
-            res.end();
-            onboardingEvents.off(`progress_${tenantId}`, onProgress);
-        }
-    };
-
-    onboardingEvents.on(`progress_${tenantId}`, onProgress);
-
-    req.on("close", () => {
-        onboardingEvents.off(`progress_${tenantId}`, onProgress);
-    });
 });
 
 export default router;

@@ -521,24 +521,26 @@ export function TicketDetail({ ticket, onBack, profile, role, onTicketUpdate, on
                             <h3 style={{ margin: 0, fontSize: "0.75rem", fontWeight: 800, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "1px" }}>Status do Chamado</h3>
                         </div>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                            <span style={{
+                            <div style={{
+                                display: "flex", alignItems: "center",
                                 padding: "6px 12px", borderRadius: 8, fontSize: "0.75rem", fontWeight: 800,
                                 background: ["OPEN", "NEW", "TRIAGE", "IN_PROGRESS", "ESCALATED"].includes(ticket.Status) ? "rgba(0,168,132,0.12)" : "rgba(134,150,160,0.12)",
                                 color: ["OPEN", "NEW", "TRIAGE", "IN_PROGRESS", "ESCALATED"].includes(ticket.Status) ? "#00a884" : "#8696a0",
                                 border: `1px solid ${["OPEN", "NEW", "TRIAGE", "IN_PROGRESS", "ESCALATED"].includes(ticket.Status) ? "rgba(0,168,132,0.2)" : "rgba(134,150,160,0.2)"}`
                             }}>
                                 {{ "NEW": "Novo", "OPEN": "Aberto", "TRIAGE": "Triagem", "IN_PROGRESS": "Atendimento", "WAITING_CUSTOMER": "Aguard. cliente", "RESOLVED": "Resolvido", "CLOSED": "Fechado" }[ticket.Status] || ticket.Status}
-                            </span>
+                            </div>
                             {ticket.SlaStatus && (
-                                <span style={{
+                                <div style={{
+                                    display: "flex", alignItems: "center", gap: 4,
                                     padding: "6px 12px", borderRadius: 8, fontSize: "0.75rem", fontWeight: 800,
                                     background: ticket.SlaStatus === 'BREACHED' ? "rgba(239,68,68,0.12)" : ticket.SlaStatus === 'WARNING' ? "rgba(245,158,11,0.12)" : "rgba(16,185,129,0.12)",
                                     color: ticket.SlaStatus === 'BREACHED' ? "#ef4444" : ticket.SlaStatus === 'WARNING' ? "#f59e0b" : "#10b981",
                                     border: `1px solid ${ticket.SlaStatus === 'BREACHED' ? "rgba(239,68,68,0.2)" : ticket.SlaStatus === 'WARNING' ? "rgba(245,158,11,0.2)" : "rgba(16,185,129,0.2)"}`
                                 }}>
-                                    <Timer size={12} style={{ marginRight: 4, verticalAlign: "middle" }} />
-                                    SLA {{ 'BREACHED': 'Violado', 'WARNING': 'Em Risco', 'ON_TIME': 'No Prazo' }[ticket.SlaStatus] || ticket.SlaStatus}
-                                </span>
+                                    <Timer size={14} />
+                                    <span>SLA {{ 'BREACHED': 'Violado', 'WARNING': 'Em Risco', 'ON_TIME': 'No Prazo' }[ticket.SlaStatus] || ticket.SlaStatus}</span>
+                                </div>
                             )}
                         </div>
                         {/* Tags inline com Status/SLA */}

@@ -99,6 +99,29 @@ router.delete("/subscription", authMw, requireRole("ADMIN"), (async (req: any, r
     } catch (err) { next(err); }
 }) as any);
 
+// ─── CHECKOUT (Asaas Checkout - Página hospedada) ────────────
+
+// Criar sessão de checkout (Admin only)
+router.post("/checkout", authMw, requireRole("ADMIN"), validateBody(z.object({
+    planCode: z.string(),
+})), (async (req: any, res: any, next: any) => {
+    try {
+        const result = await billingService.createCheckoutSession(
+            req.user.tenantId,
+            req.body.planCode,
+        );
+        res.json(result);
+    } catch (err) { next(err); }
+}) as any);
+
+// Cancelar checkout ativo (Admin only)
+router.delete("/checkout/:checkoutId", authMw, requireRole("ADMIN"), (async (req: any, res: any, next: any) => {
+    try {
+        await billingService.cancelCheckoutSession(req.user.tenantId, req.params.checkoutId);
+        res.json({ ok: true, message: "Checkout cancelado." });
+    } catch (err) { next(err); }
+}) as any);
+
 // ─── PAYMENT STATUS (para polling do Pix) ───────────────────
 
 // Consulta o status de um pagamento diretamente na API do Asaas

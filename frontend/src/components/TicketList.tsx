@@ -38,6 +38,7 @@ export interface TicketData {
     ClosedAt?: string;
     ResolutionDescription?: string;
     RequesterUserId?: string | null;
+    Tags?: Array<{ TagId: string; Name: string; Color?: string }>;
 }
 
 function getChannelIcon(channel: string | null) {
