@@ -98,6 +98,7 @@ jobs:
           ENCRYPTION_KEY=${{ secrets.ENCRYPTION_KEY }}
           VITE_API_URL_APP=https://api.altdesk.com.br
           VITE_API_URL_ADMIN=https://api-admin.altdesk.com.br
+          FRONTEND_URL=https://altdesk.com.br
           SMTP_HOST=${{ secrets.SMTP_HOST }}
           SMTP_PORT=${{ secrets.SMTP_PORT }}
           SMTP_USER=${{ secrets.SMTP_USER }}
