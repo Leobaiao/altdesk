@@ -178,7 +178,7 @@ export async function getPayment(paymentId: string): Promise<AsaasPayment> {
     return asaasRequest<AsaasPayment>(`/payments/${paymentId}`);
 }
 
-export async function getPaymentPixQrCode(paymentId: string): Promise<{ encodedImage: string; payload: string }> {
+export async function getPaymentPixQrCode(paymentId: string): Promise<{ encodedImage: string; payload: string; expirationDate: string }> {
     return asaasRequest(`/payments/${paymentId}/pixQrCode`);
 }
 
