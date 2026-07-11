@@ -46,6 +46,7 @@ services:
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P "$${MSSQL_SA_PASSWORD}" -C -d AltDeskDev -i /scripts/06-password-reset.sql;
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P "$${MSSQL_SA_PASSWORD}" -C -d AltDeskDev -i /scripts/07-billing-and-service-desk.sql;
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P "$${MSSQL_SA_PASSWORD}" -C -d AltDeskDev -i /scripts/08-trash-system.sql;
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P "$${MSSQL_SA_PASSWORD}" -C -d AltDeskDev -i /scripts/08-billing-checkout.sql;
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P "$${MSSQL_SA_PASSWORD}" -C -d AltDeskDev -i /scripts/09-onboarding.sql;
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P "$${MSSQL_SA_PASSWORD}" -C -d AltDeskDev -i /scripts/10-instance-assignment.sql;
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P "$${MSSQL_SA_PASSWORD}" -C -d AltDeskDev -i /scripts/11-cpf-sessions.sql;
@@ -82,6 +83,16 @@ services:
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P "$${MSSQL_SA_PASSWORD}" -C -d AltDeskDev -i /scripts/39-help-articles.sql;
         echo 'Executando migration 40 (ticket resolution description)...';
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P "$${MSSQL_SA_PASSWORD}" -C -d AltDeskDev -i /scripts/40-ticket-resolution.sql;
+        echo 'Executando migration 41 (grace period)...';
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P "$${MSSQL_SA_PASSWORD}" -C -d AltDeskDev -i /scripts/41-grace-period.sql;
+        echo 'Executando migration 41 (performance indexes)...';
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P "$${MSSQL_SA_PASSWORD}" -C -d AltDeskDev -i /scripts/41-performance-indexes.sql;
+        echo 'Executando migration 42 (default sla policies)...';
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P "$${MSSQL_SA_PASSWORD}" -C -d AltDeskDev -i /scripts/42-default-sla-policies.sql;
+        echo 'Executando migration 43 (indexes)...';
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P "$${MSSQL_SA_PASSWORD}" -C -d AltDeskDev -i /scripts/43-indexes.sql;
+        echo 'Executando migration 44 (billing plan fields)...';
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P "$${MSSQL_SA_PASSWORD}" -C -d AltDeskDev -i /scripts/44-billing-plan-fields.sql;
         echo 'Todas as migrations concluidas em PROD!';
       "
     networks:
