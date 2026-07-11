@@ -1,28 +1,23 @@
 -- 41-performance-indexes.sql
 -- Adiciona índices (B-Tree) recomendados para performance
 
+SET QUOTED_IDENTIFIER ON;
+GO
+
 -- Índices para altdesk.Ticket
 IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Ticket_Status_CreatedAt' AND object_id = OBJECT_ID('altdesk.Ticket'))
 BEGIN
     CREATE NONCLUSTERED INDEX IX_Ticket_Status_CreatedAt 
     ON altdesk.Ticket (Status, CreatedAt)
-    INCLUDE (TicketId, TenantId, AssignedUserId);
+    INCLUDE (TicketId, TenantId, AssignedAgentId);
 END
 GO
 
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Ticket_AssignedUserId' AND object_id = OBJECT_ID('altdesk.Ticket'))
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Ticket_AssignedAgentId' AND object_id = OBJECT_ID('altdesk.Ticket'))
 BEGIN
-    CREATE NONCLUSTERED INDEX IX_Ticket_AssignedUserId 
-    ON altdesk.Ticket (AssignedUserId)
+    CREATE NONCLUSTERED INDEX IX_Ticket_AssignedAgentId 
+    ON altdesk.Ticket (AssignedAgentId)
     INCLUDE (Status);
-END
-GO
-
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Ticket_SlaPolicyId' AND object_id = OBJECT_ID('altdesk.Ticket'))
-BEGIN
-    CREATE NONCLUSTERED INDEX IX_Ticket_SlaPolicyId 
-    ON altdesk.Ticket (SlaPolicyId)
-    WHERE SlaPolicyId IS NOT NULL;
 END
 GO
 
