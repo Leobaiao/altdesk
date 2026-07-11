@@ -541,7 +541,7 @@ function AppContent() {
   useEffect(() => {
     if (token) {
       const decoded = parseJwt(token);
-      if (!decoded || !decoded.tenantId) {
+      if (!decoded || (!decoded.tenantId && decoded.role !== 'SUPERADMIN')) {
         console.error("Invalid token, logging out");
         localStorage.removeItem("token");
         setToken(null);
