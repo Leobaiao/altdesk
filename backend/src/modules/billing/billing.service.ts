@@ -234,10 +234,10 @@ async function getTenantCustomerData(tenantId: string) {
         .input("tenantId", tenantId)
         .query(`
             SELECT 
-                t.CompanyName, t.TradeName, t.CpfCnpj, t.Phone,
-                u.DisplayName AS AdminName, u.Email AS AdminEmail, u.Phone AS AdminPhone
+                t.Name AS CompanyName, t.TradeName, t.CpfCnpj, t.Phone,
+                u.DisplayName AS AdminName, u.Email AS AdminEmail
             FROM altdesk.Tenant t
-            LEFT JOIN altdesk.[User] u ON u.TenantId = t.TenantId AND u.RoleCode = 'ADMIN'
+            LEFT JOIN altdesk.[User] u ON u.TenantId = t.TenantId AND u.Role = 'admin'
             WHERE t.TenantId = @tenantId
         `);
     return result.recordset[0] || null;
@@ -301,19 +301,26 @@ export async function createCheckoutSession(tenantId: string, planCode: string):
 
     // 5. Montar callback URLs
     const frontendUrl = process.env.FRONTEND_URL || "https://altdesk.com.br";
-    const callbackBase = `${frontendUrl}/billing`;
+    
+    // O Asaas Checkout recusa URLs com "localhost" ou "127.0.0.1". 
+    // Precisamos mascarar para testes locais para não dar erro 400.
+    const safeFrontendUrl = frontendUrl.includes("localhost") || frontendUrl.includes("127.0.0.1")
+        ? "https://sandbox.altdesk.com.br" 
+        : frontendUrl;
+        
+    const callbackBase = `${safeFrontendUrl}/billing`;
 
     // 6. Calcular expiração
     const minutesToExpire = 60;
     const expiresAt = new Date(Date.now() + minutesToExpire * 60 * 1000).toISOString();
 
     // 7. Montar cycle do Asaas
-    const cycleMap: Record<string, string> = { monthly: "MONTHLY", quarterly: "QUARTERLY", yearly: "YEARLY" };
+    const cycleMap: Record<string, "MONTHLY" | "QUARTERLY" | "YEARLY"> = { monthly: "MONTHLY", quarterly: "QUARTERLY", yearly: "YEARLY" };
     const asaasCycle = cycleMap[plan.Cycle] || "MONTHLY";
 
     // 8. Criar checkout no Asaas
     const checkout = await asaas.createCheckout({
-        billingTypes: ["PIX", "CREDIT_CARD"],
+        billingTypes: ["CREDIT_CARD"],
         chargeTypes: ["RECURRENT"],
         minutesToExpire,
         externalReference,
@@ -326,6 +333,7 @@ export async function createCheckoutSession(tenantId: string, planCode: string):
             cycle: asaasCycle,
             value: fromCents(plan.PriceCents),
             description: `AltDesk - Plano ${plan.Name}`,
+            nextDueDate: new Date().toISOString().split('T')[0],
         },
         items: [
             {
@@ -336,13 +344,14 @@ export async function createCheckoutSession(tenantId: string, planCode: string):
                 value: fromCents(plan.PriceCents),
             },
         ],
-        customerData: tenantData ? {
-            name: tenantData.CompanyName || tenantData.AdminName || "",
-            cpfCnpj: tenantData.CpfCnpj || undefined,
-            email: tenantData.AdminEmail || undefined,
-            phone: tenantData.Phone || tenantData.AdminPhone || undefined,
-        } : undefined,
+        // customerData removido temporariamente para o usuário preencher na tela do Asaas,
+        // pois a API do Asaas exige CPF, endereço completo, etc., se este campo for enviado.
     });
+
+    const isSandbox = process.env.ASAAS_ENV !== "production";
+    const checkoutUrl = isSandbox 
+        ? `https://sandbox.asaas.com/checkoutSession/show?id=${checkout.id}`
+        : `https://asaas.com/checkoutSession/show?id=${checkout.id}`;
 
     // 9. Salvar no banco
     const insertResult = await pool.request()
@@ -350,7 +359,7 @@ export async function createCheckoutSession(tenantId: string, planCode: string):
         .input("planId", plan.PlanId)
         .input("provider", "asaas")
         .input("providerCheckoutId", checkout.id)
-        .input("checkoutLink", checkout.link)
+        .input("checkoutLink", checkoutUrl)
         .input("status", checkout.status || "ACTIVE")
         .input("externalReference", externalReference)
         .input("expiresAt", expiresAt)
@@ -364,12 +373,12 @@ export async function createCheckoutSession(tenantId: string, planCode: string):
 
     const checkoutId = insertResult.recordset[0].CheckoutId;
 
-    logger.info({ tenantId, checkoutId: checkout.id, plan: planCode, link: checkout.link }, "[Billing] Checkout session created");
+    logger.info({ tenantId, checkoutId: checkout.id, plan: planCode, link: checkoutUrl }, "[Billing] Checkout session created");
 
     return {
         checkoutId,
         providerCheckoutId: checkout.id,
-        link: checkout.link,
+        link: checkoutUrl,
         expiresAt,
     };
 }

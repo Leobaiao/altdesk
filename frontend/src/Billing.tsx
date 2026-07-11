@@ -92,28 +92,22 @@ export function Billing({ onBack }: { onBack: () => void }) {
 
   useEffect(() => { loadAll(); }, []);
 
+  const [checkoutFeedback, setCheckoutFeedback] = useState<"success" | "cancel" | "expired" | null>(null);
+
   // Processar callback do Asaas Checkout (query params)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const checkoutResult = params.get("checkout");
+    const checkoutResult = params.get("checkout") as "success" | "cancel" | "expired" | null;
     if (checkoutResult) {
       // Limpar query param da URL sem recarregar
       const url = new URL(window.location.href);
       url.searchParams.delete("checkout");
       window.history.replaceState({}, "", url.pathname);
 
-      switch (checkoutResult) {
-        case "success":
-          showToast("Pagamento iniciado! Aguarde a confirmação.", "success");
-          // Recarregar dados após alguns segundos para refletir o webhook
-          setTimeout(() => loadAll(), 3000);
-          break;
-        case "cancel":
-          showToast("Checkout cancelado.", "warning");
-          break;
-        case "expired":
-          showToast("Checkout expirado. Tente novamente.", "error");
-          break;
+      setCheckoutFeedback(checkoutResult);
+      if (checkoutResult === "success") {
+        // Recarregar dados após alguns segundos para refletir o webhook
+        setTimeout(() => loadAll(), 3000);
       }
     }
   }, []);
@@ -190,6 +184,64 @@ export function Billing({ onBack }: { onBack: () => void }) {
 
   return (
     <div className="settings-page" style={{ height: "100%", overflowY: "auto" }}>
+      {/* Checkout Feedback Modal */}
+      {checkoutFeedback && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+          background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)",
+          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999
+        }}>
+          <div style={{
+            background: "var(--bg-primary)", padding: 32, borderRadius: 16, maxWidth: 400, width: "100%",
+            textAlign: "center", boxShadow: "0 10px 40px rgba(0,0,0,0.2)", border: "1px solid var(--border-color)"
+          }}>
+            {checkoutFeedback === "success" && (
+              <>
+                <div style={{ color: "#00c853", marginBottom: 16, display: "flex", justifyContent: "center" }}>
+                  <CheckCircle size={64} />
+                </div>
+                <h2 style={{ fontSize: "1.5rem", marginBottom: 8 }}>Pagamento Iniciado!</h2>
+                <p style={{ color: "var(--text-secondary)", marginBottom: 24, lineHeight: 1.5 }}>
+                  Sua transação foi registrada. Se você pagou via PIX ou Cartão, a liberação costuma ser instantânea. Pagamentos via boleto podem levar até 3 dias úteis.
+                </p>
+              </>
+            )}
+            {checkoutFeedback === "cancel" && (
+              <>
+                <div style={{ color: "#ff9800", marginBottom: 16, display: "flex", justifyContent: "center" }}>
+                  <AlertTriangle size={64} />
+                </div>
+                <h2 style={{ fontSize: "1.5rem", marginBottom: 8 }}>Pagamento Cancelado</h2>
+                <p style={{ color: "var(--text-secondary)", marginBottom: 24, lineHeight: 1.5 }}>
+                  Você cancelou o processo de pagamento ou houve uma falha de autenticação. Nenhuma cobrança foi gerada.
+                </p>
+              </>
+            )}
+            {checkoutFeedback === "expired" && (
+              <>
+                <div style={{ color: "#f44336", marginBottom: 16, display: "flex", justifyContent: "center" }}>
+                  <XCircle size={64} />
+                </div>
+                <h2 style={{ fontSize: "1.5rem", marginBottom: 8 }}>Link Expirado</h2>
+                <p style={{ color: "var(--text-secondary)", marginBottom: 24, lineHeight: 1.5 }}>
+                  O tempo limite para pagamento expirou. Por favor, gere um novo link de pagamento se desejar continuar.
+                </p>
+              </>
+            )}
+            
+            <button 
+              onClick={() => setCheckoutFeedback(null)}
+              style={{
+                width: "100%", padding: "12px", borderRadius: 8, background: "var(--accent)", color: "#fff",
+                fontWeight: 600, border: "none", cursor: "pointer", transition: "opacity 0.2s"
+              }}
+            >
+              Entendido
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <PageHeader 
         title="Faturamento" 

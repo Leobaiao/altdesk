@@ -10,9 +10,9 @@
 const BASE_URL =
     process.env.ASAAS_ENV === "production"
         ? "https://api.asaas.com/v3"
-        : "https://api-sandbox.asaas.com/v3";
+        : "https://sandbox.asaas.com/api/v3";
 
-const API_KEY = process.env.ASAAS_API_KEY || "";
+const API_KEY = (process.env.ASAAS_API_KEY || "").replace(/^'|'$/g, "");
 
 interface AsaasRequestOptions {
     method?: "GET" | "POST" | "PUT" | "DELETE";
@@ -39,6 +39,15 @@ function getMockData(path: string, method: string, body: any): any {
             nextDueDate: body?.nextDueDate || new Date().toISOString().split("T")[0],
             cycle: body?.cycle || "MONTHLY",
             status: "active"
+        };
+    }
+    if (path.startsWith("/checkouts")) {
+        return {
+            id: `chk_mock_${Math.random().toString(36).substring(2, 9)}`,
+            link: "https://sandbox.asaas.com/checkout/mock",
+            status: "ACTIVE",
+            billingTypes: ["PIX", "CREDIT_CARD"],
+            chargeTypes: ["RECURRENT"]
         };
     }
     return { ok: true, id: `mock_${Date.now()}` };
@@ -74,7 +83,7 @@ async function asaasRequest<T = any>(path: string, options: AsaasRequestOptions 
 
         if (!response.ok) {
             const text = await response.text();
-            console.warn(`[Asaas SDK Warning] API request failed (${response.status}). Falling back to mock data for development.`);
+            console.warn(`[Asaas SDK Warning] API request failed (${response.status}): ${text}. Falling back to mock data for development.`);
             return getMockData(path, method, body) as T;
         }
 
@@ -201,9 +210,10 @@ export interface AsaasCheckoutCallback {
 }
 
 export interface AsaasCheckoutSubscription {
-    cycle: string;          // MONTHLY, QUARTERLY, YEARLY
-    value?: number;
+    cycle: "WEEKLY" | "BIWEEKLY" | "MONTHLY" | "QUARTERLY" | "SEMIANNUALLY" | "YEARLY";
+    value: number;
     description?: string;
+    nextDueDate?: string;
 }
 
 export interface CreateCheckoutData {
