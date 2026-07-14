@@ -61,6 +61,7 @@ interface UserOption {
 }
 
 function getActionDisplayInfo(action: string) {
+    const safeAction = (action || "").trim().toUpperCase();
     const map: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
         OPENED: { label: "Chamado Aberto", icon: <AlertCircle size={16} />, color: "#00a884" },
         REPLIED: { label: "Resposta Enviada", icon: <MessageCircle size={16} />, color: "#3498db" },
@@ -70,13 +71,77 @@ function getActionDisplayInfo(action: string) {
         ASSIGNED: { label: "Atribuído", icon: <User size={16} />, color: "#2ecc71" },
         STATUS_CHANGED: { label: "Status Alterado", icon: <RefreshCw size={16} />, color: "#f1c40f" },
     };
-    return map[action] || { label: action, icon: <Clock size={16} />, color: "#8696a0" };
+    return map[safeAction] || { label: action, icon: <Clock size={16} />, color: "#8696a0" };
 }
 
 function formatDateTime(d: string) {
     if (!d) return "—";
     const date = new Date(d);
     return date.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
+
+function translateStatus(s: string) {
+    if (s === "RESOLVED") return "Resolvido";
+    if (s === "OPEN") return "Aberto";
+    if (s === "PENDING") return "Pendente";
+    return s;
+}
+
+function formatMeta(meta: any): string {
+    if (!meta) return "";
+    const parts: string[] = [];
+
+    if (meta.source) {
+        const sourceMap: Record<string, string> = {
+            INTERNAL: "Interno",
+            EXTERNAL: "Externo",
+            SYSTEM: "Sistema",
+            API: "API"
+        };
+        parts.push(`Origem: ${sourceMap[meta.source] || meta.source}`);
+    }
+    if (meta.initiatorId) {
+        parts.push(`Iniciado por: ${meta.initiatorId}`);
+    }
+    if (meta.targetId) {
+        parts.push(`ID Alvo: ${meta.targetId}`);
+    }
+    if (meta.direction) {
+        parts.push(`Direção: ${meta.direction === "IN" ? "Entrada" : "Saída"}`);
+    }
+    if (meta.mediaType) {
+        parts.push(`Tipo de mídia: ${meta.mediaType === "text" ? "Texto" : meta.mediaType}`);
+    }
+    if (meta.text || meta.body) {
+        parts.push(`Texto: "${meta.text || meta.body}"`);
+    }
+    if (meta.newStatus) {
+        parts.push(`Novo status: ${translateStatus(meta.newStatus)}`);
+    }
+    if (meta.previousStatus || meta.oldStatus) {
+        parts.push(`Status anterior: ${translateStatus(meta.previousStatus || meta.oldStatus)}`);
+    }
+    if (meta.resolution) {
+        parts.push(`Resolução: "${meta.resolution}"`);
+    }
+    if (meta.queueId !== undefined) {
+        parts.push(`Fila ID: ${meta.queueId === null ? "Nenhum" : meta.queueId}`);
+    }
+    if (meta.assignedTo) {
+        parts.push(`Atribuído a: ${meta.assignedTo}`);
+    }
+    if (meta.reason) {
+        const reasonMap: Record<string, string> = {
+            SLA_BREACHED: "Violação de SLA"
+        };
+        parts.push(`Motivo: ${reasonMap[meta.reason] || meta.reason}`);
+    }
+
+    if (parts.length === 0) {
+        return JSON.stringify(meta);
+    }
+    
+    return parts.join(" · ");
 }
 
 interface TicketDetailProps {
@@ -387,7 +452,7 @@ export function TicketDetail({ ticket, onBack, profile, role, onTicketUpdate, on
                                                 <div style={{ marginTop: 6, fontSize: "0.82rem", color: "var(--text-secondary)" }}>
                                                     {h.ActorUserId && <span>Por: <strong>{h.ActorName || h.ActorEmail}</strong></span>}
                                                     {h.EscalatedToEmail && <span> → Escalado para: <strong>{h.EscalatedToEmail}</strong></span>}
-                                                    {meta.newStatus && <span> · Novo status: <strong>{meta.newStatus}</strong></span>}
+                                                    {meta.newStatus && <span> · Novo status: <strong>{translateStatus(meta.newStatus)}</strong></span>}
                                                 </div>
                                                 {(meta.text || meta.body) && (
                                                     <div style={{ 
@@ -534,12 +599,12 @@ export function TicketDetail({ ticket, onBack, profile, role, onTicketUpdate, on
                                 <div style={{
                                     display: "flex", alignItems: "center", gap: 4,
                                     padding: "6px 12px", borderRadius: 8, fontSize: "0.75rem", fontWeight: 800,
-                                    background: ticket.SlaStatus === 'BREACHED' ? "rgba(239,68,68,0.12)" : ticket.SlaStatus === 'WARNING' ? "rgba(245,158,11,0.12)" : "rgba(16,185,129,0.12)",
-                                    color: ticket.SlaStatus === 'BREACHED' ? "#ef4444" : ticket.SlaStatus === 'WARNING' ? "#f59e0b" : "#10b981",
-                                    border: `1px solid ${ticket.SlaStatus === 'BREACHED' ? "rgba(239,68,68,0.2)" : ticket.SlaStatus === 'WARNING' ? "rgba(245,158,11,0.2)" : "rgba(16,185,129,0.2)"}`
+                                    background: ticket.SlaStatus === 'VIOLATED' ? "rgba(239,68,68,0.12)" : ticket.SlaStatus === 'WARNING' ? "rgba(245,158,11,0.12)" : "rgba(16,185,129,0.12)",
+                                    color: ticket.SlaStatus === 'VIOLATED' ? "#ef4444" : ticket.SlaStatus === 'WARNING' ? "#f59e0b" : "#10b981",
+                                    border: `1px solid ${ticket.SlaStatus === 'VIOLATED' ? "rgba(239,68,68,0.2)" : ticket.SlaStatus === 'WARNING' ? "rgba(245,158,11,0.2)" : "rgba(16,185,129,0.2)"}`
                                 }}>
                                     <Timer size={14} />
-                                    <span>SLA {{ 'BREACHED': 'Violado', 'WARNING': 'Em Risco', 'ON_TIME': 'No Prazo' }[ticket.SlaStatus] || ticket.SlaStatus}</span>
+                                    <span>SLA {{ 'VIOLATED': 'Violado', 'WARNING': 'Em Risco', 'ON_TIME': 'No Prazo' }[ticket.SlaStatus] || ticket.SlaStatus}</span>
                                 </div>
                             )}
                         </div>
@@ -662,15 +727,18 @@ export function TicketDetail({ ticket, onBack, profile, role, onTicketUpdate, on
                             <button onClick={() => setShowAuditModal(false)} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer" }}><X size={20} /></button>
                         </div>
                         <div style={{ flex: 1, overflowY: "auto" }}>
-                            {auditLogs.map((log, i) => (
-                                <div key={i} style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", fontSize: "0.82rem" }}>
-                                    <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                        <strong style={{ color: "var(--accent)" }}>{log.action}</strong>
-                                        <span style={{ color: "var(--text-secondary)", fontSize: "0.72rem" }}>{formatDateTime(log.time)}</span>
+                            {auditLogs.map((log, i) => {
+                                const info = getActionDisplayInfo(log.action);
+                                return (
+                                    <div key={i} style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", fontSize: "0.82rem" }}>
+                                        <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                            <strong style={{ color: info.color }}>{info.label}</strong>
+                                            <span style={{ color: "var(--text-secondary)", fontSize: "0.72rem" }}>{formatDateTime(log.time)}</span>
+                                        </div>
+                                        <div style={{ color: "var(--text-secondary)", marginTop: 4 }}>Ator: {log.actor} {log.meta && <span> · {formatMeta(log.meta)}</span>}</div>
                                     </div>
-                                    <div style={{ color: "var(--text-secondary)", marginTop: 4 }}>Ator: {log.actor} {log.meta && <span> · {JSON.stringify(log.meta)}</span>}</div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
                 </div>

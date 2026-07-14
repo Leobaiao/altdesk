@@ -27,7 +27,7 @@ const defaultColumns = [
 
 function getSLAStyle(status: string): React.CSSProperties {
     const base: React.CSSProperties = { padding: '2px 8px', borderRadius: 6, fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.3px' };
-    if (status === 'BREACHED') return { ...base, background: 'rgba(239,68,68,0.12)', color: '#dc2626' };
+    if (status === 'VIOLATED') return { ...base, background: 'rgba(239,68,68,0.12)', color: '#dc2626' };
     if (status === 'WARNING') return { ...base, background: 'rgba(245,158,11,0.12)', color: '#d97706' };
     return { ...base, background: 'rgba(16,185,129,0.12)', color: '#059669' };
 }
@@ -89,7 +89,7 @@ export function Kanban({ onSelectTicket, refreshKey, onStatsUpdate, filters }: K
                 if (onStatsUpdate) {
                     onStatsUpdate({
                         total: data.length,
-                        breached: data.filter((t: KanbanTicket) => t.slaStatus === 'BREACHED').length,
+                        breached: data.filter((t: KanbanTicket) => t.slaStatus === 'VIOLATED').length,
                         warning: data.filter((t: KanbanTicket) => t.slaStatus === 'WARNING').length,
                         onTime: data.filter((t: KanbanTicket) => t.slaStatus === 'ON_TIME').length,
                     });
@@ -125,7 +125,7 @@ export function Kanban({ onSelectTicket, refreshKey, onStatsUpdate, filters }: K
                 if (onStatsUpdate) {
                     onStatsUpdate({
                         total: data.length,
-                        breached: data.filter((t: KanbanTicket) => t.slaStatus === 'BREACHED').length,
+                        breached: data.filter((t: KanbanTicket) => t.slaStatus === 'VIOLATED').length,
                         warning: data.filter((t: KanbanTicket) => t.slaStatus === 'WARNING').length,
                         onTime: data.filter((t: KanbanTicket) => t.slaStatus === 'ON_TIME').length,
                     });
@@ -242,7 +242,7 @@ export function Kanban({ onSelectTicket, refreshKey, onStatsUpdate, filters }: K
 
                             return true;
                         });
-                        const breachedCount = columnTickets.filter(t => t.slaStatus === 'BREACHED').length;
+                        const violatedCount = columnTickets.filter(t => t.slaStatus === 'VIOLATED').length;
                         const isDragOver = dragOverColumn === column.key;
 
                         return (
@@ -362,13 +362,13 @@ export function Kanban({ onSelectTicket, refreshKey, onStatsUpdate, filters }: K
                                             {columnTickets.length}
                                         </span>
                                     </div>
-                                    {breachedCount > 0 && (
+                                    {violatedCount > 0 && (
                                         <span style={{
                                             fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: '0.3px',
                                             color: '#dc2626', background: 'rgba(239,68,68,0.08)', fontWeight: 700,
                                             padding: '2px 8px', borderRadius: 8
                                         }}>
-                                            {breachedCount} SLA!
+                                            {violatedCount} SLA!
                                         </span>
                                     )}
                                 </div>
@@ -546,7 +546,7 @@ export function Kanban({ onSelectTicket, refreshKey, onStatsUpdate, filters }: K
                                                     {getPriorityLabel(ticket.priority)}
                                                 </span>
                                                 <span style={getSLAStyle(ticket.slaStatus)}>
-                                                    {ticket.slaStatus === 'BREACHED' ? '⚠ SLA' : ticket.slaStatus === 'WARNING' ? '⏳ SLA' : '✓ SLA'}
+                                                    {ticket.slaStatus === 'VIOLATED' ? '⚠ SLA' : ticket.slaStatus === 'WARNING' ? '⏳ SLA' : '✓ SLA'}
                                                 </span>
                                             </div>
 

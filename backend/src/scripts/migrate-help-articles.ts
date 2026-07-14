@@ -217,18 +217,22 @@ async function run() {
                 `
             },
             {
-                key: "tags.index",
-                title: "Gerenciamento de Tags",
+                key: "classification.index",
+                title: "Classificação e SLAs",
                 category: "Administração",
-                page: "/tags",
+                page: "/classification",
                 content: `
-                    <h2>Gerenciamento de Tags</h2>
-                    <p>Tags são marcadores visuais coloridos usados para categorizar, priorizar e identificar rapidamente o assunto ou a situação de cada atendimento.</p>
-                    <h3>🏷️ Estratégias de Organização:</h3>
+                    <h2>Classificação e SLAs</h2>
+                    <p>Gerencie as tags das conversas e as políticas de tempo de atendimento (SLA) para garantir a qualidade do suporte.</p>
+                    <h3>🏷️ Tags de Conversa:</h3>
                     <ul>
-                        <li><strong>Padronização:</strong> Crie tags claras (ex: "Urgente", "Bug", "Dúvida Comercial") e use cores distintas para facilitar o escaneamento visual da lista.</li>
-                        <li><strong>Filtros Avançados:</strong> Utilize as tags para filtrar tickets e conversas e monitorar o volume de problemas recorrentes em seus relatórios.</li>
-                        <li><strong>Organização Global:</strong> Tags excluídas no painel administrativo serão removidas automaticamente de todas as conversas ativas.</li>
+                        <li><strong>Padronização:</strong> Crie tags claras (ex: "Urgente", "Bug") e use cores distintas para facilitar a identificação e priorização visual.</li>
+                        <li><strong>Filtros e Relatórios:</strong> Utilize tags para categorizar tickets e monitorar problemas recorrentes através dos relatórios gerenciais.</li>
+                    </ul>
+                    <h3>⏱️ Políticas de SLA:</h3>
+                    <ul>
+                        <li><strong>Prazos:</strong> Defina o tempo máximo de "Primeira Resposta" e de "Resolução" dos chamados.</li>
+                        <li><strong>Monitoramento Visual:</strong> Chamados próximos do vencimento exibirão alertas visuais, garantindo o cumprimento dos acordos de nível de serviço.</li>
                     </ul>
                 `
             },

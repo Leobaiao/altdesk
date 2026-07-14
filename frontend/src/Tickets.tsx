@@ -78,7 +78,7 @@ const systemLists = [
     {
         id: "breached",
         name: "SLA Estourado",
-        filters: { status: "ALL", channel: "ALL", sla: "BREACHED", assignee: "ALL", priority: "ALL" }
+        filters: { status: "ALL", channel: "ALL", sla: "VIOLATED", assignee: "ALL", priority: "ALL" }
     }
 ];
 
@@ -831,7 +831,7 @@ export function Tickets({ token, onBack, role }: Props) {
                                 }}
                             >
                                 <option value="ALL">Todos Prazos</option>
-                                <option value="BREACHED">SLA Estourado / Atrasado</option>
+                                <option value="VIOLATED">SLA Estourado / Atrasado</option>
                                 <option value="WARNING">SLA Em Risco</option>
                                 <option value="ON_TIME">SLA No Prazo</option>
                             </select>

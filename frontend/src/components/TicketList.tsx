@@ -149,7 +149,7 @@ export function TicketList({ onSelect, selectedId, onBack, refreshKey, onStatsUp
             if (onStatsUpdate) {
                 onStatsUpdate({
                     total: data.length,
-                    breached: data.filter(t => t.SlaStatus === 'BREACHED').length,
+                    breached: data.filter(t => t.SlaStatus === 'VIOLATED').length,
                     warning: data.filter(t => t.SlaStatus === 'WARNING').length,
                     onTime: data.filter(t => t.SlaStatus === 'ON_TIME').length,
                 });
@@ -328,11 +328,11 @@ export function TicketList({ onSelect, selectedId, onBack, refreshKey, onStatsUp
                                 {t.SlaStatus && (
                                     <span style={{
                                         fontSize: '0.62rem', fontWeight: 700, padding: '2px 7px', borderRadius: 6,
-                                        background: t.SlaStatus === 'BREACHED' ? 'rgba(239,68,68,0.1)' : t.SlaStatus === 'WARNING' ? 'rgba(245,158,11,0.1)' : 'rgba(16,185,129,0.1)',
-                                        color: t.SlaStatus === 'BREACHED' ? '#dc2626' : t.SlaStatus === 'WARNING' ? '#d97706' : '#059669',
+                                        background: t.SlaStatus === 'VIOLATED' ? 'rgba(239,68,68,0.1)' : t.SlaStatus === 'WARNING' ? 'rgba(245,158,11,0.1)' : 'rgba(16,185,129,0.1)',
+                                        color: t.SlaStatus === 'VIOLATED' ? '#dc2626' : t.SlaStatus === 'WARNING' ? '#d97706' : '#059669',
                                         textTransform: 'uppercase', letterSpacing: '0.3px', flexShrink: 0
                                     }}>
-                                        {t.SlaStatus === 'BREACHED' ? '⚠ Violado' : t.SlaStatus === 'WARNING' ? '⏳ Em Risco' : '✓ No Prazo'}
+                                        {t.SlaStatus === 'VIOLATED' ? '⚠ Violado' : t.SlaStatus === 'WARNING' ? '⏳ Em Risco' : '✓ No Prazo'}
                                     </span>
                                 )}
                             </div>
