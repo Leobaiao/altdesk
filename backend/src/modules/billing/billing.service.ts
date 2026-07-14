@@ -236,7 +236,18 @@ export async function listPlans() {
     const pool = await getPool();
     const result = await pool.request()
         .query("SELECT * FROM altdesk.BillingPlan WHERE IsActive = 1 ORDER BY PriceCents");
-    return result.recordset;
+    return result.recordset.map(plan => {
+        let features = [];
+        try {
+            if (plan.FeaturesJson) {
+                features = JSON.parse(plan.FeaturesJson);
+            }
+        } catch (e) {}
+        
+        const mapped = { ...plan, Features: features };
+        delete mapped.FeaturesJson;
+        return mapped;
+    });
 }
 
 // ─── CHECKOUT (Asaas Checkout - Página hospedada) ────────────

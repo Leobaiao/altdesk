@@ -134,4 +134,18 @@ router.post("/reset-password", validateBody(z.object({
     }
 }) as any);
 
+// --- Pricing Config ---
+router.get("/pricing-config", (async (req: any, res: any, next: any) => {
+    try {
+        const pool = await getPool();
+        const result = await pool.request().query("SELECT SettingValueJson FROM altdesk.SystemSetting WHERE SettingKey = 'pricing_config'");
+        if (result.recordset.length === 0) {
+            return res.json({});
+        }
+        res.json(JSON.parse(result.recordset[0].SettingValueJson));
+    } catch (error) {
+        next(error);
+    }
+}) as any);
+
 export default router;

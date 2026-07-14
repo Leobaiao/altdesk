@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { SuperAdmin } from "./SuperAdmin";
+import { PricingTab } from "./components/SuperAdmin/PricingTab";
 import { api } from "./lib/api";
 import { parseJwt } from "./lib/auth";
 import "./index.css"; // Ensure styles are imported
@@ -119,28 +120,33 @@ function AppContent() {
   const profile = getProfileFromToken();
 
   return (
-    <div className="app-layout">
-      {/* Ocupa a tela inteira sem o Sidebar do chat */}
-      <div className="chat-area admin-chat-area" style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-        {/* Header de Identidade Super Admin */}
-        <div className="global-header" style={{ padding: "12px 20px", display: "flex", justifyContent: "flex-end", alignItems: "center", borderBottom: "1px solid var(--border)", background: "var(--bg-primary)" }}>
-           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", marginRight: 15 }}>
-               <span style={{ fontWeight: 600, fontSize: "0.9rem" }}>{profile?.name}</span>
-               <span style={{ fontSize: "0.75rem", color: "var(--accent)" }}>System Administrador</span>
-           </div>
-           <div style={{ width: 36, height: 36, borderRadius: 10, background: "var(--bg-secondary)", color: "var(--accent)", border: "1px solid var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800 }}>
-               S
-           </div>
+    <Routes>
+      <Route path="/pricing" element={<PricingTab />} />
+      <Route path="*" element={
+        <div className="app-layout">
+          {/* Ocupa a tela inteira sem o Sidebar do chat */}
+          <div className="chat-area admin-chat-area" style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+            {/* Header de Identidade Super Admin */}
+            <div className="global-header" style={{ padding: "12px 20px", display: "flex", justifyContent: "flex-end", alignItems: "center", borderBottom: "1px solid var(--border)", background: "var(--bg-primary)" }}>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", marginRight: 15 }}>
+                  <span style={{ fontWeight: 600, fontSize: "0.9rem" }}>{profile?.name}</span>
+                  <span style={{ fontSize: "0.75rem", color: "var(--accent)" }}>System Administrador</span>
+              </div>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: "var(--bg-secondary)", color: "var(--accent)", border: "1px solid var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800 }}>
+                  S
+              </div>
+            </div>
+            
+            <div style={{ flex: 1, padding: '20px', overflowY: 'auto' }}>
+              <Routes>
+                <Route path="/" element={<SuperAdmin token={token} onBack={handleLogout} />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </div>
+          </div>
         </div>
-        
-        <div style={{ flex: 1, padding: '20px', overflowY: 'auto' }}>
-          <Routes>
-            <Route path="/" element={<SuperAdmin token={token} onBack={handleLogout} />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </div>
-      </div>
-    </div>
+      } />
+    </Routes>
   );
 }
 

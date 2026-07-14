@@ -37,3 +37,7 @@ logs
 # OS
 .DS_Store
 Thumbs.db
+
+# Custom Agent Configs
+.agents/
+

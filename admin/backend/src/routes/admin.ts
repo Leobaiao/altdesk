@@ -1241,6 +1241,81 @@ router.post("/tenants/:id/purge", (async (req: AuthenticatedRequest, res: Respon
     }
 }) as any);
 
+// --- SYSTEM SETTINGS ---
+router.get("/pricing-config", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const pool = await getPool();
+        const result = await pool.request().query("SELECT SettingValueJson FROM altdesk.SystemSetting WHERE SettingKey = 'pricing_config'");
+        if (result.recordset.length === 0) {
+            return res.json({});
+        }
+        res.json(JSON.parse(result.recordset[0].SettingValueJson));
+    } catch (error) { next(error); }
+}) as any);
+
+router.post("/pricing-config", (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const pool = await getPool();
+        const json = JSON.stringify(req.body);
+        
+        // 1. Salvar no SystemSetting
+        await pool.request()
+            .input("json", sql.NVarChar(sql.MAX), json)
+            .query(`
+                MERGE altdesk.SystemSetting AS target
+                USING (SELECT 'pricing_config' AS SettingKey) AS source
+                ON target.SettingKey = source.SettingKey
+                WHEN MATCHED THEN 
+                    UPDATE SET SettingValueJson = @json, UpdatedAt = SYSUTCDATETIME()
+                WHEN NOT MATCHED THEN
+                    INSERT (SettingKey, SettingValueJson, UpdatedAt) VALUES ('pricing_config', @json, SYSUTCDATETIME());
+            `);
+
+        // 2. Sincronizar com BillingPlan apenas se for publicado
+        if (req.body.status === 'published') {
+            const plans = req.body?.plans || [];
+            for (const plan of plans) {
+                await pool.request()
+                    .input("code", sql.NVarChar(50), plan.id.toUpperCase())
+                    .input("name", sql.NVarChar(100), plan.name)
+                    .input("price", sql.Int, Math.round((plan.monthlyPrice || 0) * 100))
+                    .input("maxUsers", sql.Int, plan.agents || 3)
+                    .input("features", sql.NVarChar(sql.MAX), JSON.stringify(plan.features || []))
+                    .query(`
+                        MERGE altdesk.BillingPlan AS target
+                        USING (SELECT @code AS Code) AS source
+                        ON target.Code = source.Code
+                        WHEN MATCHED THEN
+                            UPDATE SET Name = @name, PriceCents = @price, AgentsSeatLimit = @maxUsers, FeaturesJson = @features, IsActive = 1
+                        WHEN NOT MATCHED THEN
+                            INSERT (Code, Name, PriceCents, AgentsSeatLimit, FeaturesJson, IsActive)
+                            VALUES (@code, @name, @price, @maxUsers, @features, 1);
+                    `);
+            }
+
+            // Desativar planos que não estão no JSON
+            if (plans.length > 0) {
+                const activeCodes = plans.map((p: any) => `'${p.id.toUpperCase()}'`).join(',');
+                await pool.request().query(`UPDATE altdesk.BillingPlan SET IsActive = 0 WHERE Code NOT IN (${activeCodes})`);
+            } else {
+                await pool.request().query(`UPDATE altdesk.BillingPlan SET IsActive = 0`);
+            }
+        }
+
+        // Audit Log
+        const reqInfo = extractRequestInfo(req);
+        writeAuditLog({
+            ...reqInfo,
+            action: 'UPDATE_PRICING_CONFIG',
+            targetTable: 'SystemSetting',
+            targetId: 'pricing_config',
+            afterValues: { updated: true }
+        });
+
+        res.json({ ok: true });
+    } catch (error) { next(error); }
+}) as any);
+
 export default router;
 
 

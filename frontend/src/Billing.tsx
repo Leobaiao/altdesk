@@ -11,6 +11,7 @@ interface Plan {
   PriceCents: number;
   Cycle: string;
   AgentsSeatLimit: number;
+  Features?: string[];
 }
 
 interface Subscription {
@@ -366,12 +367,29 @@ export function Billing({ onBack }: { onBack: () => void }) {
           }}>
             <h4 style={{ margin: "0 0 8px 0" }}>{plan.Name}</h4>
             <div style={{ fontSize: 28, fontWeight: 700, color: "var(--primary)", margin: "12px 0" }}>
-              {formatCents(plan.PriceCents)}
-              <span style={{ fontSize: 14, fontWeight: 400, color: "var(--text-secondary)" }}>/mês</span>
+              {plan.PriceCents > 0 ? (
+                <>
+                  {formatCents(plan.PriceCents)}
+                  <span style={{ fontSize: 14, fontWeight: 400, color: "var(--text-secondary)" }}>/mês</span>
+                </>
+              ) : (
+                <span style={{ fontSize: 22 }}>Sob consulta</span>
+              )}
             </div>
-            <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "8px 0" }}>
-              Até {plan.AgentsSeatLimit} atendentes
-            </p>
+            {plan.Features && plan.Features.length > 0 ? (
+              <ul style={{ listStyle: "none", padding: 0, margin: "16px 0", textAlign: "left" }}>
+                {plan.Features.map((feat, idx) => (
+                  <li key={idx} style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 8, display: "flex", alignItems: "flex-start", gap: 8 }}>
+                    <CheckCircle size={14} color="var(--primary)" style={{ marginTop: 2, flexShrink: 0 }} />
+                    <span style={{ lineHeight: 1.4 }}>{feat}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "8px 0" }}>
+                Até {plan.AgentsSeatLimit} atendentes
+              </p>
+            )}
             {subscription?.PlanCode === plan.Code ? (
               <span style={{ fontSize: 12, color: "var(--primary)", fontWeight: 600 }}>✓ Plano Atual</span>
             ) : (
@@ -384,7 +402,7 @@ export function Billing({ onBack }: { onBack: () => void }) {
                 {checkoutLoading === plan.Code ? (
                   <><Loader2 size={14} className="spin" /> Abrindo checkout...</>
                 ) : (
-                  <>Selecionar</>
+                  <>{plan.PriceCents > 0 ? "Selecionar" : "Falar com consultor"}</>
                 )}
               </button>
             )}

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../../lib/api";
-import { CreditCard, Plus, Edit2, CheckCircle, XCircle, Clock, AlertTriangle, Loader2, Save, X } from "lucide-react";
+import { CreditCard, Plus, Edit2, CheckCircle, XCircle, Clock, AlertTriangle, Loader2, Save, X, ExternalLink } from "lucide-react";
 
 interface Plan {
     PlanId: string;
@@ -66,10 +66,10 @@ function formatCents(cents: number) {
     return `R$ ${(cents / 100).toFixed(2).replace(".", ",")}`;
 }
 
-type SubTab = "plans" | "subscriptions" | "invoices";
+type SubTab = "subscriptions" | "invoices";
 
 export function BillingTab() {
-    const [subTab, setSubTab] = useState<SubTab>("plans");
+    const [subTab, setSubTab] = useState<SubTab>("subscriptions");
     const [plans, setPlans] = useState<Plan[]>([]);
     const [subscriptions, setSubscriptions] = useState<BillingSub[]>([]);
     const [invoices, setInvoices] = useState<BillingInv[]>([]);
@@ -151,7 +151,6 @@ export function BillingTab() {
     };
 
     const SUB_TABS: { id: SubTab; label: string }[] = [
-        { id: "plans", label: "Planos" },
         { id: "subscriptions", label: "Assinaturas" },
         { id: "invoices", label: "Faturas" },
     ];
@@ -160,83 +159,45 @@ export function BillingTab() {
 
     return (
         <div>
-            {/* Sub-tab navigation */}
-            <div style={{ display: "flex", gap: 4, marginBottom: 20, background: "var(--bg-secondary)", padding: 4, borderRadius: 10, border: "1px solid var(--border)", width: "fit-content" }}>
-                {SUB_TABS.map(t => (
-                    <button
-                        key={t.id}
-                        onClick={() => setSubTab(t.id)}
-                        style={{
-                            padding: "8px 18px", background: subTab === t.id ? "var(--accent)" : "transparent",
-                            border: "none", color: subTab === t.id ? "#fff" : "var(--text-secondary)",
-                            borderRadius: 8, cursor: "pointer", fontSize: "0.82rem", fontWeight: 600, transition: "all 0.15s"
-                        }}
-                    >
-                        {t.label}
-                    </button>
-                ))}
-            </div>
-
-            {/* ─── PLANS ──────────────────────────── */}
-            {subTab === "plans" && (
-                <div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                        <h3 style={{ margin: 0, fontSize: "1.1rem" }}>Planos de Assinatura</h3>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                {/* Sub-tab navigation */}
+                <div style={{ display: "flex", gap: 4, background: "var(--bg-secondary)", padding: 4, borderRadius: 10, border: "1px solid var(--border)", width: "fit-content" }}>
+                    {SUB_TABS.map(t => (
                         <button
-                            onClick={openNewPlan}
+                            key={t.id}
+                            onClick={() => setSubTab(t.id)}
                             style={{
-                                display: "flex", alignItems: "center", gap: 6, padding: "8px 16px",
-                                background: "var(--accent)", color: "#fff", border: "none", borderRadius: 8,
-                                cursor: "pointer", fontSize: "0.82rem", fontWeight: 600
+                                padding: "8px 18px", background: subTab === t.id ? "var(--accent)" : "transparent",
+                                border: "none", color: subTab === t.id ? "#fff" : "var(--text-secondary)",
+                                borderRadius: 8, cursor: "pointer", fontSize: "0.82rem", fontWeight: 600, transition: "all 0.15s"
                             }}
                         >
-                            <Plus size={16} /> Novo Plano
+                            {t.label}
                         </button>
-                    </div>
-
-                    <div style={{ overflowX: "auto" }}>
-                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                            <thead>
-                                <tr style={{ borderBottom: "1px solid var(--border)", textAlign: "left" }}>
-                                    <th style={{ padding: "10px 12px" }}>Código</th>
-                                    <th style={{ padding: "10px 12px" }}>Nome</th>
-                                    <th style={{ padding: "10px 12px" }}>Preço</th>
-                                    <th style={{ padding: "10px 12px" }}>Ciclo</th>
-                                    <th style={{ padding: "10px 12px" }}>Atendentes</th>
-                                    <th style={{ padding: "10px 12px" }}>Status</th>
-                                    <th style={{ padding: "10px 12px" }}>Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {plans.map((plan: any) => (
-                                    <tr key={plan.PlanId} style={{ borderBottom: "1px solid var(--border)" }}>
-                                        <td style={{ padding: "10px 12px", fontFamily: "monospace", fontWeight: 600 }}>{plan.Code}</td>
-                                        <td style={{ padding: "10px 12px", fontWeight: 600 }}>{plan.Name}</td>
-                                        <td style={{ padding: "10px 12px", color: "var(--accent)", fontWeight: 700 }}>{formatCents(plan.PriceCents)}</td>
-                                        <td style={{ padding: "10px 12px" }}>{plan.Cycle}</td>
-                                        <td style={{ padding: "10px 12px", textAlign: "center" }}>{plan.AgentsSeatLimit}</td>
-                                        <td style={{ padding: "10px 12px" }}>
-                                            {plan.IsActive ? (
-                                                <span style={{ color: "#00c853", fontSize: 12, fontWeight: 600 }}>● Ativo</span>
-                                            ) : (
-                                                <span style={{ color: "#9e9e9e", fontSize: 12, fontWeight: 600 }}>● Inativo</span>
-                                            )}
-                                        </td>
-                                        <td style={{ padding: "10px 12px" }}>
-                                            <button
-                                                onClick={() => openEditPlan(plan)}
-                                                style={{ background: "none", border: "none", color: "var(--accent)", cursor: "pointer", padding: 4 }}
-                                            >
-                                                <Edit2 size={16} />
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                    ))}
                 </div>
-            )}
+
+                <button
+                    onClick={() => window.open("/pricing", "_blank")}
+                    style={{
+                        display: "flex", alignItems: "center", gap: 8, padding: "10px 18px",
+                        background: "var(--bg-secondary)", color: "var(--text-primary)", 
+                        border: "1px solid var(--border)", borderRadius: 10,
+                        cursor: "pointer", fontSize: "0.85rem", fontWeight: 700,
+                        transition: "all 0.2s"
+                    }}
+                    onMouseEnter={(e) => {
+                        e.currentTarget.style.borderColor = "var(--accent)";
+                        e.currentTarget.style.color = "var(--accent)";
+                    }}
+                    onMouseLeave={(e) => {
+                        e.currentTarget.style.borderColor = "var(--border)";
+                        e.currentTarget.style.color = "var(--text-primary)";
+                    }}
+                >
+                    <CreditCard size={18} /> Configurar Planos <ExternalLink size={14} />
+                </button>
+            </div>
 
             {/* ─── SUBSCRIPTIONS ──────────────────── */}
             {subTab === "subscriptions" && (
