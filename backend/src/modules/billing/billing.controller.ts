@@ -36,8 +36,17 @@ router.post("/webhooks/asaas", (async (req: any, res: any) => {
     }
 }) as any);
 
-// ─── AUTHENTICATED ROUTES ───────────────────────────────────
+// ─── PUBLIC ROUTES ──────────────────────────────────────────
 
+// Endpoint público para exportar os valores dos planos em JSON
+router.get("/plans/export", (async (req: any, res: any, next: any) => {
+    try {
+        const plans = await billingService.listPlans();
+        res.json(plans);
+    } catch (err) { next(err); }
+}) as any);
+
+// ─── AUTHENTICATED ROUTES ───────────────────────────────────
 // Listar planos disponíveis
 router.get("/plans", authMw, (async (req: any, res: any, next: any) => {
     try {
