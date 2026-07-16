@@ -235,19 +235,59 @@ export async function listInvoices(tenantId: string) {
 export async function listPlans() {
     const pool = await getPool();
     const result = await pool.request()
-        .query("SELECT * FROM altdesk.BillingPlan WHERE IsActive = 1 ORDER BY PriceCents");
-    return result.recordset.map(plan => {
-        let features = [];
+        .query("SELECT * FROM altdesk.BillingPlan WHERE IsActive = 1");
+        
+    let plans = result.recordset.map(plan => {
+        let features: string[] = [];
         try {
             if (plan.FeaturesJson) {
                 features = JSON.parse(plan.FeaturesJson);
             }
         } catch (e) {}
         
-        const mapped = { ...plan, Features: features };
+        const mapped = { ...plan, Features: features, SummaryItems: [] as string[], Order: 99 };
         delete mapped.FeaturesJson;
         return mapped;
     });
+
+    try {
+        const configResult = await pool.request()
+            .query("SELECT SettingValueJson FROM altdesk.SystemSetting WHERE SettingKey = 'pricing_config'");
+            
+        if (configResult.recordset.length > 0) {
+            const config = JSON.parse(configResult.recordset[0].SettingValueJson);
+            if (config && config.plans) {
+                // Build order map from config array position
+                const orderMap: Record<string, number> = {};
+                config.plans.forEach((cp: any, idx: number) => {
+                    orderMap[cp.id.toUpperCase()] = idx;
+                });
+
+                plans = plans.map(p => {
+                    const matched = config.plans.find((cp: any) => cp.id.toUpperCase() === p.Code);
+                    if (matched) {
+                        return {
+                            ...p,
+                            Users: matched.users,
+                            Contacts: matched.contacts,
+                            AdditionalAgentPrice: matched.additionalAgentPrice,
+                            AdditionalUsersPerAgent: matched.additionalUsersPerAgent,
+                            SummaryItems: matched.summaryItems || [],
+                            Features: matched.features || p.Features,
+                            Order: orderMap[p.Code] ?? 99
+                        };
+                    }
+                    return p;
+                });
+            }
+        }
+    } catch (err) {
+        console.error("Erro ao mesclar config do plano:", err);
+    }
+    
+    plans.sort((a, b) => a.Order - b.Order);
+
+    return plans;
 }
 
 // ─── CHECKOUT (Asaas Checkout - Página hospedada) ────────────
@@ -375,10 +415,7 @@ export async function createCheckoutSession(tenantId: string, planCode: string):
         // pois a API do Asaas exige CPF, endereço completo, etc., se este campo for enviado.
     });
 
-    const isSandbox = process.env.ASAAS_ENV !== "production";
-    const checkoutUrl = isSandbox 
-        ? `https://sandbox.asaas.com/checkoutSession/show?id=${checkout.id}`
-        : `https://asaas.com/checkoutSession/show?id=${checkout.id}`;
+    const checkoutUrl = checkout.link;
 
     // 9. Salvar no banco
     const insertResult = await pool.request()

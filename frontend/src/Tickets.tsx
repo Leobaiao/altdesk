@@ -20,8 +20,10 @@ import {
     Filter,
     Bookmark,
     ChevronRight,
-    X
+    X,
+    MessageSquareText
 } from "lucide-react";
+import { useChat } from "./contexts/ChatContext";
 import { useHelp } from "./contexts/HelpContext";
 import { parseJwt } from "./lib/auth";
 
@@ -90,6 +92,26 @@ export function Tickets({ token, onBack, role }: Props) {
     const [refreshKey, setRefreshKey] = useState(0);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [stats, setStats] = useState<TicketStats>({ total: 0, breached: 0, warning: 0, onTime: 0 });
+    const { setSelectedConversationId, showToast } = useChat();
+    const [showNewTicketModal, setShowNewTicketModal] = useState(false);
+    const [newTicket, setNewTicket] = useState({ title: "", description: "" });
+    const [creating, setCreating] = useState(false);
+
+    const handlePortalCreateTicket = async () => {
+        setCreating(true);
+        try {
+            const res = await api.post("/api/tickets/portal/new", newTicket);
+            if (res.data.conversationId) {
+                setSelectedConversationId(res.data.conversationId);
+                setShowNewTicketModal(false);
+                navigate("/chat");
+            }
+        } catch (e: any) {
+            showToast("Erro ao criar chamado: " + (e.response?.data?.error || e.message), "error");
+        } finally {
+            setCreating(false);
+        }
+    };
 
     // Filter states
     const [filters, setFilters] = useState<TicketFilters>({
@@ -468,7 +490,24 @@ export function Tickets({ token, onBack, role }: Props) {
                         />
                     </button>
 
-
+                    {role === 'END_USER' && (
+                        <button
+                            onClick={() => setShowNewTicketModal(true)}
+                            className="btn btn-primary"
+                            style={{
+                                padding: '8px 16px', borderRadius: 10,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                gap: 6, cursor: 'pointer', border: 'none',
+                                fontSize: '0.8rem', fontWeight: 600,
+                                transition: 'all 0.2s ease',
+                                background: 'var(--accent)',
+                                color: '#fff'
+                            }}
+                        >
+                            <MessageSquareText size={16} />
+                            Novo Chamado
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -887,6 +926,57 @@ export function Tickets({ token, onBack, role }: Props) {
                             </button>
                         </div>
                     </form>
+                </div>
+            )}
+
+            {/* Modal de Novo Chamado */}
+            {showNewTicketModal && (
+                <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}>
+                    <div style={{ background: "var(--bg-secondary)", padding: 30, borderRadius: 20, width: "100%", maxWidth: 500, boxShadow: "0 20px 40px rgba(0,0,0,0.4)" }}>
+                        <h2 style={{ margin: "0 0 10px 0", color: "var(--text-primary)" }}>Abrir Novo Chamado</h2>
+                        <p style={{ color: "var(--text-secondary)", marginBottom: 25 }}>Descreva o seu problema ou solicitação abaixo.</p>
+                        
+                        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                            <div>
+                                <label htmlFor="ticket-title" style={{ display: "block", marginBottom: 8, fontWeight: 600, fontSize: "0.9rem", color: "var(--text-primary)" }}>Assunto</label>
+                                <input 
+                                    id="ticket-title"
+                                    name="title"
+                                    value={newTicket.title}
+                                    onChange={e => setNewTicket({...newTicket, title: e.target.value})}
+                                    placeholder="Ex: Problema com o acesso ao sistema"
+                                    style={{ width: "100%", padding: 12, borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", boxSizing: "border-box" }}
+                                />
+                            </div>
+                            <div>
+                                <label htmlFor="ticket-desc" style={{ display: "block", marginBottom: 8, fontWeight: 600, fontSize: "0.9rem", color: "var(--text-primary)" }}>Descrição Detalhada</label>
+                                <textarea 
+                                    id="ticket-desc"
+                                    name="description"
+                                    value={newTicket.description}
+                                    onChange={e => setNewTicket({...newTicket, description: e.target.value})}
+                                    placeholder="Descreva aqui os detalhes da sua solicitação..."
+                                    style={{ width: "100%", padding: 12, borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", minHeight: 120, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box" }}
+                                />
+                            </div>
+                        </div>
+
+                        <div style={{ display: "flex", gap: 12, marginTop: 30 }}>
+                            <button 
+                                onClick={() => setShowNewTicketModal(false)}
+                                style={{ flex: 1, padding: 12, borderRadius: 10, border: "1px solid var(--border)", background: "transparent", color: "var(--text-primary)", cursor: "pointer", fontWeight: 600 }}
+                            >
+                                Cancelar
+                            </button>
+                            <button 
+                                onClick={handlePortalCreateTicket}
+                                disabled={creating || !newTicket.title || !newTicket.description}
+                                style={{ flex: 1, padding: 12, borderRadius: 10, border: "none", background: "var(--accent)", color: "white", cursor: "pointer", fontWeight: 700, opacity: (creating || !newTicket.title || !newTicket.description) ? 0.6 : 1 }}
+                            >
+                                {creating ? "Enviando..." : "Enviar Chamado"}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

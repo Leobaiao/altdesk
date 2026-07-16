@@ -444,13 +444,14 @@ router.post("/:id/note", validateBody(z.object({ text: z.string().min(1) })), (a
         if (user.role === 'END_USER') return res.status(403).json({ error: "Colaboradores não podem adicionar notas internas." });
 
         const pool = await getPool();
-        await pool.request()
+        const rMsg = await pool.request()
             .input("tenantId", tenantId)
             .input("conversationId", conversationId)
             .input("senderUserId", user.userId)
             .input("body", text)
             .query(`
                 INSERT INTO altdesk.Message (TenantId, ConversationId, SenderExternalId, Direction, Body)
+                OUTPUT INSERTED.MessageId, INSERTED.CreatedAt
                 VALUES (@tenantId, @conversationId, @senderUserId, 'INTERNAL', @body)
             `);
 
@@ -465,12 +466,25 @@ router.post("/:id/note", validateBody(z.object({ text: z.string().min(1) })), (a
 
         const io = req.app.get("io");
         if (io) {
+            const newMsgId = rMsg.recordset[0]?.MessageId;
+            const createdAt = rMsg.recordset[0]?.CreatedAt;
+            
             emitConversationEvent(io, tenantId!, conversationId, "message:new", {
                 conversationId,
+                MessageId: newMsgId,
                 senderExternalId: user.userId,
+                SenderUserId: user.userId,
                 senderName: user.displayName || user.email || "Agente",
                 text,
-                direction: "INTERNAL"
+                direction: "INTERNAL",
+                CreatedAt: createdAt || new Date().toISOString()
+            });
+
+            emitConversationEvent(io, tenantId!, conversationId, "conversation:updated", {
+                conversationId,
+                lastMessage: text,
+                direction: "INTERNAL",
+                timestamp: createdAt || new Date().toISOString()
             });
         }
 

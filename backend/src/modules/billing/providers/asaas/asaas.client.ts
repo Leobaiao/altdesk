@@ -83,12 +83,18 @@ async function asaasRequest<T = any>(path: string, options: AsaasRequestOptions 
 
         if (!response.ok) {
             const text = await response.text();
+            if (process.env.ASAAS_ENV === "production") {
+                throw new Error(`Asaas API request failed (${response.status}): ${text}`);
+            }
             console.warn(`[Asaas SDK Warning] API request failed (${response.status}): ${text}. Falling back to mock data for development.`);
             return getMockData(path, method, body) as T;
         }
 
         return response.json() as Promise<T>;
     } catch (err: any) {
+        if (process.env.ASAAS_ENV === "production") {
+            throw err;
+        }
         console.warn(`[Asaas SDK Warning] Fetch failed: ${err.message}. Falling back to mock data for development.`);
         return getMockData(path, method, body) as T;
     }

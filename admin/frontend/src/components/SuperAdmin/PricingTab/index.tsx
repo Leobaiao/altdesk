@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, useEffect } from 'react';
+import { useMemo, useRef, useState, useEffect, useCallback } from 'react';
 import { Field } from './components/Field';
 import { PricingPreview } from './components/PricingPreview';
 import { loadPricing, resetPricing, savePricing } from './services/pricingStorage';
@@ -12,6 +12,17 @@ export function PricingTab() {
   const [tab, setTab] = useState<'editor' | 'preview'>('editor');
   const [message, setMessage] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
+  const dragIndexRef = useRef<number | null>(null);
+
+  const movePlan = useCallback((fromIndex: number, toIndex: number) => {
+    setConfig((current) => {
+      if (!current) return current;
+      const plans = [...current.plans];
+      const [moved] = plans.splice(fromIndex, 1);
+      plans.splice(toIndex, 0, moved);
+      return { ...current, plans };
+    });
+  }, []);
 
   useEffect(() => {
     loadPricing().then(setConfig);
@@ -156,11 +167,27 @@ export function PricingTab() {
               </section>
 
               <section className="pricing-panel">
-                <div className="pricing-panel__header"><div><h2>Planos</h2><p>STARTER, PROFESSIONAL e ENTERPRISE.</p></div></div>
+                <div className="pricing-panel__header"><div><h2>Planos</h2><p>Arraste para reordenar. A ordem aqui reflete a ordem exibida no site.</p></div></div>
                 <div className="pricing-plan-editor-grid">
                   {config.plans.map((plan, index) => (
-                    <article className="pricing-plan-editor" key={plan.id}>
+                    <article
+                      className="pricing-plan-editor"
+                      key={plan.id}
+                      draggable
+                      onDragStart={() => { dragIndexRef.current = index; }}
+                      onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('pricing-plan-editor--drag-over'); }}
+                      onDragLeave={(e) => { e.currentTarget.classList.remove('pricing-plan-editor--drag-over'); }}
+                      onDrop={(e) => {
+                        e.currentTarget.classList.remove('pricing-plan-editor--drag-over');
+                        if (dragIndexRef.current !== null && dragIndexRef.current !== index) {
+                          movePlan(dragIndexRef.current, index);
+                        }
+                        dragIndexRef.current = null;
+                      }}
+                      onDragEnd={() => { dragIndexRef.current = null; }}
+                    >
                       <div className="pricing-plan-editor__title">
+                        <span className="pricing-drag-handle" title="Arraste para reordenar">☰</span>
                         <input value={plan.name} onChange={(e) => updatePlan(index, { name: e.target.value })} />
                         <label><input type="checkbox" checked={plan.featured} onChange={(e) => updatePlan(index, { featured: e.target.checked })} /> Destaque</label>
                       </div>
@@ -177,8 +204,11 @@ export function PricingTab() {
                         <Field label="Texto do botão"><input value={plan.ctaText} onChange={(e) => updatePlan(index, { ctaText: e.target.value })} /></Field>
                         <Field label="URL do botão"><input value={plan.ctaUrl} onChange={(e) => updatePlan(index, { ctaUrl: e.target.value })} /></Field>
                       </div>
-                      <Field label="Itens do plano" hint="Um item por linha.">
-                        <textarea rows={7} value={plan.features.join('\n')} onChange={(e) => updatePlan(index, { features: e.target.value.split('\n') })} />
+                      <Field label="Itens do resumo" hint="Sempre visíveis no card. Um item por linha.">
+                        <textarea rows={5} value={(plan.summaryItems || []).join('\n')} onChange={(e) => updatePlan(index, { summaryItems: e.target.value.split('\n') })} />
+                      </Field>
+                      <Field label="Itens do 'Ver Mais'" hint="Aparecem ao expandir. Um item por linha.">
+                        <textarea rows={5} value={plan.features.join('\n')} onChange={(e) => updatePlan(index, { features: e.target.value.split('\n') })} />
                       </Field>
                     </article>
                   ))}

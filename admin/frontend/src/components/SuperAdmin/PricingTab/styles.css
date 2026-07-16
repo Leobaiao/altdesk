@@ -47,9 +47,14 @@
 .pricing-plan-editor-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
 .pricing-plan-editor { border: 1px solid #dce3e8; border-radius: 13px; padding: 17px; min-width: 0; }
 .pricing-plan-editor__title { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; }
-.pricing-plan-editor__title input { font-weight: 800; font-size: 16px; border: 1px solid #cfd9df; border-radius: 6px; padding: 4px 8px; }
+.pricing-plan-editor__title input { flex: 1; min-width: 0; font-weight: 800; font-size: 16px; border: 1px solid #cfd9df; border-radius: 6px; padding: 4px 8px; }
 .pricing-plan-editor__title label { white-space: nowrap; font-size: 12px; color: #64747e; display: flex; align-items: center; gap: 5px; }
 .pricing-plan-editor__title label input { width: auto; }
+.pricing-drag-handle { cursor: grab; font-size: 20px; color: #a0b0ba; user-select: none; transition: color 0.15s; flex-shrink: 0; }
+.pricing-drag-handle:hover { color: #00a884; }
+.pricing-drag-handle:active { cursor: grabbing; }
+.pricing-plan-editor--drag-over { border-color: #00a884; background: #f0fdf9; box-shadow: 0 0 0 2px #00a88440; }
+.pricing-plan-editor[draggable] { transition: border-color 0.2s, background 0.2s, box-shadow 0.2s; }
 .pricing-addon-editor-list { display: grid; gap: 10px; }
 .pricing-addon-editor { display: grid; grid-template-columns: auto 1fr 2fr 160px auto; gap: 10px; align-items: center; }
 .pricing-addon-editor input { border: 1px solid #cfd9df; background: #fbfcfd; color: #172333; border-radius: 9px; padding: 10px 12px; outline: none; }

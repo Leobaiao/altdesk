@@ -31,6 +31,7 @@ export interface PricingPlan {
   additionalUsersPerAgent: number | null;
   ctaText: string;
   ctaUrl: string;
+  summaryItems: string[];
   features: string[];
 }
 

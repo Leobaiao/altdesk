@@ -39,7 +39,8 @@ export const defaultPricing: PricingConfig = {
       additionalUsersPerAgent: null,
       ctaText: 'Contratar Starter',
       ctaUrl: '#contato',
-      features: ['3 agentes', '250 usuários', '250 contatos', 'Valor por agente adicional: R$ 99,00'],
+      summaryItems: ['3 agentes', '250 usuários', '250 contatos', 'Valor por agente adicional: R$ 99,00'],
+      features: ['Atendimento multicanal', 'Gestão de tickets com SLA', 'Dashboard de métricas', 'Base de conhecimento'],
     },
     {
       id: 'professional',
@@ -58,12 +59,19 @@ export const defaultPricing: PricingConfig = {
       additionalUsersPerAgent: 50,
       ctaText: 'Contratar Professional',
       ctaUrl: '#contato',
-      features: [
+      summaryItems: [
         '10 agentes',
         '500 usuários',
         '1.000 contatos',
         'Valor por agente adicional: R$ 99,00',
         'Cada agente adicional incrementa 50 usuários',
+      ],
+      features: [
+        'Tudo da Starter e mais',
+        'Automações avançadas',
+        'Relatórios detalhados',
+        'Integrações com CRM',
+        'Suporte prioritário',
       ],
     },
     {
@@ -83,7 +91,8 @@ export const defaultPricing: PricingConfig = {
       additionalUsersPerAgent: null,
       ctaText: 'Falar com um consultor',
       ctaUrl: '#contato',
-      features: ['Agentes sob consulta', 'Usuários sob consulta', 'Contatos sob consulta', 'Condições personalizadas'],
+      summaryItems: ['Agentes sob consulta', 'Usuários sob consulta', 'Contatos sob consulta', 'Condições personalizadas'],
+      features: ['Tudo da Professional e mais', 'SLA personalizado', 'Gerente de conta dedicado', 'Implantação assistida'],
     },
   ],
   addOnsTitle: 'Itens e integrações sob consulta',

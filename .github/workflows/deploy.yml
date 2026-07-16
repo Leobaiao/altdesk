@@ -92,7 +92,7 @@ jobs:
           DB_HOST=db
           JWT_SECRET=${{ secrets.JWT_SECRET }}
           ASAAS_API_KEY='${{ secrets.ASAAS_API_KEY }}'
-          ASAAS_ENV=sandbox
+          ASAAS_ENV=production
           ASAAS_WEBHOOK_TOKEN=${{ secrets.ASAAS_WEBHOOK_TOKEN }}
           ALLOWED_ORIGINS=${{ secrets.ALLOWED_ORIGINS }}
           ENCRYPTION_KEY=${{ secrets.ENCRYPTION_KEY }}

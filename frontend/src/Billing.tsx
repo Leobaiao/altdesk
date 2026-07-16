@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { api } from "./lib/api";
-import { ArrowLeft, CreditCard, FileText, CheckCircle, AlertTriangle, XCircle, Clock, X, Loader2, Trash2, ExternalLink } from "lucide-react";
+import { ArrowLeft, CreditCard, FileText, CheckCircle, AlertTriangle, XCircle, Clock, X, Loader2, Trash2, ExternalLink, ChevronDown } from "lucide-react";
 import { PageHeader } from "./components/PageHeader";
 import { useChat } from "./contexts/ChatContext";
 
@@ -11,6 +11,11 @@ interface Plan {
   PriceCents: number;
   Cycle: string;
   AgentsSeatLimit: number;
+  Users?: number | null;
+  Contacts?: number | null;
+  AdditionalAgentPrice?: number | null;
+  Order?: number;
+  SummaryItems?: string[];
   Features?: string[];
 }
 
@@ -73,7 +78,12 @@ export function Billing({ onBack }: { onBack: () => void }) {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedPlans, setExpandedPlans] = useState<Record<string, boolean>>({});
   const { showConfirm, showToast } = useChat();
+
+  const toggleExpand = (planCode: string) => {
+    setExpandedPlans(prev => ({ ...prev, [planCode]: !prev[planCode] }));
+  };
 
   // Checkout state (Asaas Checkout - página hospedada)
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null); // planCode being processed
@@ -358,56 +368,121 @@ export function Billing({ onBack }: { onBack: () => void }) {
 
       {/* Plans */}
       <h3 style={{ margin: "0 0 16px 0" }}>Planos Disponíveis</h3>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, marginBottom: 32 }}>
-        {plans.map(plan => (
+      <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(plans.length, 3)}, 1fr)`, gap: 20, marginBottom: 32, alignItems: "start" }}>
+        {plans.map(plan => {
+          const isExpanded = expandedPlans[plan.Code];
+          const hasFeatures = plan.Features && plan.Features.length > 0 && plan.Features.some(f => f.trim());
+
+          // Build summary: use summaryItems if available, otherwise fallback to structured fields
+          const summaryLines: string[] = [];
+          if (plan.SummaryItems && plan.SummaryItems.length > 0 && plan.SummaryItems.some(s => s.trim())) {
+            summaryLines.push(...plan.SummaryItems.filter(s => s.trim()));
+          } else {
+            // Fallback from structured data
+            summaryLines.push(plan.AgentsSeatLimit ? `${plan.AgentsSeatLimit} agentes` : 'Agentes sob consulta');
+            summaryLines.push(plan.Users ? `${plan.Users} usuários` : 'Usuários sob consulta');
+            summaryLines.push(plan.Contacts ? `${plan.Contacts.toLocaleString('pt-BR')} contatos` : 'Contatos sob consulta');
+            if (plan.AdditionalAgentPrice != null) {
+              summaryLines.push(`Valor por agente adicional: R$ ${plan.AdditionalAgentPrice.toFixed(2).replace('.', ',')}`);
+            }
+          }
+
+          return (
           <div key={plan.PlanId} style={{
-            background: "var(--bg-secondary)", borderRadius: 12, padding: 20,
+            background: "var(--bg-secondary)", borderRadius: 16, padding: 28,
             border: subscription?.PlanCode === plan.Code ? "2px solid var(--primary)" : "1px solid var(--border)",
-            textAlign: "center"
+            textAlign: "center",
+            display: "flex", flexDirection: "column",
           }}>
-            <h4 style={{ margin: "0 0 8px 0" }}>{plan.Name}</h4>
-            <div style={{ fontSize: 28, fontWeight: 700, color: "var(--primary)", margin: "12px 0" }}>
+            <h4 style={{ margin: "0 0 4px 0", fontSize: 13, fontWeight: 800, letterSpacing: "0.08em", color: "var(--text-secondary)", textTransform: "uppercase" }}>{plan.Name}</h4>
+            <div style={{ fontSize: 32, fontWeight: 800, color: "var(--primary)", margin: "8px 0 20px" }}>
               {plan.PriceCents > 0 ? (
                 <>
                   {formatCents(plan.PriceCents)}
                   <span style={{ fontSize: 14, fontWeight: 400, color: "var(--text-secondary)" }}>/mês</span>
                 </>
               ) : (
-                <span style={{ fontSize: 22 }}>Sob consulta</span>
+                <span style={{ fontSize: 22, fontWeight: 700 }}>Sob consulta</span>
               )}
             </div>
-            {plan.Features && plan.Features.length > 0 ? (
-              <ul style={{ listStyle: "none", padding: 0, margin: "16px 0", textAlign: "left" }}>
-                {plan.Features.map((feat, idx) => (
+
+            {/* Summary Items - always visible */}
+            {summaryLines.length > 0 && (
+              <ul style={{ listStyle: "none", padding: 0, margin: "0 0 20px 0", textAlign: "left" }}>
+                {summaryLines.map((item, idx) => (
                   <li key={idx} style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 8, display: "flex", alignItems: "flex-start", gap: 8 }}>
                     <CheckCircle size={14} color="var(--primary)" style={{ marginTop: 2, flexShrink: 0 }} />
-                    <span style={{ lineHeight: 1.4 }}>{feat}</span>
+                    <span style={{ lineHeight: 1.5 }}>{item}</span>
                   </li>
                 ))}
               </ul>
-            ) : (
-              <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "8px 0" }}>
-                Até {plan.AgentsSeatLimit} atendentes
-              </p>
             )}
-            {subscription?.PlanCode === plan.Code ? (
-              <span style={{ fontSize: 12, color: "var(--primary)", fontWeight: 600 }}>✓ Plano Atual</span>
-            ) : (
-              <button
-                className="btn btn-primary"
-                style={{ width: "100%", marginTop: 8, fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
-                onClick={() => handleSubscribe(plan)}
-                disabled={checkoutLoading === plan.Code}
-              >
-                {checkoutLoading === plan.Code ? (
-                  <><Loader2 size={14} className="spin" /> Abrindo checkout...</>
-                ) : (
-                  <>{plan.PriceCents > 0 ? "Selecionar" : "Falar com consultor"}</>
-                )}
-              </button>
-            )}
+
+            {/* CTA Button and Features Container */}
+            <div style={{ marginTop: "auto", display: "flex", flexDirection: "column" }}>
+              {subscription?.PlanCode === plan.Code ? (
+                <div style={{ padding: "12px 0", fontSize: 14, color: "var(--primary)", fontWeight: 700 }}>✓ Plano Atual</div>
+              ) : (
+                <button
+                  className="btn btn-primary"
+                  style={{ width: "100%", fontSize: 14, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "12px 16px", borderRadius: 10 }}
+                  onClick={() => handleSubscribe(plan)}
+                  disabled={checkoutLoading === plan.Code}
+                >
+                  {checkoutLoading === plan.Code ? (
+                    <><Loader2 size={14} className="spin" /> Abrindo checkout...</>
+                  ) : (
+                    <>{plan.PriceCents > 0 ? "Selecionar" : "Falar com consultor"}</>
+                  )}
+                </button>
+              )}
+
+              {/* Ver Mais Button */}
+              {hasFeatures && (
+                <button
+                  onClick={() => toggleExpand(plan.Code)}
+                  style={{
+                    width: "100%", marginTop: 12, fontSize: 13, fontWeight: 700,
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                    padding: "10px 16px", borderRadius: 8,
+                    background: isExpanded ? "var(--bg-secondary)" : "transparent",
+                    color: "var(--primary)",
+                    border: "1px solid var(--border)",
+                    cursor: "pointer", transition: "all 0.25s ease",
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "var(--border)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = isExpanded ? "var(--bg-secondary)" : "transparent"; }}
+                >
+                  {isExpanded ? "Ocultar detalhes" : "Ver todos os detalhes"}
+                  <ChevronDown size={16} style={{ transition: "transform 0.3s ease", transform: isExpanded ? "rotate(180deg)" : "rotate(0)" }} />
+                </button>
+              )}
+
+              {/* Expandable Features - smooth accordion */}
+              {hasFeatures && (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateRows: isExpanded ? "1fr" : "0fr",
+                    transition: "grid-template-rows 0.35s ease-in-out",
+                  }}
+                >
+                  <div style={{ overflow: "hidden" }}>
+                    <ul style={{ listStyle: "none", padding: 0, margin: "16px 0 0 0", textAlign: "left", borderTop: "1px solid var(--border)", paddingTop: 16 }}>
+                      {plan.Features!.filter(f => f.trim()).map((feat, idx) => (
+                        <li key={idx} style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 8, display: "flex", alignItems: "flex-start", gap: 8 }}>
+                          <CheckCircle size={14} color="var(--primary)" style={{ marginTop: 2, flexShrink: 0 }} />
+                          <span style={{ lineHeight: 1.5 }}>{feat}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-        ))}
+        );
+        })}
       </div>
 
       {/* Invoices */}

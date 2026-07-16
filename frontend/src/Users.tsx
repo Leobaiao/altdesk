@@ -341,7 +341,7 @@ export function Users({ token, onBack, role, livePermissions }: Props) {
     return (
         <div className="settings-page" style={{ height: "100%", overflowY: "auto" }}>
             <PageHeader
-                title={activeTab === "PROFILE" ? "Meu Perfil" : "Colaboradores"}
+                title={activeTab === "PROFILE" ? "Meu Perfil" : activeTab === "TECH" ? "Agentes" : "Usuários"}
                 subtitle={activeTab === "PROFILE" ? "Gerencie suas informações pessoais e aparência." : (isAdmin ? "Gerencie os membros da sua empresa e suas permissões." : "Conheça seus colegas de equipe.")}
                 icon={activeTab === "PROFILE" ? UserIcon : UsersIcon}
                 onBack={onBack}
@@ -420,7 +420,7 @@ export function Users({ token, onBack, role, livePermissions }: Props) {
                                     color: activeTab === "COLLAB" ? "var(--accent)" : "var(--text-secondary)", transition: "all 0.2s"
                                 }}
                             >
-                                Colaboradores ({collabUsers.length})
+                                Usuários ({collabUsers.length})
                             </button>
                         </>
                     )}
@@ -493,7 +493,7 @@ export function Users({ token, onBack, role, livePermissions }: Props) {
                                                 background: u.Role === "ADMIN" ? "rgba(217, 66, 245, 0.15)" : "rgba(0, 168, 132, 0.15)",
                                                 color: u.Role === "ADMIN" ? "#d942f5" : "#00a884"
                                             }}>
-                                                {u.Role === 'END_USER' ? 'COLABORADOR' : u.Role}
+                                                {u.Role === 'END_USER' ? 'USUÁRIO' : u.Role === 'AGENT' ? 'AGENTE' : u.Role}
                                             </span>
                                         </div>
                                     </td>
@@ -878,7 +878,7 @@ export function Users({ token, onBack, role, livePermissions }: Props) {
                                         setUserRole(newRole);
                                         if (newRole === 'END_USER') {
                                             setPermissions({
-                                                dashboard: false, chat: false, tickets: true, contacts: false, 
+                                                dashboard: false, chat: true, tickets: true, contacts: false, 
                                                 reports: false, billing: false, users: false, settings: false
                                             });
                                         } else if (newRole === 'AGENT') {
@@ -943,7 +943,8 @@ export function Users({ token, onBack, role, livePermissions }: Props) {
                                                     type="checkbox" 
                                                     checked={(permissions as any)[item.key]} 
                                                     onChange={e => setPermissions(p => ({ ...p, [item.key]: e.target.checked }))}
-                                                    style={{ width: 18, height: 18, accentColor: "var(--accent)" }}
+                                                    disabled={userRole === 'END_USER'}
+                                                    style={{ width: 18, height: 18, accentColor: "var(--accent)", cursor: userRole === 'END_USER' ? 'not-allowed' : 'pointer' }}
                                                 />
                                                 {item.label}
                                             </label>
