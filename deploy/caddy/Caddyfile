@@ -11,13 +11,19 @@
 	acme_ca https://acme.zerossl.com/v2/DV90
 }
 
-# ─── FRONTEND (App Cliente) ───
+# ─── PÁGINA "EM CONSTRUÇÃO" (Domínio Principal) ───
 altdesk.com.br {
-	reverse_proxy frontend:80
+	root * /var/www/static
+	file_server
 }
 
 www.altdesk.com.br {
 	redir https://altdesk.com.br{uri} permanent
+}
+
+# ─── FRONTEND (App Cliente) ───
+app.altdesk.com.br {
+	reverse_proxy frontend:80
 }
 
 # ─── FRONTEND (SuperAdmin) ───

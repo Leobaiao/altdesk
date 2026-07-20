@@ -82,7 +82,7 @@ export async function sendPasswordResetEmail(to: string, resetLink: string) {
             <div style="max-width: 500px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05); border: 1px solid #e2e8f0;">
                 <!-- Header -->
                 <div style="background-color: #0f172a; padding: 32px 24px; text-align: center;">
-                    <img src="https://altdesk.com.br/logo-horizontal.png" alt="AltDesk" style="height: 38px; width: auto; display: block; margin: 0 auto;" />
+                    <img src="https://app.altdesk.com.br/logo-horizontal.png" alt="AltDesk" style="height: 38px; width: auto; display: block; margin: 0 auto;" />
                 </div>
                 <!-- Content -->
                 <div style="padding: 40px 32px; text-align: center;">

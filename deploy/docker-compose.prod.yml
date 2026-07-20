@@ -113,6 +113,7 @@ services:
       - "443:443/udp"   # HTTP/3 (QUIC)
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./static:/var/www/static:ro          # Página "Em construção" (altdesk.com.br)
       - caddy_data:/data        # Certificados Let's Encrypt
       - caddy_config:/config    # Configuração interna do Caddy
     depends_on:

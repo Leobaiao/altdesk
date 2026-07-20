@@ -367,12 +367,12 @@ export async function createCheckoutSession(tenantId: string, planCode: string):
     const externalReference = `tenant-${tenantId}_plan-${planCode}`;
 
     // 5. Montar callback URLs
-    const frontendUrl = process.env.FRONTEND_URL || "https://altdesk.com.br";
+    const frontendUrl = process.env.FRONTEND_URL || "https://app.altdesk.com.br";
     
     // O Asaas Checkout recusa URLs com "localhost" ou "127.0.0.1". 
     // Precisamos mascarar para testes locais para não dar erro 400.
     const safeFrontendUrl = frontendUrl.includes("localhost") || frontendUrl.includes("127.0.0.1")
-        ? "https://sandbox.altdesk.com.br" 
+        ? "https://sandbox.app.altdesk.com.br" 
         : frontendUrl;
         
     const callbackBase = `${safeFrontendUrl}/billing`;

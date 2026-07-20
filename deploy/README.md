@@ -44,6 +44,7 @@ Antes de prosseguir, certifique-se de que os registros DNS do seu domínio apont
 | Tipo  | Nome         | Valor             |
 |-------|--------------|--------------------|
 | A     | @            | 191.252.110.173    |
+| A     | app          | 191.252.110.173    |
 | A     | admin        | 191.252.110.173    |
 | A     | api          | 191.252.110.173    |
 | A     | api-admin    | 191.252.110.173    |
@@ -97,7 +98,8 @@ docker compose -f deploy/docker-compose.prod.yml ps
 ```
 
 Após alguns segundos, os sites estarão disponíveis:
-- 🌐 https://altdesk.com.br — App Cliente
+- 🏠 https://altdesk.com.br — Página institucional (em construção)
+- 🌐 https://app.altdesk.com.br — App Cliente
 - 🔧 https://admin.altdesk.com.br — Painel SuperAdmin
 - 🔌 https://api.altdesk.com.br — API do App
 - 🔌 https://api-admin.altdesk.com.br — API do Admin

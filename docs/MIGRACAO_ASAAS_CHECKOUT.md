@@ -58,7 +58,7 @@ A migração para o Asaas Checkout simplifica drasticamente o frontend, delegand
 ### 7. Variáveis de Ambiente
 
 - **Arquivo:** `.env`
-- **Alteração:** Adicionada a variável `FRONTEND_URL=http://localhost:5173`. Ela é usada pelo backend para informar ao Asaas para onde o usuário deve ser redirecionado (callback) após o pagamento. Em produção, isso deve ser ajustado para `https://altdesk.com.br`.
+- **Alteração:** Adicionada a variável `FRONTEND_URL=http://localhost:5173`. Ela é usada pelo backend para informar ao Asaas para onde o usuário deve ser redirecionado (callback) após o pagamento. Em produção, isso deve ser ajustado para `https://app.altdesk.com.br`.
 
 ---
 

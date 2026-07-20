@@ -80,7 +80,7 @@ router.post("/forgot-password", validateBody(z.object({
             `);
 
         // 4. Send email
-        const resetLink = `${process.env.FRONTEND_URL || "https://altdesk.com.br"}/reset-password?token=${token}`;
+        const resetLink = `${process.env.FRONTEND_URL || "https://app.altdesk.com.br"}/reset-password?token=${token}`;
         try {
             await sendPasswordResetEmail(email, resetLink);
         } catch (emailError) {
