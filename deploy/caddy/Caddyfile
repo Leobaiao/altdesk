@@ -58,3 +58,27 @@ api-admin.altdesk.com.br {
 		max_size 50MB
 	}
 }
+
+# ═══════════════════════════════════════════════════
+# TUUVO — Projeto separado rodando na mesma VPS
+# Os containers do Tuuvo expõem portas no host (4000 / 4002).
+# O Caddy alcança o host via extra_hosts (host.docker.internal).
+# ═══════════════════════════════════════════════════
+
+# ─── TUUVO FRONTEND ───
+tuuvo.app.br {
+	reverse_proxy host.docker.internal:4000
+}
+
+www.tuuvo.app.br {
+	redir https://tuuvo.app.br{uri} permanent
+}
+
+# ─── TUUVO BACKEND API ───
+api.tuuvo.app.br {
+	reverse_proxy host.docker.internal:4002
+
+	request_body {
+		max_size 50MB
+	}
+}
