@@ -184,6 +184,10 @@ jobs:
             echo "🚀 Subindo backend, frontend e proxy..."
             docker compose -f deploy/docker-compose.prod.yml up -d
 
+            # 5.1 Forçar restart do Caddy para re-validar os certificados SSL após mudança de DNS
+            echo "🔄 Reiniciando Caddy..."
+            docker restart altdesk_caddy
+
             # 6. Aguardar o backend iniciar
             echo "⏳ Aguardando backend..."
             for i in $(seq 1 30); do
