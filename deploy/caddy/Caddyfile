@@ -12,8 +12,17 @@
 
 # ─── PÁGINA "EM CONSTRUÇÃO" (Domínio Principal) ───
 altdesk.com.br {
-	root * /var/www/static
-	file_server
+	@rootPath {
+		path /
+	}
+	handle @rootPath {
+		root * /var/www/static
+		file_server
+	}
+
+	handle {
+		redir https://app.altdesk.com.br{uri} permanent
+	}
 }
 
 www.altdesk.com.br {
