@@ -140,7 +140,10 @@ jobs:
 
             # Clonar o repositório se ainda não existir
             if [ ! -d ".git" ]; then
-              git clone https://github.com/Leobaiao/altdesk.git .
+              git init
+              git remote add origin https://github.com/Leobaiao/altdesk.git
+              git fetch origin main
+              git reset --hard origin/main
             else
               git fetch origin main
               git reset --hard origin/main
