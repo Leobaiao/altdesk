@@ -107,6 +107,9 @@ services:
       - admin-frontend
     networks:
       - internal
+      - proxy_net
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   # Backend API
   backend:
@@ -201,6 +204,9 @@ services:
 networks:
   internal:
     driver: bridge
+  proxy_net:
+    name: proxy_net
+    external: true
 
 volumes:
   mssql_data_prod:

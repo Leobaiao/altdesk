@@ -76,15 +76,9 @@ api-admin.altdesk.com.br {
 }
 # ─── TUUVO ───
 tuuvo.app.br {
-	# Aqui a gente aponta para a porta exposta pelo docker do tuuvo (4000)
-	# IMPORTANTE: Use o IP interno do host ou o nome do container se estiverem na mesma rede Docker.
-	# Como o Caddy do Altdesk está em bridge, usar o IP local da máquina (ex: 172.17.0.1 ou o IP privado) 
-	# ou simplesmente usar host.docker.internal (se configurado) é necessário.
-	# Supondo que você expôs na porta 4000 do host, vamos tentar acessar o IP do host (ou rotear adequadamente).
-	reverse_proxy 172.17.0.1:4000
+	reverse_proxy tuuvo_frontend_prod:80
 }
 
 api.tuuvo.app.br {
-	# Aponta para a porta exposta da API do tuuvo (4002)
-	reverse_proxy 172.17.0.1:4002
+	reverse_proxy tuuvo_backend_prod:3000
 }
