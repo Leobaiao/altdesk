@@ -1,3 +1,5 @@
+name: altdesk
+
 services:
   # Banco de Dados (SQL Server)
   db:
