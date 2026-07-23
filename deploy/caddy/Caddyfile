@@ -41,6 +41,21 @@ admin.altdesk.com.br {
 
 # ─── BACKEND API (App API) ───
 api.altdesk.com.br {
+	# Trata as requisições Preflight (OPTIONS)
+	@options method OPTIONS
+	handle @options {
+		header Access-Control-Allow-Origin "https://altdesk.com.br"
+		header Access-Control-Allow-Credentials "true"
+		header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+		header Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With, ngrok-skip-browser-warning"
+		header Access-Control-Max-Age "86400"
+		respond 204
+	}
+
+	# Aplica os cabeçalhos para as requisições normais (GET, POST, etc)
+	header Access-Control-Allow-Origin "https://altdesk.com.br"
+	header Access-Control-Allow-Credentials "true"
+
 	reverse_proxy backend:3002
 
 	# Permitir uploads maiores (ex: imagens de perfil)
@@ -51,6 +66,21 @@ api.altdesk.com.br {
 
 # ─── ADMIN BACKEND API ───
 api-admin.altdesk.com.br {
+	# Trata as requisições Preflight (OPTIONS)
+	@options method OPTIONS
+	handle @options {
+		header Access-Control-Allow-Origin "https://admin.altdesk.com.br"
+		header Access-Control-Allow-Credentials "true"
+		header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+		header Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With, ngrok-skip-browser-warning"
+		header Access-Control-Max-Age "86400"
+		respond 204
+	}
+
+	# Aplica os cabeçalhos para as requisições normais (GET, POST, etc)
+	header Access-Control-Allow-Origin "https://admin.altdesk.com.br"
+	header Access-Control-Allow-Credentials "true"
+
 	reverse_proxy admin-backend:3002
 
 	# Permitir uploads maiores
@@ -58,7 +88,6 @@ api-admin.altdesk.com.br {
 		max_size 50MB
 	}
 }
-
 # ═══════════════════════════════════════════════════
 # TUUVO — Projeto separado rodando na mesma VPS
 # Os containers do Tuuvo expõem portas no host (4000 / 4002).
