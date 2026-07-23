@@ -27,6 +27,21 @@ admin.altdesk.com.br {
 
 # ─── BACKEND API (App API) ───
 api.altdesk.com.br {
+	# Trata as requisições Preflight (OPTIONS)
+	@options method OPTIONS
+	handle @options {
+		header Access-Control-Allow-Origin "https://altdesk.com.br"
+		header Access-Control-Allow-Credentials "true"
+		header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+		header Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With, ngrok-skip-browser-warning"
+		header Access-Control-Max-Age "86400"
+		respond 204
+	}
+
+	# Aplica os cabeçalhos para as requisições normais (GET, POST, etc)
+	header Access-Control-Allow-Origin "https://altdesk.com.br"
+	header Access-Control-Allow-Credentials "true"
+
 	reverse_proxy backend:3002
 
 	# Permitir uploads maiores (ex: imagens de perfil)
@@ -37,10 +52,39 @@ api.altdesk.com.br {
 
 # ─── ADMIN BACKEND API ───
 api-admin.altdesk.com.br {
+	# Trata as requisições Preflight (OPTIONS)
+	@options method OPTIONS
+	handle @options {
+		header Access-Control-Allow-Origin "https://admin.altdesk.com.br"
+		header Access-Control-Allow-Credentials "true"
+		header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+		header Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With, ngrok-skip-browser-warning"
+		header Access-Control-Max-Age "86400"
+		respond 204
+	}
+
+	# Aplica os cabeçalhos para as requisições normais (GET, POST, etc)
+	header Access-Control-Allow-Origin "https://admin.altdesk.com.br"
+	header Access-Control-Allow-Credentials "true"
+
 	reverse_proxy admin-backend:3002
 
 	# Permitir uploads maiores
 	request_body {
 		max_size 50MB
 	}
+}
+# ─── TUUVO ───
+tuuvo.app.br {
+	# Aqui a gente aponta para a porta exposta pelo docker do tuuvo (4000)
+	# IMPORTANTE: Use o IP interno do host ou o nome do container se estiverem na mesma rede Docker.
+	# Como o Caddy do Altdesk está em bridge, usar o IP local da máquina (ex: 172.17.0.1 ou o IP privado) 
+	# ou simplesmente usar host.docker.internal (se configurado) é necessário.
+	# Supondo que você expôs na porta 4000 do host, vamos tentar acessar o IP do host (ou rotear adequadamente).
+	reverse_proxy 172.17.0.1:4000
+}
+
+api.tuuvo.app.br {
+	# Aponta para a porta exposta da API do tuuvo (4002)
+	reverse_proxy 172.17.0.1:4002
 }
