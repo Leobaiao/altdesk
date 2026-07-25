@@ -50,7 +50,7 @@ const app = express();
 app.disable("x-powered-by"); // Minimized info exposure
 app.set("trust proxy", 1); // Behind Nginx reverse proxy
 app.use(apiLimiter);
-app.use(cors({ origin: allowedOrigins }));
+app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(express.json({
   limit: "5mb",
   verify: (req: any, res, buf) => {
@@ -86,7 +86,7 @@ app.get("/api/health", async (req, res) => {
 app.use(globalAuditLogger);
 
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: allowedOrigins } });
+const io = new Server(server, { cors: { origin: allowedOrigins, credentials: true } });
 
 // Inject dependencies into Express so routers can pick them up without circular imports
 app.set("io", io);
