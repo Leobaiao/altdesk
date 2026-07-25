@@ -42,15 +42,22 @@ import helpRouter from "./routes/help.js";
 import ticketsRouter from "./routes/tickets.js";
 import uploadRouter from "./routes/upload.js";
 
-const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(",")
-  : ["http://localhost:5173", "http://localhost:3000"];
+const dynamicCorsOrigin = (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+  if (!origin) return callback(null, true);
+  if (/^https?:\/\/localhost(:\d+)?$/.test(origin)) return callback(null, true);
+  if (/^https?:\/\/(.*\.)?altdesk\.com\.br$/.test(origin)) return callback(null, true);
+  
+  const envOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(",") : [];
+  if (envOrigins.includes(origin)) return callback(null, true);
+  
+  callback(new Error('Not allowed by CORS'));
+};
 
 const app = express();
 app.disable("x-powered-by"); // Minimized info exposure
 app.set("trust proxy", 1); // Behind Nginx reverse proxy
 app.use(apiLimiter);
-app.use(cors({ origin: allowedOrigins, credentials: true }));
+app.use(cors({ origin: dynamicCorsOrigin, credentials: true }));
 app.use(express.json({
   limit: "5mb",
   verify: (req: any, res, buf) => {
@@ -86,7 +93,7 @@ app.get("/api/health", async (req, res) => {
 app.use(globalAuditLogger);
 
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: allowedOrigins, credentials: true } });
+const io = new Server(server, { cors: { origin: dynamicCorsOrigin, credentials: true } });
 
 // Inject dependencies into Express so routers can pick them up without circular imports
 app.set("io", io);
