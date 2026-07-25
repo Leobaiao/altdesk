@@ -188,11 +188,12 @@ router.post("/:id/reply", validateBody(z.object({
     text: z.string().optional(),
     mediaUrl: z.string().optional(),
     mediaType: z.string().optional(),
-    originalName: z.string().optional()
+    originalName: z.string().optional(),
+    subject: z.string().optional()
 })), (async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const conversationId = req.params.id;
-        const { text, mediaUrl, mediaType, originalName } = req.body;
+        const { text, mediaUrl, mediaType, originalName, subject } = req.body;
         const user = req.user;
 
         if (!text && !mediaUrl) {
@@ -225,7 +226,7 @@ router.post("/:id/reply", validateBody(z.object({
                         text,
                         {
                             inReplyTo: metadata.lastExternalMessageId,
-                            subject: metadata.subject
+                            subject: subject || metadata.subject
                         }
                     );
                 } else {
@@ -236,7 +237,7 @@ router.post("/:id/reply", validateBody(z.object({
 
                     externalMessageId = await adapter.sendText(metadata.connector, metadata.externalUserId, textToSend, {
                         inReplyTo: metadata.lastExternalMessageId,
-                        subject: metadata.subject
+                        subject: subject || metadata.subject
                     });
                 }
             } catch (adapterErr: any) {

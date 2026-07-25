@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { Plus, Search, MessageSquare, Mail, Monitor } from "lucide-react";
+import { Plus, Search, MessageSquare, Mail, Monitor, ChevronLeft, ChevronRight } from "lucide-react";
 import { useChat } from "../contexts/ChatContext";
 import type { Conversation, Tag } from "../../../shared/types";
 import { TagPill } from "./TagPill";
@@ -85,7 +85,7 @@ export function Sidebar({ setView }: { setView: (view: any) => void }) {
     const [contactSearch, setContactSearch] = useState("");
     const [contacts, setContacts] = useState<any[]>([]);
     const [internalUsers, setInternalUsers] = useState<any[]>([]);
-
+    const [collapsed, setCollapsed] = useState(false);
 
     const handleOpenNewChat = async () => {
         try {
@@ -141,8 +141,26 @@ export function Sidebar({ setView }: { setView: (view: any) => void }) {
         );
     }
 
+    if (collapsed) {
+        return (
+            <div className="conversation-list-panel" style={{ width: 68, transition: "width 0.3s ease", position: "relative", flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", borderRight: "1px solid var(--border)", background: "var(--bg-primary)" }}>
+                <button 
+                    onClick={() => setCollapsed(false)}
+                    title="Expandir lista"
+                    style={{ marginTop: 24, background: "var(--bg-secondary)", border: "1px solid var(--border)", borderRadius: "50%", cursor: "pointer", color: "var(--text-secondary)", width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 5px rgba(0,0,0,0.1)" }}
+                >
+                    <ChevronRight size={20} />
+                </button>
+                <div style={{ marginTop: 24, color: "var(--text-secondary)", opacity: 0.5, display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+                    <MessageSquare size={24} />
+                    <Mail size={24} />
+                </div>
+            </div>
+        );
+    }
+
     return (
-        <div className="conversation-list-panel">
+        <div className="conversation-list-panel" style={{ width: 340, transition: "width 0.3s ease", position: "relative", flexShrink: 0, display: "flex", flexDirection: "column", background: "var(--bg-primary)", borderRight: "1px solid var(--border)" }}>
             <div className="sidebar-header" style={{ height: "85px", padding: "0 20px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--bg-primary)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                     <h2 style={{ margin: 0, fontSize: "1.5rem", fontWeight: 700, color: "var(--text-primary)" }}>Conversas</h2>
@@ -169,6 +187,9 @@ export function Sidebar({ setView }: { setView: (view: any) => void }) {
                             <MessageSquare size={20} />
                         </button>
                     )}
+                    <button onClick={() => setCollapsed(true)} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }} title="Recolher lista">
+                        <ChevronLeft size={24} />
+                    </button>
                 </div>
             </div>
 

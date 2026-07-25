@@ -22,6 +22,12 @@ import type { RawEmailMessage, EmailInboundEvent, EmailChannel } from "../types/
 export function stripQuotedReply(text: string | null | undefined): string | null {
     if (!text) return null;
 
+    // Remover delimitador customizado do AltDesk
+    const delimiterMatch = text.search(/\+{6,}/);
+    if (delimiterMatch !== -1) {
+        text = text.substring(0, delimiterMatch).trim();
+    }
+
     const quoteMarkers = [
         /^[_\-]{2,}\s*Forwarded message\s*[_\-]{2,}$/mi,
         /^[_\-]{2,}\s*Mensagem encaminhada\s*[_\-]{2,}$/mi,

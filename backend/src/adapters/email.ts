@@ -31,6 +31,12 @@ export class EmailAdapter implements ChannelAdapter {
         const emailMatch = from.match(/<(.+)>|(\S+@\S+)/);
         const externalUserId = emailMatch ? (emailMatch[1] || emailMatch[2]) : from;
 
+        let parsedText = text || html?.replace(/<[^>]*>?/gm, '') || "";
+        const textDelimiterMatch = parsedText.search(/\+{6,}/);
+        if (textDelimiterMatch !== -1) {
+            parsedText = parsedText.substring(0, textDelimiterMatch).trim();
+        }
+
         return {
             tenantId: (connector as any).TenantId || "",
             channel: "EMAIL",
@@ -40,7 +46,7 @@ export class EmailAdapter implements ChannelAdapter {
             externalMessageId: messageId,
             senderName: from.split('<')[0].trim() || externalUserId,
             subject: subject,
-            text: text || html?.replace(/<[^>]*>?/gm, '') || "", // Fallback simples para strip HTML
+            text: parsedText,
             source: "Email",
             channelType: "Email",
             timestamp: Date.now(),
@@ -129,8 +135,13 @@ export class EmailAdapter implements ChannelAdapter {
                 throw new Error("No SMTP configuration found for this connector. Check EmailOutboundSettings.");
             }
 
+            // Adicionar cabeçalho fixo e delimitador
+            const preamble = "Escreva sua mensagem a partir daqui até a marca ++++++\n\n";
+            const postamble = "\n\n++++++\n";
+            const fullText = `${preamble}${text}${postamble}`;
+
             // Formatar texto para HTML preservando quebras de linha
-            const formattedBody = text.replace(/\n/g, '<br/>');
+            const formattedBody = fullText.replace(/\n/g, '<br/>');
             
             const htmlTemplate = `
                 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #333333; line-height: 1.6; max-width: 600px; padding: 20px; border: 1px solid #eaeaea; border-radius: 8px; background-color: #ffffff;">
@@ -148,7 +159,7 @@ export class EmailAdapter implements ChannelAdapter {
                 to,
                 subject: emailSubject,
                 html: htmlTemplate,
-                text: text, // Plain-text fallback verdadeiro
+                text: fullText, // Plain-text fallback verdadeiro
                 inReplyTo: options?.inReplyTo,
                 references: options?.inReplyTo,
                 config: smtpConfig

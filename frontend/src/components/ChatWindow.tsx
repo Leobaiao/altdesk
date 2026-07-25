@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
-import { MessageCircleOff, ArrowLeft, Trash2, CheckCircle, RotateCcw, Users as UsersIcon, Zap, ChevronDown, Smile, FileText, Send, UserPlus, StickyNote, MessageSquare, Mail, Monitor, BookOpen, ArrowUpRight, Sparkles, Paperclip, X, Tag as TagIcon, AlertCircle, Video, Music } from "lucide-react";
+import { MessageCircleOff, ArrowLeft, Trash2, CheckCircle, RotateCcw, Users as UsersIcon, Zap, ChevronDown, ChevronUp, Settings, Smile, FileText, Send, UserPlus, StickyNote, MessageSquare, Mail, Monitor, BookOpen, ArrowUpRight, Sparkles, Paperclip, X, Tag as TagIcon, AlertCircle, Video, Music } from "lucide-react";
 
 import { useChat } from "../contexts/ChatContext";
 import { AudioPlayer } from "./AudioPlayer";
@@ -8,6 +8,7 @@ import { ChangeConnectorModal } from "./ChangeConnectorModal";
 import { ImageViewerModal } from "./ImageViewerModal";
 import { DocumentCard } from "./DocumentCard";
 import { TagPill } from "./TagPill";
+import { RichTextEditor } from "./RichTextEditor";
 import type { Tag, Conversation } from "../../../shared/types";
 
 import { api } from "../lib/api";
@@ -95,6 +96,33 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
     const [showConnectorModal, setShowConnectorModal] = useState(false);
     const [viewingImage, setViewingImage] = useState<string | null>(null);
 
+    // Email Options & Resizing
+    const [showEmailOptions, setShowEmailOptions] = useState(false);
+    const [composeHeight, setComposeHeight] = useState(300);
+    const [isResizing, setIsResizing] = useState(false);
+
+    const startResizing = React.useCallback((e: React.MouseEvent) => {
+        setIsResizing(true);
+        e.preventDefault();
+    }, []);
+
+    useEffect(() => {
+        if (!isResizing) return;
+        const handleMouseMove = (e: MouseEvent) => {
+            const newHeight = window.innerHeight - e.clientY;
+            setComposeHeight(Math.max(150, Math.min(newHeight, window.innerHeight - 150)));
+        };
+        const handleMouseUp = () => {
+            setIsResizing(false);
+        };
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [isResizing]);
+
     // Internal Note mode
     const [noteMode, setNoteMode] = useState(false);
 
@@ -137,7 +165,12 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
     const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
     const [sendingFile, setSendingFile] = useState(false);
 
+    // Email compose mode
+    const [emailSubject, setEmailSubject] = useState("");
+    const [emailBody, setEmailBody] = useState("");
+
     const selectedConversation = conversations.find((c) => c.ConversationId === selectedConversationId);
+    const isEmailChannel = selectedConversation?.Kind === "EMAIL" || selectedConversation?.SourceChannel?.toUpperCase().includes("EMAIL");
 
     useEffect(() => {
         if (showTicketModal && selectedConversation) {
@@ -161,7 +194,19 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
                 setFilePreviewUrl(null);
             }
         }
+        // Reset email compose state
+        setEmailBody("");
     }, [selectedConversationId]);
+
+    // Pre-fill email subject when conversation changes
+    useEffect(() => {
+        if (isEmailChannel && selectedConversation?.Title) {
+            const title = selectedConversation.Title;
+            setEmailSubject(title.startsWith("Re:") ? title : `Re: ${title}`);
+        } else {
+            setEmailSubject("");
+        }
+    }, [selectedConversationId, isEmailChannel]);
 
     const loadActiveTicket = async () => {
         try {
@@ -288,6 +333,28 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
             }
 
             if (!contentOverride) setText("");
+            setShowScrollButton(false);
+            setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+        } catch (err: any) {
+            showToast("Erro: " + (err.response?.data?.error || err.message), "error");
+        } finally {
+            setSending(false);
+        }
+    }
+
+    async function sendEmailReply() {
+        if (!emailBody.trim() || emailBody === "<p></p>" || !selectedConversationId || sending) return;
+        setSending(true);
+        try {
+            if (noteMode) {
+                await api.post(`/api/conversations/${selectedConversationId}/note`, { text: emailBody });
+            } else {
+                await api.post(`/api/conversations/${selectedConversationId}/reply`, {
+                    text: emailBody,
+                    subject: emailSubject || undefined
+                });
+            }
+            setEmailBody("");
             setShowScrollButton(false);
             setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
         } catch (err: any) {
@@ -677,6 +744,93 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
                         isOut = m.SenderUserId === currentUserId;
                     }
 
+                    if (isEmailChannel && m.Direction !== "INTERNAL") {
+                        // Layout de E-mail clássico (Full-width)
+                        return (
+                            <div key={m.MessageId} style={{ 
+                                display: "flex", 
+                                flexDirection: "column", 
+                                padding: "16px",
+                                marginBottom: "16px",
+                                background: "#ffffff",
+                                borderRadius: "8px",
+                                border: "1px solid #e5e7eb",
+                                boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+                                width: "100%",
+                                boxSizing: "border-box"
+                            }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px", paddingBottom: "12px", borderBottom: "1px solid #f3f4f6" }}>
+                                    <div style={{ display: "flex", flexDirection: "column", gap: "4px", minWidth: 0 }}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                            <span style={{ fontWeight: 700, color: "#111827", fontSize: "0.95rem" }}>
+                                                {m.Direction === "IN" ? (m.SenderName || selectedConversation.ContactName || "Cliente") : (m.SenderName || "Equipe AltDesk")}
+                                            </span>
+                                            <span style={{ fontSize: "0.85rem", color: "#6b7280", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                                &lt;{m.Direction === "IN" ? selectedConversation.ExternalUserId : "noreply@altdesk.com.br"}&gt;
+                                            </span>
+                                        </div>
+                                        <div style={{ fontSize: "0.85rem", color: "#6b7280", display: "flex", gap: "4px" }}>
+                                            <span style={{ fontWeight: 600 }}>Para:</span> 
+                                            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                                {m.Direction === "IN" ? "equipe@altdesk.com.br" : selectedConversation.ExternalUserId}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div style={{ display: "flex", alignItems: "center", gap: "12px", flexShrink: 0 }}>
+                                        <span style={{ fontSize: "0.85rem", color: "#6b7280" }}>{new Date(m.CreatedAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</span>
+                                        {role !== 'END_USER' && (
+                                            <button 
+                                                type="button"
+                                                onClick={() => handleDeleteMessage(m.MessageId)} 
+                                                style={{ background: "none", border: "none", color: "rgba(0,0,0,0.3)", cursor: "pointer", padding: 2, display: "flex", alignItems: "center", transition: "color 0.2s" }}
+                                                title="Apagar mensagem"
+                                                onMouseEnter={e => e.currentTarget.style.color = "#ea4335"}
+                                                onMouseLeave={e => e.currentTarget.style.color = "rgba(0,0,0,0.3)"}
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                                
+                                {m.MediaType === "document" && m.MediaUrl && (
+                                    <div style={{ marginBottom: 16 }}>
+                                        <DocumentCard url={getMediaUrl(m.MediaUrl)} name={m.Body || 'Documento'} direction={m.Direction as any} />
+                                    </div>
+                                )}
+                                {m.MediaType === "image" && m.MediaUrl && (
+                                    <div className="media-attachment" style={{ cursor: "zoom-in", marginBottom: 16, maxWidth: 400 }} onClick={() => setViewingImage(getMediaUrl(m.MediaUrl!))}>
+                                        <img src={getMediaUrl(m.MediaUrl)} alt="Imagem" style={{ maxWidth: "100%", borderRadius: 8, border: "1px solid #e5e7eb" }} />
+                                    </div>
+                                )}
+                                {m.MediaType === "audio" && m.MediaUrl && (
+                                    <div className="media-attachment" style={{ marginBottom: 16 }}>
+                                        <AudioPlayer src={getMediaUrl(m.MediaUrl)} />
+                                    </div>
+                                )}
+                                {m.MediaType === "video" && m.MediaUrl && (
+                                    <div className="media-attachment" style={{ marginBottom: 16 }}>
+                                        <video controls src={getMediaUrl(m.MediaUrl)} style={{ maxWidth: "100%", borderRadius: 8 }} />
+                                    </div>
+                                )}
+
+                                <div style={{
+                                    fontSize: "0.95rem",
+                                    color: "#374151",
+                                    lineHeight: 1.6,
+                                    overflowWrap: "break-word",
+                                    wordBreak: "break-word"
+                                }}>
+                                    {m.Body.startsWith("<") ? (
+                                        <div dangerouslySetInnerHTML={{ __html: m.Body }} />
+                                    ) : (
+                                        <div style={{ whiteSpace: "pre-wrap" }}>{m.Body}</div>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    }
+
                     return (
                     <div key={m.MessageId} className={`bubble-row ${m.Direction === "INTERNAL" ? "internal" : isOut ? "out" : "in"}`}>
                         <div className="bubble" style={m.Direction === "INTERNAL" ? { background: "#fef3c7", border: "1px solid #fbbf24" } : undefined}>
@@ -710,16 +864,7 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
                             )}
 
                             <div className="text" style={m.Direction === "INTERNAL" ? { color: "#78350f" } : undefined}>
-                                {selectedConversation.SourceChannel?.includes("EMAIL") && m.Direction === "IN" ? (
-                                    <div style={{ background: "#fff", padding: "12px", borderRadius: "8px", border: "1px solid #eee", fontSize: "0.9rem", color: "#444" }}>
-                                        {/* Simple formatting for email content: preserve whitespace and handle basic wrapping */}
-                                        <div style={{ whiteSpace: "pre-wrap", overflowWrap: "break-word" }}>
-                                            {m.Body}
-                                        </div>
-                                    </div>
-                                ) : (
-                                    m.Body
-                                )}
+                                {m.Body}
                             </div>
                             <div className="timestamp" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
                                 <div>
@@ -764,7 +909,209 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
                 </button>
             )}
 
-            <div className="chat-input-bar" style={{ position: "relative", flexShrink: 0 }}>
+            {isEmailChannel ? (
+                /* ─── EMAIL COMPOSE PANEL ─── */
+                <div style={{
+                    flexShrink: 0,
+                    height: composeHeight,
+                    display: "flex",
+                    flexDirection: "column",
+                    borderTop: "1px solid var(--border)",
+                    background: "var(--bg-primary)",
+                    position: "relative"
+                }}>
+                    {/* Grip for resizing */}
+                    <div 
+                        onMouseDown={startResizing}
+                        style={{
+                            position: "absolute",
+                            top: -3,
+                            left: 0,
+                            right: 0,
+                            height: 6,
+                            cursor: "ns-resize",
+                            zIndex: 10,
+                            background: isResizing ? "var(--accent)" : "transparent",
+                            transition: "background 0.2s"
+                        }}
+                    />
+                    {/* Typing Indicator */}
+                    {selectedConversationId && typingUsers[selectedConversationId] && (
+                        <div style={{
+                            position: "absolute", top: -36, left: 16,
+                            display: "flex", alignItems: "center", gap: 8,
+                            background: "var(--bg-secondary)", border: "1px solid var(--border)",
+                            padding: "5px 14px", borderRadius: 20, fontSize: "0.8rem", color: "var(--text-secondary)",
+                            boxShadow: "0 2px 8px rgba(0,0,0,0.15)", animation: "fadeIn 0.2s ease-out"
+                        }}>
+                            <span style={{ display: "flex", gap: 3, alignItems: "center" }}>
+                                {[0, 1, 2].map(i => (
+                                    <span key={i} style={{
+                                        width: 6, height: 6, borderRadius: "50%", background: "var(--accent)",
+                                        display: "inline-block",
+                                        animation: `pulse 1.2s ease-in-out ${i * 0.2}s infinite`
+                                    }} />
+                                ))}
+                            </span>
+                            <span>{typingUsers[selectedConversationId]} está digitando...</span>
+                        </div>
+                    )}
+
+                    {showEmojiPicker && (
+                        <div ref={emojiPickerRef} style={{ position: "absolute", bottom: "100%", left: "0", marginBottom: 8, zIndex: 20 }}>
+                            <EmojiPicker onSelect={(emoji) => setEmailBody(prev => prev + emoji)} onClose={() => setShowEmojiPicker(false)} />
+                        </div>
+                    )}
+
+                    {showCannedMenu && (
+                        <div className="canned-menu" style={{ position: "absolute", bottom: "100%", left: 20, background: "var(--bg-secondary)", border: "1px solid var(--border)", borderRadius: 8, maxHeight: 200, overflowY: "auto", width: 300, zIndex: 10, marginBottom: 8 }}>
+                            {filteredCanned.length === 0 && <div style={{ padding: 10, color: "#888" }}>Nenhuma resposta encontrada</div>}
+                            {filteredCanned.map(c => (
+                                <div
+                                    key={c.CannedResponseId}
+                                    onClick={() => { setEmailBody(c.Content); setShowCannedMenu(false); }}
+                                    style={{ padding: "10px", cursor: "pointer", borderBottom: "1px solid #333", display: "flex", flexDirection: "column" }}
+                                    className="canned-item"
+                                >
+                                    <div style={{ fontWeight: "bold", color: "#00a884" }}>/{c.Shortcut} <span style={{ color: "var(--text-primary)" }}>{c.Title}</span></div>
+                                    <div style={{ fontSize: "0.85em", color: "#ccc", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.Content}</div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Headers Clássicos de E-mail */}
+                    {showEmailOptions ? (
+                        <div style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            borderBottom: "1px solid var(--border)",
+                            background: "#fff",
+                            position: "relative"
+                        }}>
+                            <button onClick={() => setShowEmailOptions(false)} style={{ position: "absolute", top: 8, right: 16, background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", padding: 4 }} title="Ocultar Opções">
+                                <ChevronUp size={16} />
+                            </button>
+                            <div style={{ display: "flex", alignItems: "center", padding: "8px 16px", borderBottom: "1px solid #f3f4f6" }}>
+                                <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--text-secondary)", width: "60px", flexShrink: 0 }}>Para:</span>
+                                <input
+                                    type="text"
+                                    value={selectedConversation?.ExternalUserId || ""}
+                                    readOnly
+                                    style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: "var(--text-primary)", fontSize: "0.9rem" }}
+                                />
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", padding: "8px 16px", borderBottom: "1px solid #f3f4f6" }}>
+                                <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--text-secondary)", width: "60px", flexShrink: 0 }}>Cc:</span>
+                                <input
+                                    type="text"
+                                    placeholder="Adicionar Cc (Visualização por enquanto)"
+                                    style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: "var(--text-primary)", fontSize: "0.9rem" }}
+                                />
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", padding: "8px 16px", borderBottom: "1px solid #f3f4f6" }}>
+                                <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--text-secondary)", width: "60px", flexShrink: 0 }}>Bcc:</span>
+                                <input
+                                    type="text"
+                                    placeholder="Adicionar Bcc (Visualização por enquanto)"
+                                    style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: "var(--text-primary)", fontSize: "0.9rem" }}
+                                />
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", padding: "8px 16px" }}>
+                                <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--text-secondary)", width: "60px", flexShrink: 0 }}>Assunto:</span>
+                                <input
+                                    type="text"
+                                    value={emailSubject}
+                                    onChange={e => setEmailSubject(e.target.value)}
+                                    placeholder="Assunto do e-mail"
+                                    style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: "var(--text-primary)", fontSize: "0.9rem", fontWeight: 600 }}
+                                />
+                            </div>
+                        </div>
+                    ) : null}
+
+                    {/* Rich Text Editor */}
+                    <div style={{ margin: "16px", flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+                        <RichTextEditor
+                            content={emailBody}
+                            onChange={setEmailBody}
+                            placeholder="Escreva seu e-mail..."
+                            compact
+                            toolbarExtra={
+                                <>
+                                    <button type="button" onClick={() => setShowEmailOptions(!showEmailOptions)} style={{ background: showEmailOptions ? "var(--bg-hover)" : "none", border: "none", cursor: "pointer", padding: "4px 6px", color: showEmailOptions ? "var(--accent)" : "var(--text-secondary)", display: "flex", borderRadius: 4, transition: "all 0.2s" }} title="Opções de Envio (Para, Cc, Bcc)">
+                                        <Settings size={16} />
+                                    </button>
+                                    <button ref={emojiButtonRef} type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} style={{ background: "none", border: "none", cursor: "pointer", padding: "4px 6px", color: "var(--text-secondary)", display: "flex" }} title="Emojis">
+                                        <Smile size={16} />
+                                    </button>
+                                    <label style={{ cursor: "pointer", padding: "4px 6px", color: "var(--text-secondary)", display: "flex", alignItems: "center" }} title="Anexar Arquivo">
+                                        <Paperclip size={16} />
+                                        <input
+                                            type="file"
+                                            onChange={handleFileSelection}
+                                            style={{ display: "none" }}
+                                            disabled={sending}
+                                        />
+                                    </label>
+                                    {role !== 'END_USER' && (
+                                        <>
+                                            <button type="button" onClick={() => setShowCannedMenu(!showCannedMenu)} style={{ background: "none", border: "none", cursor: "pointer", padding: "4px 6px", color: "var(--text-secondary)", display: "flex" }} title="Respostas Rápidas">
+                                                <Sparkles size={16} />
+                                            </button>
+                                            <button type="button" onClick={loadKbArticles} style={{ background: "none", border: "none", cursor: "pointer", padding: "4px 6px", color: "var(--text-secondary)", display: "flex" }} title="Base de Conhecimento">
+                                                <BookOpen size={16} />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setNoteMode(!noteMode)}
+                                                style={{ background: "none", border: "none", cursor: "pointer", padding: "4px 6px", color: noteMode ? "#f59e0b" : "var(--text-secondary)", display: "flex" }}
+                                                title={noteMode ? "Modo Nota (clique para voltar)" : "Nota Interna"}
+                                            >
+                                                <StickyNote size={16} />
+                                            </button>
+                                        </>
+                                    )}
+                                </>
+                            }
+                            footer={
+                                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                                    {noteMode && (
+                                        <span style={{ fontSize: "0.75rem", color: "#f59e0b", fontWeight: 600 }}>📌 Nota Interna</span>
+                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={sendEmailReply}
+                                        disabled={sending || (!emailBody.trim() || emailBody === "<p></p>")}
+                                        style={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: 8,
+                                            padding: "8px 20px",
+                                            background: noteMode ? "#f59e0b" : "var(--accent)",
+                                            color: "#fff",
+                                            border: "none",
+                                            borderRadius: 8,
+                                            cursor: sending ? "not-allowed" : "pointer",
+                                            fontWeight: 700,
+                                            fontSize: "0.85rem",
+                                            opacity: (sending || (!emailBody.trim() || emailBody === "<p></p>")) ? 0.5 : 1,
+                                            transition: "opacity 0.2s, transform 0.1s"
+                                        }}
+                                        onMouseEnter={e => !sending && (e.currentTarget.style.transform = "scale(1.02)")}
+                                        onMouseLeave={e => (e.currentTarget.style.transform = "scale(1)")}
+                                    >
+                                        {noteMode ? <StickyNote size={16} /> : <><Mail size={16} /><Send size={16} /></>}
+                                        {sending ? "Enviando…" : noteMode ? "Nota" : "Enviar E-mail"}
+                                    </button>
+                                </div>
+                            }
+                        />
+                    </div>
+                </div>
+            ) : (
+                /* ─── NORMAL CHAT INPUT BAR ─── */
+                <div className="chat-input-bar" style={{ position: "relative", flexShrink: 0 }}>
                 {/* Typing Indicator */}
                 {selectedConversationId && typingUsers[selectedConversationId] && (
                     <div style={{
@@ -814,10 +1161,10 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
                 </button>
                 <label style={{ cursor: "pointer", padding: "0 10px", color: "var(--text-secondary)", display: "flex", alignItems: "center" }} title="Anexar Arquivo">
                     <Paperclip size={24} />
-                    <input 
-                        type="file" 
+                    <input
+                        type="file"
                         onChange={handleFileSelection}
-                        style={{ display: "none" }} 
+                        style={{ display: "none" }}
                         disabled={sending}
                     />
                 </label>
@@ -855,6 +1202,7 @@ export function ChatWindow({ setView, hideHeader = false }: { setView?: (v: any)
                     {noteMode ? <StickyNote size={18} /> : <Send size={18} />} {sending ? "Enviando…" : noteMode ? "Nota" : "Enviar"}
                 </button>
             </div>
+            )}
 
             {showTicketModal && (
                 <div className="modal-overlay" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 }}>

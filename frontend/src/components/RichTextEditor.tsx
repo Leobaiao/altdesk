@@ -18,9 +18,12 @@ interface RichTextEditorProps {
   content: string;
   onChange: (content: string) => void;
   placeholder?: string;
+  compact?: boolean;
+  toolbarExtra?: React.ReactNode;
+  footer?: React.ReactNode;
 }
 
-const MenuBar = ({ editor }: { editor: any }) => {
+const MenuBar = ({ editor, toolbarExtra }: { editor: any; toolbarExtra?: React.ReactNode }) => {
   if (!editor) {
     return null;
   }
@@ -143,11 +146,18 @@ const MenuBar = ({ editor }: { editor: any }) => {
       >
         <Redo size={16} />
       </button>
+
+      {toolbarExtra && (
+        <>
+          <div style={{ width: '1px', background: 'var(--border)', margin: '0 4px' }} />
+          {toolbarExtra}
+        </>
+      )}
     </div>
   );
 };
 
-export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, placeholder }) => {
+export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, placeholder, compact, toolbarExtra, footer }) => {
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -159,7 +169,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
     editorProps: {
       attributes: {
         class: 'tiptap-editor-content',
-        style: 'padding: 16px; min-height: 250px; outline: none;',
+        style: `padding: ${compact ? '10px' : '16px'}; min-height: ${compact ? '100px' : '250px'}; outline: none;`,
       },
     },
   });
@@ -228,9 +238,16 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
   }, []);
 
   return (
-    <div className="tiptap-container">
-      <MenuBar editor={editor} />
-      <EditorContent editor={editor} />
+    <div className="tiptap-container" style={{ display: 'flex', flexDirection: 'column' }}>
+      <MenuBar editor={editor} toolbarExtra={toolbarExtra} />
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <EditorContent editor={editor} style={{ flex: 1 }} />
+      </div>
+      {footer && (
+        <div style={{ padding: '8px 12px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+            {footer}
+        </div>
+      )}
     </div>
   );
 };
