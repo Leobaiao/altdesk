@@ -64,18 +64,32 @@ api-admin.altdesk.com.br {
 # O Caddy alcança o host via extra_hosts (host.docker.internal).
 # ═══════════════════════════════════════════════════
 
-# ─── TUUVO FRONTEND ───
+# ═══════════════════════════════════════════════════
+# TUUVO v2 — Projeto separado rodando na mesma VPS
+# ═══════════════════════════════════════════════════
+
+# ─── ADMIN TENANT (Painel Principal de Clientes) ───
 tuuvo.app.br {
-	reverse_proxy host.docker.internal:4000
+	reverse_proxy host.docker.internal:3001
 }
 
 www.tuuvo.app.br {
 	redir https://tuuvo.app.br{uri} permanent
 }
 
+# ─── ADMIN TUUVO (Painel Superadmin Interno) ───
+superadmin.tuuvo.app.br {
+	reverse_proxy host.docker.internal:3002
+}
+
+# ─── TESTE DE CHAT / WIDGET ───
+chat.tuuvo.app.br {
+	reverse_proxy host.docker.internal:3003
+}
+
 # ─── TUUVO BACKEND API ───
 api.tuuvo.app.br {
-	reverse_proxy host.docker.internal:4002
+	reverse_proxy host.docker.internal:3000
 
 	request_body {
 		max_size 50MB
