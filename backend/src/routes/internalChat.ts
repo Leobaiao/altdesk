@@ -34,7 +34,7 @@ router.post("/", requirePermission('chat'), validateBody(z.object({
         let channelId: string;
         const channelCheck = await pool.request()
             .input("tenantId", tenantId)
-            .query("SELECT TOP 1 ChannelId FROM altdesk.Channel WHERE TenantId=@tenantId AND Provider='INTERNAL' AND IsActive=1");
+            .query("SELECT TOP 1 ChannelId FROM altdesk.Channel WHERE TenantId=@tenantId AND Type='INTERNAL' AND IsActive=1");
 
         if (channelCheck.recordset.length > 0) {
             channelId = channelCheck.recordset[0].ChannelId;
@@ -43,11 +43,11 @@ router.post("/", requirePermission('chat'), validateBody(z.object({
             const newChannel = await pool.request()
                 .input("tenantId", tenantId)
                 .input("name", "Chat Interno")
-                .input("provider", "INTERNAL")
+                .input("type", "INTERNAL")
                 .query(`
-                    INSERT INTO altdesk.Channel (TenantId, Name, Provider, IsActive) 
+                    INSERT INTO altdesk.Channel (TenantId, Name, Type, IsActive) 
                     OUTPUT inserted.ChannelId 
-                    VALUES (@tenantId, @name, @provider, 1)
+                    VALUES (@tenantId, @name, @type, 1)
                 `);
             channelId = newChannel.recordset[0].ChannelId;
             
@@ -57,7 +57,7 @@ router.post("/", requirePermission('chat'), validateBody(z.object({
                 action: 'CREATE',
                 targetTable: 'Channel',
                 targetId: channelId,
-                afterValues: { Name: "Chat Interno", Provider: "INTERNAL" }
+                afterValues: { Name: "Chat Interno", Type: "INTERNAL" }
             });
         }
 
