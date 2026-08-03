@@ -55,6 +55,7 @@ export function ChangeConnectorModal({ conversationId, onClose, onChanged }: Cha
 
     function getIcon(provider: string) {
         const p = provider.toUpperCase();
+        if (p.includes("INTERNAL")) return <Monitor size={20} />;
         if (p.includes("EMAIL")) return <Mail size={20} />;
         if (p.includes("GTI") || p.includes("ZAPI") || p.includes("OFFICIAL") || p.includes("WHATSAPP")) {
             return <MessageSquare size={20} />;
@@ -64,6 +65,7 @@ export function ChangeConnectorModal({ conversationId, onClose, onChanged }: Cha
 
     function getColor(provider: string) {
         const p = provider.toUpperCase();
+        if (p.includes("INTERNAL")) return "#6366f1";
         if (p.includes("EMAIL")) return "#ea4335";
         if (p.includes("GTI") || p.includes("ZAPI") || p.includes("OFFICIAL") || p.includes("WHATSAPP")) {
             return "#25d366";

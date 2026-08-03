@@ -61,6 +61,21 @@ router.post("/", requirePermission('chat'), validateBody(z.object({
             });
         }
 
+        // 1b. Ensure a ChannelConnector exists for the INTERNAL channel
+        const connectorId = `INTERNAL_${tenantId}`;
+        const connCheck = await pool.request()
+            .input("connectorId", connectorId)
+            .query("SELECT 1 FROM altdesk.ChannelConnector WHERE ConnectorId = @connectorId");
+        if (connCheck.recordset.length === 0) {
+            await pool.request()
+                .input("connectorId", connectorId)
+                .input("channelId", channelId)
+                .query(`
+                    INSERT INTO altdesk.ChannelConnector (ConnectorId, ChannelId, Provider, IsActive)
+                    VALUES (@connectorId, @channelId, 'INTERNAL', 1)
+                `);
+        }
+
         // 2. Create the conversation (P2P)
         const title = `Chat: ${displayName || 'Usuário'} & ${targetName}`;
         const convResult = await pool.request()

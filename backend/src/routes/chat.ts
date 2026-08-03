@@ -587,6 +587,31 @@ router.get("/:id/connectors", (async (req: AuthenticatedRequest, res: Response, 
         if (!allowed) return res.status(403).json({ error: "Access denied" });
 
         const pool = await getPool();
+
+        // Check if conversation is INTERNAL
+        const convKind = await pool.request()
+            .input("conversationId", conversationId)
+            .query("SELECT Kind FROM altdesk.Conversation WHERE ConversationId = @conversationId");
+        const kind = convKind.recordset[0]?.Kind;
+
+        if (kind === 'INTERNAL') {
+            // For internal conversations, return only the INTERNAL connector
+            const internalConn = await pool.request()
+                .input("tenantId", tenantId)
+                .query(`
+                    SELECT cc.ConnectorId, cc.Provider, ch.Name as ChannelName
+                    FROM altdesk.ChannelConnector cc
+                    JOIN altdesk.Channel ch ON ch.ChannelId = cc.ChannelId
+                    WHERE ch.TenantId = @tenantId AND cc.Provider = 'INTERNAL' AND cc.IsActive = 1 AND cc.DeletedAt IS NULL
+                `);
+            const internalConnector = internalConn.recordset[0] || null;
+            return res.json({
+                currentConnector: internalConnector,
+                availableConnectors: internalConn.recordset
+            });
+        }
+
+        // For external conversations, return normal connectors
         const rCurrent = await pool.request()
             .input("conversationId", conversationId)
             .input("tenantId", tenantId)
