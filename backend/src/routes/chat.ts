@@ -205,10 +205,17 @@ router.post("/:id/reply", validateBody(z.object({
             return res.status(403).json({ error: "Você não tem permissão para responder nesta conversa." });
         }
         
+        const pool = await getPool();
+        const convResult = await pool.request()
+            .input("cid", conversationId)
+            .query("SELECT Kind FROM altdesk.Conversation WHERE ConversationId = @cid");
+        const convKind = convResult.recordset[0]?.Kind || 'DIRECT';
+
         const metadata = await getReplyMetadata(conversationId, tenantId);
         let externalMessageId: string | undefined;
 
-        if (metadata) {
+        // Se for conversa interna (INTERNAL), ignora totalmente o uso de adapters externos
+        if (metadata && convKind !== 'INTERNAL') {
             const adapters = req.app.get("adapters");
             const adapter = adapters[metadata.provider];
 
