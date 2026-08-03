@@ -171,31 +171,12 @@ export function Sidebar({ setView }: { setView: (view: any) => void }) {
                     {role !== 'END_USER' && (
                         <div style={{ display: 'flex', gap: 6 }}>
                             <button 
-                                onClick={() => setShowInternalChatModal(true)} 
-                                title="Nova Conversa Interna" 
-                                style={{ 
-                                    background: "rgba(0, 100, 200, 0.1)", 
-                                    border: "none", 
-                                    color: "#0064c8", 
-                                    cursor: "pointer", 
-                                    width: 36, 
-                                    height: 36, 
-                                    borderRadius: 10, 
-                                    display: "flex", 
-                                    alignItems: "center", 
-                                    justifyContent: "center",
-                                    transition: "all 0.2s"
-                                }}
-                            >
-                                <Users size={20} />
-                            </button>
-                            <button 
                                 onClick={handleOpenNewChat} 
-                                title="Nova Conversa Externa" 
+                                title="Nova Conversa" 
                                 style={{ 
-                                    background: "rgba(0, 168, 132, 0.1)", 
+                                    background: "rgba(var(--accent-rgb, 99, 102, 241), 0.1)", 
                                     border: "none", 
-                                    color: "#00a884", 
+                                    color: "var(--accent)", 
                                     cursor: "pointer", 
                                     width: 36, 
                                     height: 36, 
@@ -206,7 +187,7 @@ export function Sidebar({ setView }: { setView: (view: any) => void }) {
                                     transition: "all 0.2s"
                                 }}
                             >
-                                <MessageSquare size={20} />
+                                <Plus size={20} />
                             </button>
                         </div>
                     )}
