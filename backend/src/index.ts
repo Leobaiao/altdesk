@@ -41,6 +41,7 @@ import { startEmailWorker, setIoInstance } from "./services/emailWorker.js";
 import helpRouter from "./routes/help.js";
 import ticketsRouter from "./routes/tickets.js";
 import uploadRouter from "./routes/upload.js";
+import internalChatRouter from "./routes/internalChat.js";
 
 const dynamicCorsOrigin = (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
   if (!origin) return callback(null, true);
@@ -186,6 +187,7 @@ app.use("/api/onboarding", onboardingRouter);
 app.use("/api/profile", profileRouter);
 app.use("/api/agents", agentsRouter);
 app.use("/api/users", usersRouter);
+app.use("/api/conversations/internal", internalChatRouter);
 app.use("/api/conversations", chatRouter);
 app.use("/api/tickets", ticketsRouter);
 app.use("/api/settings", settingsRouter);

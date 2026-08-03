@@ -1,10 +1,11 @@
 import React, { useState, useMemo } from "react";
-import { Plus, Search, MessageSquare, Mail, Monitor, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Search, MessageSquare, Mail, Monitor, ChevronLeft, ChevronRight, Users } from "lucide-react";
 import { useChat } from "../contexts/ChatContext";
 import type { Conversation, Tag } from "../../../shared/types";
 import { TagPill } from "./TagPill";
 import { api } from "../lib/api";
 import { getUserIdFromToken } from "../lib/auth";
+import { NewInternalChatModal } from "./NewInternalChatModal";
 
 
 function TabButton({ label, active, onClick }: { label: string, active: boolean, onClick: () => void }) {
@@ -82,6 +83,7 @@ export function Sidebar({ setView }: { setView: (view: any) => void }) {
     );
     const [search, setSearch] = useState("");
     const [showNewChatModal, setShowNewChatModal] = useState(false);
+    const [showInternalChatModal, setShowInternalChatModal] = useState(false);
     const [contactSearch, setContactSearch] = useState("");
     const [contacts, setContacts] = useState<any[]>([]);
     const [internalUsers, setInternalUsers] = useState<any[]>([]);
@@ -167,25 +169,46 @@ export function Sidebar({ setView }: { setView: (view: any) => void }) {
                 </div>
                 <div style={{ display: "flex", gap: 10 }}>
                     {role !== 'END_USER' && (
-                        <button 
-                            onClick={handleOpenNewChat} 
-                            title="Nova Conversa" 
-                            style={{ 
-                                background: "rgba(0, 168, 132, 0.1)", 
-                                border: "none", 
-                                color: "#00a884", 
-                                cursor: "pointer", 
-                                width: 36, 
-                                height: 36, 
-                                borderRadius: 10, 
-                                display: "flex", 
-                                alignItems: "center", 
-                                justifyContent: "center",
-                                transition: "all 0.2s"
-                            }}
-                        >
-                            <MessageSquare size={20} />
-                        </button>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                            <button 
+                                onClick={() => setShowInternalChatModal(true)} 
+                                title="Nova Conversa Interna" 
+                                style={{ 
+                                    background: "rgba(0, 100, 200, 0.1)", 
+                                    border: "none", 
+                                    color: "#0064c8", 
+                                    cursor: "pointer", 
+                                    width: 36, 
+                                    height: 36, 
+                                    borderRadius: 10, 
+                                    display: "flex", 
+                                    alignItems: "center", 
+                                    justifyContent: "center",
+                                    transition: "all 0.2s"
+                                }}
+                            >
+                                <Users size={20} />
+                            </button>
+                            <button 
+                                onClick={handleOpenNewChat} 
+                                title="Nova Conversa Externa" 
+                                style={{ 
+                                    background: "rgba(0, 168, 132, 0.1)", 
+                                    border: "none", 
+                                    color: "#00a884", 
+                                    cursor: "pointer", 
+                                    width: 36, 
+                                    height: 36, 
+                                    borderRadius: 10, 
+                                    display: "flex", 
+                                    alignItems: "center", 
+                                    justifyContent: "center",
+                                    transition: "all 0.2s"
+                                }}
+                            >
+                                <MessageSquare size={20} />
+                            </button>
+                        </div>
                     )}
                     <button onClick={() => setCollapsed(true)} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }} title="Recolher lista">
                         <ChevronLeft size={24} />
@@ -357,6 +380,16 @@ export function Sidebar({ setView }: { setView: (view: any) => void }) {
                         </div>
                     </div>
                 </div>
+            )}
+            {showInternalChatModal && (
+                <NewInternalChatModal 
+                    onClose={() => setShowInternalChatModal(false)}
+                    onSuccess={(conversationId) => {
+                        setShowInternalChatModal(false);
+                        setSelectedConversationId(conversationId);
+                        refreshConversations();
+                    }}
+                />
             )}
 
         </div>
