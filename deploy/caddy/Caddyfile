@@ -88,7 +88,7 @@ chat.tuuvo.app.br {
 }
 
 # ─── TUUVO BACKEND API ───
-api.tuuvo.app.br {
+back.tuuvo.app.br {
 	reverse_proxy host.docker.internal:3000
 
 	request_body {
