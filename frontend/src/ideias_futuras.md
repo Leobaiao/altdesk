@@ -25,3 +25,4 @@ Este documento lista as funcionalidades planejadas, melhorias de UX e expansões
 - [ ] **Upload de Arquivos no Widget:** Permitir visitantes enviarem imagens e documentos pelo chat.
 - [ ] **Chatbot/IA no Widget:** Respostas automáticas baseadas na Base de Conhecimento antes de escalar para agente humano.
 - [ ] **Widget Mobile SDK:** SDKs nativos para iOS (Swift) e Android (Kotlin) para embutir o chat em apps mobile.
+- [ ] **Recibos de Leitura (Blue Ticks):** Adicionar indicadores visuais de "Enviado", "Entregue" e "Lido" para as mensagens do Widget, tanto para o agente quanto para o visitante.
