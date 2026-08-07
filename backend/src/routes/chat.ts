@@ -293,10 +293,11 @@ router.post("/:id/reply", validateBody(z.object({
         }
 
         let messageId: string;
+        let createdAt: string | undefined;
         let direction = user.role === 'END_USER' ? 'IN' : 'OUT';
 
         if (user.role === 'END_USER') {
-            messageId = await saveInboundMessage({
+            const res = await saveInboundMessage({
                 tenantId: user.tenantId || "",
                 externalUserId: user.userId,
                 externalChatId: conversationId,
@@ -308,8 +309,12 @@ router.post("/:id/reply", validateBody(z.object({
                 mediaType: mediaType,
                 raw: {}
             }, conversationId, user.userId);
+            messageId = res.messageId;
+            createdAt = res.createdAt;
         } else {
-            messageId = await saveOutboundMessage(user.tenantId || "", conversationId, text || "", externalMessageId, user.userId, mediaUrl, mediaType);
+            const res = await saveOutboundMessage(user.tenantId || "", conversationId, text || "", externalMessageId, user.userId, mediaUrl, mediaType);
+            messageId = res.messageId;
+            createdAt = res.createdAt;
         }
 
         // Audit log
@@ -324,6 +329,8 @@ router.post("/:id/reply", validateBody(z.object({
         });
 
         const io = req.app.get("io");
+        const widgetNs = req.app.get("widgetNs");
+        
         if (io) {
             emitConversationEvent(io, tenantId!, conversationId, "message:new", {
                 conversationId,
@@ -335,7 +342,8 @@ router.post("/:id/reply", validateBody(z.object({
                 text: text || "",
                 mediaUrl: mediaUrl,
                 mediaType: mediaType,
-                direction
+                direction,
+                CreatedAt: createdAt || new Date().toISOString()
             });
             emitConversationEvent(io, tenantId!, conversationId, "conversation:updated", {
                 conversationId,
@@ -343,6 +351,17 @@ router.post("/:id/reply", validateBody(z.object({
                 direction,
                 timestamp: new Date().toISOString()
             });
+            
+            if (metadata && metadata.provider?.toUpperCase() === "WEBCHAT" && widgetNs) {
+                widgetNs.to(`widget:${tenantId}:${metadata.externalUserId.trim()}`).emit("message:new", {
+                    conversationId,
+                    MessageId: messageId,
+                    direction,
+                    text: text || "",
+                    senderExternalId: "agent",
+                    CreatedAt: createdAt || new Date().toISOString()
+                });
+            }
         }
 
         res.json({ ok: true, conversationId });

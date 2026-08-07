@@ -15,7 +15,8 @@ import { KnowledgeBase } from "./KnowledgeBase";
 import { BusinessHours } from "./BusinessHours";
 import { Billing } from "./Billing";
 import { AuditLogs } from "./AuditLogs";
-import { Tag as TagIcon, Book, Clock, BarChart2, CreditCard } from "lucide-react";
+import { WidgetSettings } from "./WidgetSettings";
+import { Tag as TagIcon, Book, Clock, BarChart2, CreditCard, Globe } from "lucide-react";
 
 // Novas importações do refactoring
 import { ChatProvider, useChat } from "./contexts/ChatContext";
@@ -382,6 +383,10 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
             <NavIcon icon={UsersIcon} label="Colaboradores" active={currentPath.startsWith("/users")} onClick={() => navigate("/users")} />
           )}
           
+          {(role === 'SUPERADMIN' || role === 'ADMIN') && (
+            <NavIcon icon={Globe} label="Widget" active={currentPath.startsWith("/widget-settings")} onClick={() => navigate("/widget-settings")} />
+          )}
+          
           {role !== 'END_USER' && livePermissions?.reports !== false && (
             <>
               <div style={{ height: 1, background: "var(--border)", margin: "10px 15px", opacity: 0.5 }} />
@@ -459,6 +464,11 @@ function MainLayout({ token, role, onLogout }: { token: string; role: string; on
                 <Route path="/classification" element={<ClassificationSettings onBack={() => navigate("/settings")} />} />
                 <Route path="/knowledge" element={<KnowledgeBase onBack={() => navigate("/settings")} />} />
                 <Route path="/business-hours" element={<BusinessHours onBack={() => navigate("/settings")} />} />
+                <Route path="/widget-settings" element={
+                  (role === 'SUPERADMIN' || role === 'ADMIN') 
+                    ? <WidgetSettings onBack={() => navigate("/chat")} />
+                    : <Navigate to="/chat" replace />
+                } />
                 <Route path="/help-admin" element={<HelpAdmin onBack={() => navigate("/settings")} />} />
                 <Route path="/tickets" element={<Tickets token={token} onBack={() => navigate("/chat")} role={role || 'AGENT'} />} />
                 <Route path="/reports" element={<Reports onBack={() => navigate("/chat")} />} />

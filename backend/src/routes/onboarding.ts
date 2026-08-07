@@ -7,6 +7,7 @@ import { onboardingLimiter } from "../middleware/rateLimiter.js";
 import { writeAuditLog } from "../services/auditLog.js";
 import { logger } from "../lib/logger.js";
 import { preloadDemoData } from "../services/demoDataService.js";
+import { createDefaultWidget } from "../services/widgetService.js";
 
 const router = Router();
 
@@ -101,6 +102,13 @@ router.post("/", onboardingLimiter, validateBody(OnboardingSchema), async (req, 
 
         // 4. Gerar JWT
         const token = signToken({ userId, tenantId, role: "ADMIN" });
+
+        // 4a. Criar widget padrão para o tenant
+        try {
+            await createDefaultWidget(tenantId);
+        } catch (widgetErr: any) {
+            logger.warn({ tenantId, error: widgetErr.message }, "[Onboarding] Falha ao criar widget padrão (não bloqueante)");
+        }
 
         // Helper para emitir SSE
         const emitProgress = (msg: string, pct: number) => {

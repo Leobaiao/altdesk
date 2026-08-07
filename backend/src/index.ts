@@ -42,6 +42,8 @@ import helpRouter from "./routes/help.js";
 import ticketsRouter from "./routes/tickets.js";
 import uploadRouter from "./routes/upload.js";
 import internalChatRouter from "./routes/internalChat.js";
+import widgetRouter from "./routes/widget.js";
+import widgetPublicRouter from "./routes/widgetPublic.js";
 
 const dynamicCorsOrigin = (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
   if (!origin) return callback(null, true);
@@ -169,6 +171,11 @@ io.on("connection", (socket) => {
 
   socket.on("tenant:leave", (tenantId: string) => socket.leave(`tenant:${tenantId}`));
 
+  // Widget-specific: allow agents to join widget conversation rooms
+  socket.on("widget:conversation:join", (conversationId: string) => {
+    socket.join(`widget:${conversationId}`);
+  });
+
   // Typing indicator: broadcast to all others in conversation room
   socket.on("typing:start", ({ conversationId }: { conversationId: string }) => {
     const userName = (user as any).displayName || (user as any).email || "Agente";
@@ -205,6 +212,8 @@ app.use("/api/audit", auditRouter);
 app.use("/api/reports", reportsRouter);
 
 app.use("/api/public", publicRouter);
+app.use("/api/public/widget", widgetPublicRouter);
+app.use("/api/widget", widgetRouter);
 app.use("/api/upload", uploadRouter);
 
 // Email Channels (gestão de canais de email)
@@ -226,4 +235,51 @@ server.listen(PORT, "0.0.0.0", () => {
   // Iniciar o worker de email polling (60s interval)
   setIoInstance(io);
   startEmailWorker(60_000);
+
+  // --- Socket.IO /widget namespace for visitor connections (no JWT required) ---
+  const widgetNs = io.of("/widget");
+  app.set("widgetNs", widgetNs);
+  widgetNs.on("connection", (socket) => {
+    const { tenantId, visitorId } = socket.handshake.auth || {};
+    if (!tenantId || !visitorId) {
+      logger.warn({ socketId: socket.id }, "[Widget Socket] Missing tenantId or visitorId");
+      socket.disconnect(true);
+      return;
+    }
+
+    const roomName = `widget:${tenantId}:${visitorId}`;
+    socket.join(roomName);
+    logger.info({ tenantId, visitorId, socketId: socket.id }, "[Widget Socket] Visitor connected");
+
+    socket.on("disconnect", () => {
+      logger.info({ tenantId, visitorId, socketId: socket.id }, "[Widget Socket] Visitor disconnected");
+    });
+
+    // Visitor sends a message via socket (alternative to HTTP POST)
+    socket.on("webchat:message", async (payload: { text: string; visitorInfo?: any }) => {
+      try {
+        const { handleWidgetMessage } = await import("./services/widgetService.js");
+        const { emitConversationEvent } = await import("./services/socketService.js");
+        const result = await handleWidgetMessage(tenantId, visitorId, payload.text, payload.visitorInfo);
+
+        // Notify agents on the main namespace
+        const messagePayload = {
+          conversationId: result.conversationId,
+          MessageId: result.messageId,
+          direction: "IN",
+          text: result.text,
+          senderExternalId: result.visitorId,
+          CreatedAt: result.createdAt
+        };
+        emitConversationEvent(io, tenantId, result.conversationId, "message:new", messagePayload);
+        emitConversationEvent(io, tenantId, result.conversationId, "conversation:updated", {
+          ConversationId: result.conversationId,
+          LastMessageAt: result.createdAt,
+          ContactName: result.contactName
+        });
+      } catch (err) {
+        logger.error({ err, tenantId, visitorId }, "[Widget Socket] Error handling message");
+      }
+    });
+  });
 });

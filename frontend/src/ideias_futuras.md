@@ -18,3 +18,10 @@ Este documento lista as funcionalidades planejadas, melhorias de UX e expansões
 ## 🛠️ Infraestrutura e Segurança
 - [ ] **2FA (Autenticação de Dois Fatores):** Aumentar a segurança do login para agentes.
 - [ ] **Logs de Auditoria Avançados:** Rastreamento detalhado de alterações em configurações críticas.
+
+## 🌐 Chat Widget
+- [ ] **Múltiplos Widgets por Tenant:** Permitir configurações diferentes para sites diferentes (ex: um pro site principal, outro pro blog).
+- [ ] **Pacote NPM do Widget:** Distribuir como `@altdesk/widget` para integração em frameworks JS (React, Vue, Angular).
+- [ ] **Upload de Arquivos no Widget:** Permitir visitantes enviarem imagens e documentos pelo chat.
+- [ ] **Chatbot/IA no Widget:** Respostas automáticas baseadas na Base de Conhecimento antes de escalar para agente humano.
+- [ ] **Widget Mobile SDK:** SDKs nativos para iOS (Swift) e Android (Kotlin) para embutir o chat em apps mobile.

@@ -39,15 +39,17 @@ export async function sendCsatIfEnabled(tenantId: string, conversationId: string
         await adapter.sendText(connector, ExternalUserId, csatMessage);
 
         // 4. Save outbound message
-        await saveOutboundMessage(tenantId, conversationId, csatMessage);
+        const { messageId, createdAt } = await saveOutboundMessage(tenantId, conversationId, csatMessage);
 
         // 5. Emit socket event
         if (io) {
             emitConversationEvent(io, tenantId, conversationId, "message:new", {
                 conversationId,
+                MessageId: messageId,
                 text: csatMessage,
                 direction: "OUT",
-                senderName: "Sistema (CSAT)"
+                senderName: "Sistema (CSAT)",
+                CreatedAt: createdAt
             });
         }
     } catch (error) {

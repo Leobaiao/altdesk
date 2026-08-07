@@ -276,7 +276,7 @@ class EmailInboundWorker {
 
                 // Converter para o formato NormalizedInbound existente para reutilizar saveInboundMessage
                 const inbound = this.toNormalizedInbound(normalizedEvent, channel);
-                const messageId = await saveInboundMessage(inbound, conversationId);
+                const { messageId } = await saveInboundMessage(inbound, conversationId);
 
                 // Marcar evento como processado
                 await updateEventStatus(eventId, "processed", { conversationId, messageId });
@@ -302,7 +302,7 @@ class EmailInboundWorker {
                 conversationId = await resolveConversationForInbound(inbound, connectorId, channelId);
 
                 // Salvar a mensagem na conversa
-                const messageId = await saveInboundMessage(inbound, conversationId);
+                const { messageId } = await saveInboundMessage(inbound, conversationId);
 
                 // Criar ticket automaticamente
                 await createTicketForConversation(channel.TenantId, conversationId);

@@ -101,6 +101,10 @@ services:
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/45-system-settings.sql;
         echo 'Executando migration 46 (billing plan features)...';
         /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/46-billing-plan-features.sql;
+        echo 'Executando migration 47 (internal chat provider)...';
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/47-internal-chat-provider.sql;
+        echo 'Executando migration 48 (chat widget)...';
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P $$SA_PASSWORD -C -d AltDeskDev -i /scripts/48-chat-widget.sql;
         echo 'Todas as migrations concluidas!';
       "
 
